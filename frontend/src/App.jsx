@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAccount } from 'wagmi';
 import io from 'socket.io-client';
 import WalletConnect from './components/WalletConnect';
@@ -6,16 +6,17 @@ import Navbar from './components/Navbar';
 import ChessBoard from './components/ChessBoard';
 import { createInviteLink, copyToClipboard } from './utils/gameLink';
 
-const SOCKET_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3001';
+// ✅ КРИТИЧЕСКИ ВАЖНО: Используем продакшен-бэкенд на Render
+const SOCKET_URL = import.meta.env.VITE_WS_URL || 'https://chess4crypto-backend.onrender.com';
 const GUEST_ADDRESS = '0xGuestMode0000000000000000000000000000';
 
 export default function App() {
   const { isConnected, address } = useAccount();
   const [isGuest, setIsGuest] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
-  const [gameMode, setGameMode] = useState(null);
-  const [gameTime, setGameTime] = useState(300);
-  const [gameData, setGameData] = useState(null);
+  const [gameMode, setGameMode] = useState(null); // 'bot' | 'online' | null
+  const [gameTime, setGameTime] = useState(300); // 5 мин по умолчанию
+  const [gameData, setGameData] = useState(null); // { gameId, role, opponent }
   
   const [socket, setSocket] = useState(null);
   const [onlineList, setOnlineList] = useState([]);
@@ -29,12 +30,20 @@ export default function App() {
 
   // 🔌 Инициализация сокета
   useEffect(() => {
-    const newSocket = io(SOCKET_URL);
+    const newSocket = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5
+    });
     setSocket(newSocket);
 
-    newSocket.on('connect', () => console.log('🔌 Socket connected'));
+    newSocket.on('connect', () => console.log('🔌 Socket connected to', SOCKET_URL));
+    newSocket.on('connect_error', (err) => console.error('🔌 Socket error:', err.message));
+    
     newSocket.on('onlinePlayersUpdate', (list) => setOnlineList(list));
-    newSocket.on('matchStatus', (data) => { if (data.status === 'canceled') setIsSearching(false); });
+    newSocket.on('matchStatus', (data) => {
+      if (data.status === 'canceled') setIsSearching(false);
+    });
     newSocket.on('matchFound', (data) => {
       setIsSearching(false);
       setGameData({ gameId: data.gameId, role: data.role, opponent: data.opponent });
@@ -46,10 +55,14 @@ export default function App() {
     return () => newSocket.disconnect();
   }, []);
 
+  // 📝 Регистрация игрока при входе
   useEffect(() => {
-    if (socket && userAddress) socket.emit('registerPlayer', { address: userAddress });
+    if (socket && userAddress) {
+      socket.emit('registerPlayer', { address: userAddress });
+    }
   }, [socket, userAddress]);
 
+  // 🎯 Логика матчмейкинга
   const startRandomMatch = () => {
     if (!socket || !userAddress) return;
     setIsSearching(true);
@@ -84,17 +97,26 @@ export default function App() {
     setIsSearching(false);
   };
 
+  // 🖼️ Рендер контента
   const renderContent = () => {
+    // 1. Игра с ботом
     if (gameMode === 'bot') {
       return (
         <div style={{ padding: '2rem' }}>
           <button onClick={() => setGameMode(null)} style={styles.btnBack}>← Назад</button>
           <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>♟️ vs Бот</h2>
-          <ChessBoard gameId="BOT" userAddress={userAddress} withBot={true} playerColor="white" initialTime={gameTime} />
+          <ChessBoard
+            gameId="BOT"
+            userAddress={userAddress}
+            withBot={true}
+            playerColor="white"
+            initialTime={gameTime}
+          />
         </div>
       );
     }
 
+    // 2. Онлайн-игра
     if (gameMode === 'online' && gameData) {
       return (
         <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
@@ -113,7 +135,13 @@ export default function App() {
               {copiedLink ? '✓ Ссылка скопирована!' : '📋 Копировать ссылку в игру'}
             </button>
           </div>
-          <ChessBoard gameId={gameData.gameId} userAddress={userAddress} withBot={false} playerColor={gameData.role === 'white' ? 'white' : 'black'} initialTime={gameTime} />
+          <ChessBoard 
+            gameId={gameData.gameId} 
+            userAddress={userAddress} 
+            withBot={false} 
+            playerColor={gameData.role === 'white' ? 'white' : 'black'} 
+            initialTime={gameTime} 
+          />
         </div>
       );
     }
@@ -145,6 +173,7 @@ export default function App() {
         return (
           <div style={{ padding: '2rem', textAlign: 'center' }}>
             <h2>♟️ Выбор режима</h2>
+            
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
               {[180, 300, 600].map(t => (
                 <button key={t} onClick={() => setGameTime(t)} style={{ padding: '0.5rem 1rem', background: gameTime===t?'#f59e0b':'#334155', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: gameTime===t?'bold':'normal' }}>
@@ -152,16 +181,30 @@ export default function App() {
                 </button>
               ))}
             </div>
+
             <div style={{ display: 'grid', gap: '1rem', maxWidth: '400px', margin: '0 auto' }}>
               <button onClick={() => setGameMode('bot')} style={styles.btnPrimary('#3b82f6')}>🤖 Играть с ботом</button>
               <button onClick={startRandomMatch} disabled={isGuest} style={styles.btnPrimary(isGuest?'#475569':'#10b981', isGuest)}>⚡ Случайный соперник {isGuest?'(🔒)':''}</button>
+              
               <div style={{ background: '#1e293b', padding: '1rem', borderRadius: '8px', marginTop: '1rem' }}>
                 <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem' }}>🎯 Прямое приглашение</h3>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <input type="text" placeholder="Адрес кошелька друга (0x...)" value={inviteAddr} onChange={e => setInviteAddr(e.target.value)} style={{ flex: 1, padding: '0.5rem', background: '#0f172a', border: '1px solid #334155', borderRadius: '6px', color: '#fff' }} />
-                  <button onClick={sendDirectInvite} disabled={isGuest || !inviteAddr} style={{ padding: '0.5rem 1rem', background: '#f59e0b', color: '#000', border: 'none', borderRadius: '6px', cursor: isGuest?'not-allowed':'pointer', opacity: isGuest?0.5:1 }}>📨 Отправить</button>
+                  <input 
+                    type="text" 
+                    placeholder="Адрес кошелька друга (0x...)" 
+                    value={inviteAddr}
+                    onChange={e => setInviteAddr(e.target.value)}
+                    style={{ flex: 1, padding: '0.5rem', background: '#0f172a', border: '1px solid #334155', borderRadius: '6px', color: '#fff' }}
+                  />
+                  <button onClick={sendDirectInvite} disabled={isGuest || !inviteAddr} style={{ padding: '0.5rem 1rem', background: '#f59e0b', color: '#000', border: 'none', borderRadius: '6px', cursor: isGuest?'not-allowed':'pointer', opacity: isGuest?0.5:1 }}>
+                    📨 Отправить
+                  </button>
                 </div>
-                {onlineList.length > 0 && <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#94a3b8' }}>🟢 В сети: {onlineList.length} игроков</p>}
+                {onlineList.length > 0 && (
+                  <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#94a3b8' }}>
+                    🟢 В сети: {onlineList.length} игроков
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -177,7 +220,6 @@ export default function App() {
         <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>♟️ Chess4Crypto</span>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           {isGuest && <span style={styles.badge}>👤 Гость</span>}
-          {/* ✅ ИСПРАВЛЕНО: Кнопка кошелька видна всегда */}
           <WalletConnect />
           {isGuest && isConnected && (
             <button onClick={() => { setIsGuest(false); setGameMode(null); }} style={styles.btnOutline}>
@@ -191,6 +233,7 @@ export default function App() {
 
       <main>{renderContent()}</main>
 
+      {/* Модальное окно входящего приглашения */}
       {inviteModal && (
         <div style={styles.overlay} onClick={() => setInviteModal(null)}>
           <div style={styles.modal} onClick={e => e.stopPropagation()}>
@@ -209,6 +252,7 @@ export default function App() {
   );
 }
 
+// 🎨 Стили
 const styles = {
   app: { background: '#0f172a', color: '#e2e8f0', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: '#0f172a', borderBottom: '1px solid #1e293b' },
