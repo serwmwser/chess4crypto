@@ -1,30 +1,48 @@
-import { useConnect, useDisconnect, useAccount } from 'wagmi';
+// frontend/src/components/WalletConnect.jsx
+import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { metaMask } from 'wagmi/connectors';
 
 export default function WalletConnect() {
-  const { connectors, connect } = useConnect();
-  const { disconnect } = useDisconnect();
   const { address, isConnected } = useAccount();
+  const { connect, connectors } = useConnect();
+  const { disconnect } = useDisconnect();
 
-  if (isConnected) {
+  if (isConnected && address) {
     return (
-      <div className="wallet-connected">
-        <span>🔗 {address?.slice(0, 6)}...{address?.slice(-4)}</span>
-        <button onClick={() => disconnect()} className="btn-secondary">Отключить</button>
-      </div>
+      <button
+        onClick={() => disconnect()}
+        style={{
+          padding: '0.5rem 1rem',
+          background: '#ef4444',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          fontWeight: 'bold'
+        }}
+      >
+        🔗 {address.slice(0, 6)}...{address.slice(-4)} (Отключить)
+      </button>
     );
   }
 
   return (
-    <div className="wallet-connect">
-      {connectors.map((connector) => (
-        <button
-          key={connector.uid}
-          onClick={() => connect({ connector })}
-          className="btn-primary"
-        >
-          {connector.name}
-        </button>
-      ))}
-    </div>
+    <button
+      onClick={() => connect({ connector: connectors[0] || metaMask() })}
+      style={{
+        padding: '0.5rem 1rem',
+        background: '#f59e0b',
+        color: 'black',
+        border: 'none',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        fontWeight: 'bold',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem'
+      }}
+    >
+      🦊 Подключить MetaMask
+    </button>
   );
 }
