@@ -12,43 +12,40 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
   
   const timerRef = useRef(null);
   const gameRef = useRef(game);
-  gameRef.current = game;
+  gameRef.current = game; // Всегда актуальное состояние
 
   const { playMove, playCapture, playCheck, playGameOver } = useChessSounds();
   const myColor = playerColor === 'black' ? 'b' : 'w';
   const fmt = s => `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
 
-  // ⏱️ Строгий шахматный таймер
+  // ⏱️ 1. Строгий шахматный таймер (тикает только у активного игрока)
   useEffect(() => {
     if (game.isGameOver()) { clearInterval(timerRef.current); return; }
 
+    clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
-      const currentGame = gameRef.current;
-      if (currentGame.isGameOver()) { clearInterval(timerRef.current); return; }
-
-      if (currentGame.turn() === 'w') {
-        setTimeW(prev => {
-          if (prev <= 1) { handleTimeout('b'); return 0; }
-          return prev - 1;
-        });
-      } else {
-        setTimeB(prev => {
-          if (prev <= 1) { handleTimeout('w'); return 0; }
-          return prev - 1;
-        });
-      }
+      const currentTurn = gameRef.current.turn();
+      if (currentTurn === 'w') setTimeW(t => t > 0 ? t - 1 : 0);
+      else setTimeB(t => t > 0 ? t - 1 : 0);
     }, 1000);
 
     return () => clearInterval(timerRef.current);
-  }, [game.turn(), game.isGameOver()]); // Перезапуск интервала ТОЛЬКО при смене хода или окончании
+  }, [game.fen()]); // Перезапуск ТОЛЬКО при изменении позиции на доске
 
-  const handleTimeout = (winner) => {
-    clearInterval(timerRef.current);
-    playGameOver();
-    setStatus(`⏰ Время вышло! Победили ${winner==='w'?'белые':'чёрные'}`);
-  };
+  // ⏰ 2. Проверка окончания по времени
+  useEffect(() => {
+    if (game.isGameOver()) return;
+    if (timeW === 0) {
+      playGameOver();
+      setStatus('⏰ Время белых вышло! Победа чёрных.');
+    }
+    if (timeB === 0) {
+      playGameOver();
+      setStatus('⏰ Время чёрных вышло! Победа белых.');
+    }
+  }, [timeW, timeB, game]);
 
-  // 🔊 Звуки
+  // 🔊 3. Звуки ходов
   useEffect(() => {
     if (game.history().length === 0) return;
     const last = game.history({ verbose: true }).pop();
@@ -56,35 +53,49 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
     if (game.inCheck()) setTimeout(playCheck, 150);
   }, [game.fen(), playMove, playCapture, playCheck]);
 
-  // 🤖 Лёгкий ИИ
+  // 🤖 4. Лёгкий ИИ
   const makeBotMove = useCallback(() => {
     if (game.isGameOver() || game.turn() !== 'b') return;
-    setIsThinking(true); setStatus('⏳ Бот думает...');
+    setIsThinking(true); 
+    setStatus('⏳ Бот думает...');
+    
     setTimeout(() => {
       try {
         const t = new Chess(game.fen());
         const m = t.moves({ verbose: true });
         if (!m.length) { setIsThinking(false); return; }
-        let best = m.find(x => x.captured) || m.find(x => { const c=new Chess(game.fen()); c.move(x.san); return !c.inCheck(); }) || m[Math.floor(Math.random()*m.length)];
-        const next = new Chess(game.fen()); next.move(best.san); setGame(next);
+        
+        let best = m.find(x => x.captured) || 
+                   m.find(x => { const c = new Chess(game.fen()); c.move(x.san); return !c.inCheck(); }) || 
+                   m[Math.floor(Math.random() * m.length)];
+        
+        const next = new Chess(game.fen()); 
+        next.move(best.san); 
+        setGame(next);
       } catch(e) { console.error(e); }
       setIsThinking(false);
-    }, 600);
+    }, 800); // 800мс, чтобы таймер успел тикнуть хотя бы 1 раз
   }, [game]);
 
   useEffect(() => {
-    if (withBot && game.turn()==='b' && !game.isGameOver()) makeBotMove();
-    else if (!game.isGameOver()) setStatus(game.turn()===myColor ? '✅ Ваш ход' : '⏳ Ход соперника...');
+    if (withBot && game.turn() === 'b' && !game.isGameOver()) {
+      makeBotMove();
+    } else if (!game.isGameOver()) {
+      setStatus(game.turn() === myColor ? '✅ Ваш ход' : '⏳ Ход соперника...');
+    }
   }, [game, withBot, makeBotMove, myColor]);
 
   const onDrop = (src, dst) => {
-    if (isThinking || game.isGameOver() || game.turn()!==myColor) return false;
+    if (isThinking || game.isGameOver() || game.turn() !== myColor) return false;
     try {
       const next = new Chess(game.fen());
       if (!next.move({ from: src, to: dst, promotion: 'q' })) return false;
       setGame(next);
-      if (next.isCheckmate()) { clearInterval(timerRef.current); playGameOver(); setStatus('🏆 Вы поставили мат!'); }
-      else if (next.isDraw()) { clearInterval(timerRef.current); playGameOver(); setStatus('🤝 Ничья!'); }
+      if (next.isCheckmate() || next.isDraw()) {
+        clearInterval(timerRef.current);
+        playGameOver();
+        setStatus(next.isCheckmate() ? '🏆 Вы поставили мат!' : '🤝 Ничья!');
+      }
       return true;
     } catch { return false; }
   };
