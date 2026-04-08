@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import BuyTokenButton from './BuyTokenButton';
 
-export default function Navbar({ activeTab, onTabChange }) {
+export default function Navbar({ activeTab, onTabChange, isGuest }) {
   const tabs = [
     { id: 'home', label: '🏠 Главная' },
     { id: 'play', label: '♟️ Играть' },
@@ -14,6 +15,7 @@ export default function Navbar({ activeTab, onTabChange }) {
       padding: '0.5rem', 
       display: 'flex', 
       justifyContent: 'center', 
+      alignItems: 'center',
       gap: '0.5rem', 
       flexWrap: 'wrap', 
       borderBottom: '1px solid #334155' 
@@ -36,6 +38,13 @@ export default function Navbar({ activeTab, onTabChange }) {
           {tab.label}
         </button>
       ))}
+      
+      {/* Скрываем покупку токенов для гостей */}
+      {!isGuest && (
+        <div style={{ marginLeft: 'auto' }}>
+          <BuyTokenButton />
+        </div>
+      )}
     </nav>
   );
 }
