@@ -1,0 +1,31 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "vite.config.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.1",
+    "vite": "^8.0.7"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.96.2",
+    "axios": "^1.14.0",
+    "chess.js": "^1.4.0",
+    "react": "^18.2.0",
+    "react-chessboard": "^4.7.2",
+    "react-dom": "^18.2.0",
+    "socket.io-client": "^4.8.3",
+    "viem": "^2.47.10",
+    "wagmi": "^3.6.1"
+  }
+}
