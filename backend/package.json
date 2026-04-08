@@ -1,21 +1,39 @@
 {
-    "name": "chess4crypto-backend",
-    "version": "1.0.0",
-    "private": true,
-    "type": "module",
-    "scripts": {
-      "start": "node server.js",
-      "dev": "node server.js"
-    },
-    "dependencies": {
-      "express": "^4.18.2",
-      "socket.io": "^4.8.0",
-      "cors": "^2.8.5",
-      "dotenv": "^16.3.1",
-      "viem": "^2.21.0",
-      "wagmi": "^2.12.0"
-    },
-    "engines": {
-      "node": ">=18.0.0"
-    }
+  "name": "chess4crypto-backend",
+  "version": "1.0.0",
+  "description": "WebSocket backend for Chess4Crypto - real-time chess moves, chat, matchmaking",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "keywords": [
+    "chess",
+    "websocket",
+    "socket.io",
+    "crypto",
+    "web3",
+    "blockchain"
+  ],
+  "author": "Chess4Crypto Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/serwmwser/chess4crypto.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.8.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "chess.js": "^1.0.0-beta.8"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
   }
+}
