@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 import { useChessSounds } from '../hooks/useChessSounds';
@@ -9,30 +9,46 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
   const [isThinking, setIsThinking] = useState(false);
   const [timeW, setTimeW] = useState(initialTime);
   const [timeB, setTimeB] = useState(initialTime);
+  
   const timerRef = useRef(null);
+  const gameRef = useRef(game);
+  gameRef.current = game;
 
   const { playMove, playCapture, playCheck, playGameOver } = useChessSounds();
   const myColor = playerColor === 'black' ? 'b' : 'w';
   const fmt = s => `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
 
-  // Таймер
+  // ⏱️ Строгий шахматный таймер
   useEffect(() => {
-    if (game.isGameOver() || isThinking) { clearInterval(timerRef.current); return; }
-    timerRef.current = setInterval(() => {
-      if (game.turn() === 'w') setTimeW(t => t <= 1 ? (handleEnd('timeout','b'), 0) : t-1);
-      else setTimeB(t => t <= 1 ? (handleEnd('timeout','w'), 0) : t-1);
-    }, 1000);
-    return () => clearInterval(timerRef.current);
-  }, [game, isThinking]);
+    if (game.isGameOver()) { clearInterval(timerRef.current); return; }
 
-  const handleEnd = (reason, winner) => {
+    timerRef.current = setInterval(() => {
+      const currentGame = gameRef.current;
+      if (currentGame.isGameOver()) { clearInterval(timerRef.current); return; }
+
+      if (currentGame.turn() === 'w') {
+        setTimeW(prev => {
+          if (prev <= 1) { handleTimeout('b'); return 0; }
+          return prev - 1;
+        });
+      } else {
+        setTimeB(prev => {
+          if (prev <= 1) { handleTimeout('w'); return 0; }
+          return prev - 1;
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(timerRef.current);
+  }, [game.turn(), game.isGameOver()]); // Перезапуск интервала ТОЛЬКО при смене хода или окончании
+
+  const handleTimeout = (winner) => {
     clearInterval(timerRef.current);
     playGameOver();
-    setStatus(reason === 'timeout' ? `⏰ Время вышло! Победили ${winner==='w'?'белые':'чёрные'}` : 
-              reason === 'checkmate' ? `🏆 ${winner==='w'?'Белые':'Чёрные'} победили матом!` : '🤝 Ничья!');
+    setStatus(`⏰ Время вышло! Победили ${winner==='w'?'белые':'чёрные'}`);
   };
 
-  // Звуки
+  // 🔊 Звуки
   useEffect(() => {
     if (game.history().length === 0) return;
     const last = game.history({ verbose: true }).pop();
@@ -40,7 +56,7 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
     if (game.inCheck()) setTimeout(playCheck, 150);
   }, [game.fen(), playMove, playCapture, playCheck]);
 
-  // ИИ
+  // 🤖 Лёгкий ИИ
   const makeBotMove = useCallback(() => {
     if (game.isGameOver() || game.turn() !== 'b') return;
     setIsThinking(true); setStatus('⏳ Бот думает...');
@@ -67,13 +83,20 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
       const next = new Chess(game.fen());
       if (!next.move({ from: src, to: dst, promotion: 'q' })) return false;
       setGame(next);
-      if (next.isCheckmate()) handleEnd('checkmate', myColor);
-      else if (next.isDraw()) handleEnd('draw', null);
+      if (next.isCheckmate()) { clearInterval(timerRef.current); playGameOver(); setStatus('🏆 Вы поставили мат!'); }
+      else if (next.isDraw()) { clearInterval(timerRef.current); playGameOver(); setStatus('🤝 Ничья!'); }
       return true;
     } catch { return false; }
   };
 
-  const reset = () => { setGame(new Chess()); setTimeW(initialTime); setTimeB(initialTime); setStatus('✅ Готов к игре'); setIsThinking(false); clearInterval(timerRef.current); };
+  const reset = () => { 
+    setGame(new Chess()); 
+    setTimeW(initialTime); 
+    setTimeB(initialTime); 
+    setStatus('✅ Готов к игре'); 
+    setIsThinking(false); 
+    clearInterval(timerRef.current); 
+  };
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '1rem' }}>

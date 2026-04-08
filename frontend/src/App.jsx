@@ -1,12 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import io from 'socket.io-client';
 import WalletConnect from './components/WalletConnect';
 import Navbar from './components/Navbar';
 import ChessBoard from './components/ChessBoard';
+import ChatBox from './components/ChatBox';
 import { createInviteLink, copyToClipboard } from './utils/gameLink';
 
-// ✅ КРИТИЧЕСКИ ВАЖНО: Используем продакшен-бэкенд на Render
+// ✅ Продакшен-URL бэкенда
 const SOCKET_URL = import.meta.env.VITE_WS_URL || 'https://chess4crypto-backend.onrender.com';
 const GUEST_ADDRESS = '0xGuestMode0000000000000000000000000000';
 
@@ -14,9 +15,9 @@ export default function App() {
   const { isConnected, address } = useAccount();
   const [isGuest, setIsGuest] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
-  const [gameMode, setGameMode] = useState(null); // 'bot' | 'online' | null
-  const [gameTime, setGameTime] = useState(300); // 5 мин по умолчанию
-  const [gameData, setGameData] = useState(null); // { gameId, role, opponent }
+  const [gameMode, setGameMode] = useState(null);
+  const [gameTime, setGameTime] = useState(300);
+  const [gameData, setGameData] = useState(null);
   
   const [socket, setSocket] = useState(null);
   const [onlineList, setOnlineList] = useState([]);
@@ -28,7 +29,7 @@ export default function App() {
   const userAddress = isGuest ? GUEST_ADDRESS : address;
   const isAuthorized = isConnected || isGuest;
 
-  // 🔌 Инициализация сокета
+  // 🔌 Инициализация WebSocket
   useEffect(() => {
     const newSocket = io(SOCKET_URL, {
       transports: ['websocket', 'polling'],
@@ -37,13 +38,10 @@ export default function App() {
     });
     setSocket(newSocket);
 
-    newSocket.on('connect', () => console.log('🔌 Socket connected to', SOCKET_URL));
+    newSocket.on('connect', () => console.log('🔌 Socket connected'));
     newSocket.on('connect_error', (err) => console.error('🔌 Socket error:', err.message));
-    
     newSocket.on('onlinePlayersUpdate', (list) => setOnlineList(list));
-    newSocket.on('matchStatus', (data) => {
-      if (data.status === 'canceled') setIsSearching(false);
-    });
+    newSocket.on('matchStatus', (data) => { if (data.status === 'canceled') setIsSearching(false); });
     newSocket.on('matchFound', (data) => {
       setIsSearching(false);
       setGameData({ gameId: data.gameId, role: data.role, opponent: data.opponent });
@@ -55,14 +53,14 @@ export default function App() {
     return () => newSocket.disconnect();
   }, []);
 
-  // 📝 Регистрация игрока при входе
+  // 📝 Регистрация игрока при входе/смене адреса
   useEffect(() => {
     if (socket && userAddress) {
       socket.emit('registerPlayer', { address: userAddress });
     }
   }, [socket, userAddress]);
 
-  // 🎯 Логика матчмейкинга
+  // 🎯 Матчмейкинг
   const startRandomMatch = () => {
     if (!socket || !userAddress) return;
     setIsSearching(true);
@@ -76,7 +74,7 @@ export default function App() {
     }
   };
 
-  const sendDirectInvite = async () => {
+  const sendDirectInvite = () => {
     if (!socket || !userAddress || !inviteAddr) return;
     const gameId = Math.random().toString(36).substring(2, 10).toUpperCase();
     socket.emit('directInvite', { from: userAddress, to: inviteAddr, gameId });
@@ -99,49 +97,48 @@ export default function App() {
 
   // 🖼️ Рендер контента
   const renderContent = () => {
-    // 1. Игра с ботом
     if (gameMode === 'bot') {
       return (
         <div style={{ padding: '2rem' }}>
           <button onClick={() => setGameMode(null)} style={styles.btnBack}>← Назад</button>
           <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>♟️ vs Бот</h2>
-          <ChessBoard
-            gameId="BOT"
-            userAddress={userAddress}
-            withBot={true}
-            playerColor="white"
-            initialTime={gameTime}
-          />
+          <ChessBoard gameId="BOT" userAddress={userAddress} withBot={true} playerColor="white" initialTime={gameTime} />
         </div>
       );
     }
 
-    // 2. Онлайн-игра
     if (gameMode === 'online' && gameData) {
       return (
-        <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
-          <button onClick={resetGame} style={styles.btnBack}>← Выйти</button>
-          <div style={styles.card('#f59e0b')}>
-            <h3 style={{ margin: '0 0 0.5rem 0', color: '#f59e0b' }}>🎮 Игра #{gameData.gameId}</h3>
-            <p style={{ color: '#94a3b8', marginBottom: '0.5rem' }}>
-              Соперник: <span style={{ color: '#fff', fontWeight: 'bold' }}>{gameData.opponent?.slice(0,6)}...{gameData.opponent?.slice(-4)}</span>
-            </p>
-            <button onClick={async () => {
-              const link = createInviteLink(gameData.gameId);
-              await copyToClipboard(link);
-              setCopiedLink(true);
-              setTimeout(() => setCopiedLink(false), 2000);
-            }} style={{ padding: '0.5rem 1rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-              {copiedLink ? '✓ Ссылка скопирована!' : '📋 Копировать ссылку в игру'}
-            </button>
+        <div style={{ padding: '1.5rem', maxWidth: '1100px', margin: '0 auto', display: 'flex', flexWrap: 'wrap', gap: '1.5rem', justifyContent: 'center' }}>
+          <div style={{ flex: '2 1 500px', minWidth: '300px' }}>
+            <button onClick={resetGame} style={styles.btnBack}>← Выйти из игры</button>
+            <div style={styles.card('#f59e0b')}>
+              <h3 style={{ margin: '0 0 0.5rem 0', color: '#f59e0b' }}>🎮 Игра #{gameData.gameId}</h3>
+              <p style={{ color: '#94a3b8', marginBottom: '0.5rem' }}>
+                Соперник: <span style={{ color: '#fff', fontWeight: 'bold' }}>{gameData.opponent?.slice(0,6)}...{gameData.opponent?.slice(-4)}</span>
+              </p>
+              <button onClick={async () => {
+                const link = createInviteLink(gameData.gameId);
+                await copyToClipboard(link);
+                setCopiedLink(true);
+                setTimeout(() => setCopiedLink(false), 2000);
+              }} style={{ padding: '0.5rem 1rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                {copiedLink ? '✓ Ссылка скопирована!' : '📋 Копировать ссылку в игру'}
+              </button>
+            </div>
+            <ChessBoard 
+              gameId={gameData.gameId} 
+              userAddress={userAddress} 
+              withBot={false} 
+              playerColor={gameData.role === 'white' ? 'white' : 'black'} 
+              initialTime={gameTime} 
+            />
           </div>
-          <ChessBoard 
-            gameId={gameData.gameId} 
-            userAddress={userAddress} 
-            withBot={false} 
-            playerColor={gameData.role === 'white' ? 'white' : 'black'} 
-            initialTime={gameTime} 
-          />
+          
+          {/* 💬 Чат игроков (справа на ПК, снизу на телефоне) */}
+          <div style={{ flex: '1 1 280px', minWidth: '250px', position: 'sticky', top: '1rem', height: 'fit-content' }}>
+            <ChatBox socket={socket} gameId={gameData.gameId} user={userAddress} />
+          </div>
         </div>
       );
     }
@@ -174,10 +171,10 @@ export default function App() {
           <div style={{ padding: '2rem', textAlign: 'center' }}>
             <h2>♟️ Выбор режима</h2>
             
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
-              {[180, 300, 600].map(t => (
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+              {[180, 300, 600, 900, 3600].map(t => (
                 <button key={t} onClick={() => setGameTime(t)} style={{ padding: '0.5rem 1rem', background: gameTime===t?'#f59e0b':'#334155', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: gameTime===t?'bold':'normal' }}>
-                  {t/60} мин
+                  {t >= 3600 ? '1 ч' : `${t/60} мин`}
                 </button>
               ))}
             </div>
@@ -186,7 +183,7 @@ export default function App() {
               <button onClick={() => setGameMode('bot')} style={styles.btnPrimary('#3b82f6')}>🤖 Играть с ботом</button>
               <button onClick={startRandomMatch} disabled={isGuest} style={styles.btnPrimary(isGuest?'#475569':'#10b981', isGuest)}>⚡ Случайный соперник {isGuest?'(🔒)':''}</button>
               
-              <div style={{ background: '#1e293b', padding: '1rem', borderRadius: '8px', marginTop: '1rem' }}>
+              <div style={{ background: '#1e293b', padding: '1rem', borderRadius: '8px', marginTop: '0.5rem' }}>
                 <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem' }}>🎯 Прямое приглашение</h3>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <input 
@@ -196,15 +193,9 @@ export default function App() {
                     onChange={e => setInviteAddr(e.target.value)}
                     style={{ flex: 1, padding: '0.5rem', background: '#0f172a', border: '1px solid #334155', borderRadius: '6px', color: '#fff' }}
                   />
-                  <button onClick={sendDirectInvite} disabled={isGuest || !inviteAddr} style={{ padding: '0.5rem 1rem', background: '#f59e0b', color: '#000', border: 'none', borderRadius: '6px', cursor: isGuest?'not-allowed':'pointer', opacity: isGuest?0.5:1 }}>
-                    📨 Отправить
-                  </button>
+                  <button onClick={sendDirectInvite} disabled={isGuest || !inviteAddr} style={{ padding: '0.5rem 1rem', background: '#f59e0b', color: '#000', border: 'none', borderRadius: '6px', cursor: isGuest?'not-allowed':'pointer', opacity: isGuest?0.5:1 }}>📨</button>
                 </div>
-                {onlineList.length > 0 && (
-                  <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#94a3b8' }}>
-                    🟢 В сети: {onlineList.length} игроков
-                  </p>
-                )}
+                {onlineList.length > 0 && <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#94a3b8' }}>🟢 В сети: {onlineList.length} игроков</p>}
               </div>
             </div>
           </div>
@@ -223,7 +214,7 @@ export default function App() {
           <WalletConnect />
           {isGuest && isConnected && (
             <button onClick={() => { setIsGuest(false); setGameMode(null); }} style={styles.btnOutline}>
-              🚪 Выйти из гостевого
+              🚪 Выйти
             </button>
           )}
         </div>
@@ -233,7 +224,7 @@ export default function App() {
 
       <main>{renderContent()}</main>
 
-      {/* Модальное окно входящего приглашения */}
+      {/* Модальное окно приглашения */}
       {inviteModal && (
         <div style={styles.overlay} onClick={() => setInviteModal(null)}>
           <div style={styles.modal} onClick={e => e.stopPropagation()}>
@@ -255,12 +246,12 @@ export default function App() {
 // 🎨 Стили
 const styles = {
   app: { background: '#0f172a', color: '#e2e8f0', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: '#0f172a', borderBottom: '1px solid #1e293b' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: '#0f172a', borderBottom: '1px solid #1e293b', position: 'sticky', top: 0, zIndex: 50 },
   badge: { background: '#475569', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', color: '#94a3b8' },
   btnBack: { marginBottom: '1rem', padding: '0.5rem 1rem', background: '#64748b', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' },
   card: (border) => ({ background: '#1e293b', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: `2px solid ${border}` }),
   btnPrimary: (bg, disabled = false) => ({ padding: '1rem', background: disabled ? '#475569' : bg, color: '#fff', border: 'none', borderRadius: '8px', cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: disabled ? 0.5 : 1 }),
   btnOutline: { padding: '0.4rem 0.8rem', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' },
-  overlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+  overlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' },
   modal: { background: '#1e293b', padding: '1.5rem', borderRadius: '12px', maxWidth: '350px', width: '90%', textAlign: 'center', border: '2px solid #3b82f6' }
 };
