@@ -1,4 +1,3 @@
-// frontend/src/main.jsx
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { WagmiProvider, createConfig, http } from 'wagmi'
@@ -7,7 +6,6 @@ import { metaMask } from 'wagmi/connectors'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 
-// Создаём конфиг wagmi
 export const config = createConfig({
   chains: [bsc, bscTestnet],
   connectors: [metaMask()],
@@ -19,12 +17,17 @@ export const config = createConfig({
 
 const queryClient = new QueryClient()
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        <App />
-      </QueryClientProvider>
-    </WagmiProvider>
-  </React.StrictMode>
-)
+const rootEl = document.getElementById('root')
+if (rootEl) {
+  ReactDOM.createRoot(rootEl).render(
+    <React.StrictMode>
+      <WagmiProvider config={config}>
+        <QueryClientProvider client={queryClient}>
+          <App />
+        </QueryClientProvider>
+      </WagmiProvider>
+    </React.StrictMode>
+  )
+} else {
+  console.error('❌ Элемент #root не найден в index.html')
+}
