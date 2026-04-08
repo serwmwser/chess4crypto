@@ -1,10 +1,11 @@
 import BuyTokenButton from './BuyTokenButton';
 
-export default function Navbar({ activeTab, onTabChange, isGuest }) {
+export default function Navbar({ activeTab, onTabChange, isGuest, isConnected }) {
   const tabs = [
     { id: 'home', label: '🏠 Главная' },
     { id: 'play', label: '♟️ Играть' },
-    { id: 'chat', label: '💬 Чат' }
+    { id: 'chat', label: '💬 Чат' },
+    ...(isConnected ? [{ id: 'profile', label: '👤 Профиль' }] : [])
   ];
 
   return (

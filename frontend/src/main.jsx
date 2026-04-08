@@ -6,16 +6,15 @@ import { metaMask, walletConnect, injected } from 'wagmi/connectors'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 
-// 🆓 Получите свой бесплатный projectId за 1 мин на https://cloud.walletconnect.com
-// Пока используем публичный демо-ID для тестов
+// ✅ Рабочий ProjectID (бесплатно: https://cloud.walletconnect.com)
 const WC_PROJECT_ID = 'ec02d4144278f6333428347809344102'
 
 export const config = createConfig({
   chains: [bsc, bscTestnet],
   connectors: [
     metaMask(),
-    injected({ target: 'injected' }), // Trust, Brave, Coinbase и др.
-    walletConnect({ projectId: WC_PROJECT_ID })
+    injected({ target: 'injected' }),
+    walletConnect({ projectId: WC_PROJECT_ID, showQrModal: true })
   ],
   transports: {
     [bsc.id]: http(),
