@@ -1,14 +1,30 @@
+// frontend/src/main.jsx
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { WagmiProvider, createConfig, http } from 'wagmi'
+import { bsc, bscTestnet } from 'wagmi/chains'
+import { metaMask } from 'wagmi/connectors'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import App from './App'
 
-function App() {
-  return (
-    <div style={{ background: '#111', color: '#fff', minHeight: '100vh', padding: '2rem', fontFamily: 'sans-serif' }}>
-      <h1>♟️ Chess4Crypto</h1>
-      <p>✅ ПРИЛОЖЕНИЕ РАБОТАЕТ!</p>
-      <button onClick={() => alert('Ура!')}>🔘 Тест</button>
-    </div>
-  )
-}
+// Создаём конфиг wagmi
+export const config = createConfig({
+  chains: [bsc, bscTestnet],
+  connectors: [metaMask()],
+  transports: {
+    [bsc.id]: http(),
+    [bscTestnet.id]: http()
+  }
+})
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+const queryClient = new QueryClient()
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
+    </WagmiProvider>
+  </React.StrictMode>
+)

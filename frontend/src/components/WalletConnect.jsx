@@ -1,48 +1,26 @@
 // frontend/src/components/WalletConnect.jsx
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { metaMask } from 'wagmi/connectors';
+import { useAccount, useConnect } from 'wagmi';
 
 export default function WalletConnect() {
-  const { address, isConnected } = useAccount();
+  const { address } = useAccount();
   const { connect, connectors } = useConnect();
-  const { disconnect } = useDisconnect();
 
-  if (isConnected && address) {
+  // Если уже подключен — показываем адрес
+  if (address) {
     return (
-      <button
-        onClick={() => disconnect()}
-        style={{
-          padding: '0.5rem 1rem',
-          background: '#ef4444',
-          color: 'white',
-          border: 'none',
-          borderRadius: '8px',
-          cursor: 'pointer',
-          fontWeight: 'bold'
-        }}
-      >
-        🔗 {address.slice(0, 6)}...{address.slice(-4)} (Отключить)
+      <button style={{ padding: '8px 16px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+        🔗 {address.slice(0,6)}...{address.slice(-4)}
       </button>
     );
   }
 
+  // Кнопка подключения (просто первый доступный коннектор)
   return (
-    <button
-      onClick={() => connect({ connector: connectors[0] || metaMask() })}
-      style={{
-        padding: '0.5rem 1rem',
-        background: '#f59e0b',
-        color: 'black',
-        border: 'none',
-        borderRadius: '8px',
-        cursor: 'pointer',
-        fontWeight: 'bold',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem'
-      }}
+    <button 
+      onClick={() => connect({ connector: connectors[0] })}
+      style={{ padding: '8px 16px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
     >
-      🦊 Подключить MetaMask
+      🔐 Подключить кошелёк
     </button>
   );
 }
