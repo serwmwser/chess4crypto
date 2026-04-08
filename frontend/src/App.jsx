@@ -1,29 +1,73 @@
-import { useAccount } from 'wagmi'
-import WalletConnect from './components/WalletConnect'
+import { useState } from 'react';
+import { useAccount } from 'wagmi';
+import WalletConnect from './components/WalletConnect';
+import Navbar from './components/Navbar';
 
 export default function App() {
-  const { isConnected } = useAccount()
+  const { isConnected } = useAccount();
+  const [activeTab, setActiveTab] = useState('home');
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'home':
+        return (
+          <div style={{ padding: '2rem', textAlign: 'center' }}>
+            <h2>👋 Добро пожаловать в Chess4Crypto</h2>
+            <p style={{ color: '#94a3b8', marginTop: '1rem' }}>
+              Играйте в шахматы, делайте ставки в токенах GROK и зарабатывайте на BNB Chain.
+            </p>
+            {!isConnected && (
+              <p style={{ marginTop: '1.5rem', color: '#f59e0b' }}>
+                🔐 Подключите кошелёк в правом верхнем углу, чтобы начать
+              </p>
+            )}
+          </div>
+        );
+      case 'play':
+        return (
+          <div style={{ padding: '2rem', textAlign: 'center' }}>
+            <h2>♟️ Создание игры</h2>
+            <p style={{ color: '#94a3b8' }}>
+              {isConnected ? 'Выберите таймер и ставку, чтобы создать вызов.' : 'Подключите кошелёк, чтобы начать игру.'}
+            </p>
+          </div>
+        );
+      case 'chat':
+        return (
+          <div style={{ padding: '2rem', textAlign: 'center' }}>
+            <h2>💬 Игровой чат</h2>
+            <p style={{ color: '#94a3b8' }}>
+              Чат активируется автоматически после создания партии.
+            </p>
+          </div>
+        );
+      case 'settings':
+        return (
+          <div style={{ padding: '2rem', textAlign: 'center' }}>
+            <h2>⚙️ Настройки</h2>
+            <p style={{ color: '#94a3b8' }}>Язык: RU | Сеть: BSC Testnet | Токен: GROK</p>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif', background: '#0f172a', color: '#fff', minHeight: '100vh' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: '#1e293b', borderRadius: '12px', marginBottom: '2rem' }}>
-        <h1 style={{ margin: 0 }}>♟️ Chess4Crypto</h1>
+    <div style={{ background: '#0f172a', color: '#e2e8f0', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
+      {/* Шапка */}
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: '#0f172a', borderBottom: '1px solid #1e293b' }}>
+        <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>♟️ Chess4Crypto</span>
         <WalletConnect />
       </header>
 
-      <main style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-        {isConnected ? (
-          <div style={{ background: '#1e293b', padding: '2rem', borderRadius: '12px' }}>
-            <h2 style={{ color: '#4ade80' }}>✅ Кошелёк подключён!</h2>
-            <p style={{ color: '#94a3b8', marginTop: '10px' }}>Готово к игре. Следующий шаг: настройка смарт-контракта и ставок.</p>
-          </div>
-        ) : (
-          <div style={{ background: '#1e293b', padding: '2rem', borderRadius: '12px' }}>
-            <h2>🔐 Подключите кошелёк</h2>
-            <p style={{ color: '#94a3b8', marginTop: '10px' }}>Нажмите кнопку в правом верхнем углу, чтобы войти через MetaMask.</p>
-          </div>
-        )}
+      {/* Меню навигации */}
+      <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {/* Контент */}
+      <main style={{ maxWidth: '800px', margin: '0 auto' }}>
+        {renderContent()}
       </main>
     </div>
-  )
+  );
 }
