@@ -16,8 +16,8 @@ export const config = createConfig({
 })
 
 const queryClient = new QueryClient()
-
 const rootEl = document.getElementById('root')
+
 if (rootEl) {
   ReactDOM.createRoot(rootEl).render(
     <React.StrictMode>
@@ -28,6 +28,4 @@ if (rootEl) {
       </WagmiProvider>
     </React.StrictMode>
   )
-} else {
-  console.error('❌ Элемент #root не найден в index.html')
 }
