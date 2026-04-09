@@ -12,7 +12,7 @@ const app = express();
 const server = createServer(app);
 const PORT = process.env.PORT || 3001;
 
-// ✅ CORS: разрешаем ВСЕМ (Render + Vercel)
+// ✅ CORS: разрешаем ВСЕМ (для продакшена можно сузить)
 const corsOptions = {
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -21,15 +21,17 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Обработка preflight-запросов
 app.use(express.json());
 
-// ✅ Socket.IO: ЯВНО указываем path и transports для Render
+// ✅ Socket.IO: конфигурация для Render + Vercel
 const io = new Server(server, {
   cors: corsOptions,
   pingTimeout: 60000,
   pingInterval: 25000,
-  transports: ['websocket', 'polling'],
-  path: '/socket.io' // ⚠️ КРИТИЧЕСКИ ВАЖНО для Render
+  transports: ['websocket', 'polling'], // ⚠️ polling как фолбэк для Render
+  path: '/socket.io', // ⚠️ Явно указываем путь
+  allowEIO3: true // Совместимость с разными версиями
 });
 
 // 🗄️ Хранилище
@@ -45,6 +47,7 @@ io.on('connection', (socket) => {
     onlinePlayers.set(address, { socketId: socket.id });
     socket.join(`user_${address}`);
     io.emit('onlinePlayersUpdate', Array.from(onlinePlayers.keys()));
+    console.log(`👤 Online: ${address}`);
   });
 
   socket.on('requestMatch', ({ address }) => {
@@ -59,6 +62,7 @@ io.on('connection', (socket) => {
       games.set(gameId, { chess: new Chess(), players: [p1, p2] });
       io.to(`user_${p1}`).emit('matchFound', { gameId, role: 'white', opponent: p2 });
       io.to(`user_${p2}`).emit('matchFound', { gameId, role: 'black', opponent: p1 });
+      console.log(`🎮 Matched: ${p1} vs ${p2} [${gameId}]`);
     }
   });
 
@@ -73,6 +77,7 @@ io.on('connection', (socket) => {
     if (target) {
       games.set(gameId, { chess: new Chess(), players: [from, to] });
       io.to(target.socketId).emit('inviteReceived', { from, gameId });
+      console.log(`📨 Invite: ${from} -> ${to}`);
     } else {
       socket.emit('error', '⛔ Игрок не в сети');
     }
@@ -134,6 +139,7 @@ io.on('connection', (socket) => {
         break;
       }
     }
+    console.log('🔌 Disconnected:', socket.id);
   });
 });
 
