@@ -10,9 +10,9 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
   const [timeB, setTimeB] = useState(initialTime);
   
   // 📊 История и навигация
-  const [moveHistory, setMoveHistory] = useState([]);
-  const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
-  const [analysisMode, setAnalysisMode] = useState(false);
+  const [moveHistory, setMoveHistory] = useState([]); // Все ходы партии
+  const [currentMoveIndex, setCurrentMoveIndex] = useState(-1); // На каком ходе сейчас (-1 = начало)
+  const [analysisMode, setAnalysisMode] = useState(false); // Режим анализа (таймеры остановлены)
   
   const timerRef = useRef(null);
   const gameRef = useRef(game);
@@ -42,16 +42,19 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
     if (timeB === 0 && turn === 'b') setStatus('⏰ Время чёрных вышло! Победа белых.');
   }, [timeW, timeB, turn, isOver, analysisMode]);
 
-  // 📝 Обновление истории ходов (при каждом новом ходе)
+  // 📝 Обновление истории при каждом новом ходе
   useEffect(() => {
     const history = game.history({ verbose: true });
-    setMoveHistory([...history]);
-    // Если мы в анализе и добавился новый ход — обновляем индекс
-    if (analysisMode && history.length > 0) {
-      setCurrentMoveIndex(history.length - 1);
-      setAnalysisMode(false);
-    } else {
-      setCurrentMoveIndex(history.length - 1);
+    
+    // Если ходов стало больше — значит сделан НОВЫЙ ход в реальной игре
+    if (history.length > moveHistory.length) {
+      setMoveHistory([...history]);
+      setCurrentMoveIndex(history.length - 1); // 🔥 Переходим на ПОСЛЕДНИЙ ход
+      setAnalysisMode(false); // Выходим из анализа
+    }
+    // Если ходов меньше (редкий кейс) — просто обновляем
+    else {
+      setMoveHistory([...history]);
     }
   }, [game.fen()]);
 
@@ -90,7 +93,7 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
     }
   }, [game, withBot, myColor, isThinking, makeBotMove, isOver, analysisMode, turn]);
 
-  // 🎯 Ход игрока
+  // 🎯 Ход игрока (только если НЕ в анализе)
   const onDrop = (src, dst) => {
     if (isThinking || isOver || turn !== myColor || analysisMode) return false;
     try {
@@ -109,25 +112,40 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
     } catch (e) { console.error('Move error:', e); return false; }
   };
 
-  // 🔙 Навигация по истории
-  const goToMove = (index) => {
-    if (index < -1 || index >= moveHistory.length) return;
+  // 🔙 НАВИГАЦИЯ — ИСПРАВЛЕННАЯ ЛОГИКА
+  
+  // Переход к конкретному индексу хода
+  const goToMove = (targetIndex) => {
+    // Границы: -1 (начало) до moveHistory.length - 1 (последний ход)
+    if (targetIndex < -1 || targetIndex >= moveHistory.length) return;
     
+    // Создаём новую доску и проигрываем ходы до targetIndex
     const tempGame = new Chess();
-    if (index >= 0) {
-      for (let i = 0; i <= index; i++) {
-        tempGame.move(moveHistory[i].san);
-      }
+    for (let i = 0; i <= targetIndex; i++) {
+      tempGame.move(moveHistory[i].san);
     }
+    
     setGame(tempGame);
-    setCurrentMoveIndex(index);
+    setCurrentMoveIndex(targetIndex);
+    
     // Анализ включается, если мы НЕ на последнем ходе
-    setAnalysisMode(index < moveHistory.length - 1);
+    setAnalysisMode(targetIndex < moveHistory.length - 1);
   };
 
-  const goToPrevious = () => goToMove(currentMoveIndex - 1);
-  const goToNext = () => goToMove(currentMoveIndex + 1);
-  const goToLive = () => goToMove(moveHistory.length - 1);
+  // ← Назад: ровно 1 ход
+  const goToPrevious = () => {
+    goToMove(currentMoveIndex - 1);
+  };
+
+  // → Вперёд: ровно 1 ход
+  const goToNext = () => {
+    goToMove(currentMoveIndex + 1);
+  };
+
+  // ⏮ Текущая: прыжок на ПОСЛЕДНИЙ ход (живая игра)
+  const goToLive = () => {
+    goToMove(moveHistory.length - 1);
+  };
 
   const reset = () => { 
     setGame(new Chess()); 
@@ -139,7 +157,7 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
     clearInterval(timerRef.current); 
   };
 
-  // 📋 Форматирование истории: 1. e4 e5, 2. Nf3 Nc6
+  // 📋 Форматирование: 1. e4 e5, 2. Nf3 Nc6
   const formattedHistory = [];
   for (let i = 0; i < moveHistory.length; i += 2) {
     const moveNum = Math.floor(i / 2) + 1;
@@ -147,6 +165,11 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
     const blackMove = moveHistory[i + 1]?.san || '';
     formattedHistory.push({ num: moveNum, white: whiteMove, black: blackMove });
   }
+
+  // Состояния кнопок
+  const canGoBack = currentMoveIndex >= 0;
+  const canGoForward = currentMoveIndex < moveHistory.length - 1;
+  const canGoLive = analysisMode; // Активна только в режиме анализа
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
@@ -173,22 +196,25 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
         <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '0.75rem' }}>
           <button 
             onClick={goToPrevious} 
-            disabled={currentMoveIndex < 0} 
-            style={navBtnStyle(currentMoveIndex < 0)}
+            disabled={!canGoBack} 
+            style={navBtnStyle(!canGoBack)}
+            title="Отменить 1 ход назад"
           >
             ← Назад
           </button>
           <button 
             onClick={goToNext} 
-            disabled={currentMoveIndex >= moveHistory.length - 1} 
-            style={navBtnStyle(currentMoveIndex >= moveHistory.length - 1)}
+            disabled={!canGoForward} 
+            style={navBtnStyle(!canGoForward)}
+            title="Вернуть 1 ход вперёд"
           >
             Вперёд →
           </button>
           <button 
             onClick={goToLive} 
-            disabled={!analysisMode} 
-            style={navBtnStyle(!analysisMode, '#10b981')}
+            disabled={!canGoLive} 
+            style={navBtnStyle(!canGoLive, '#10b981')}
+            title="Вернуться к текущей позиции игры"
           >
             ⏮ Текущая
           </button>
@@ -201,26 +227,40 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
         {isOver && !analysisMode && <button onClick={reset} style={{ marginTop: '1rem', padding: '0.75rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', width: '100%', fontWeight: 'bold' }}>🔄 Начать заново</button>}
       </div>
 
-      {/* 📋 Панель истории ходов — КЛАССИЧЕСКАЯ НУМЕРАЦИЯ */}
+      {/* 📋 Панель истории ходов */}
       <div style={{ flex: '1 1 250px', minWidth: '200px', background: '#1e293b', borderRadius: '10px', padding: '1rem', border: '1px solid #334155', maxHeight: '500px', overflowY: 'auto' }}>
         <h3 style={{ margin: '0 0 0.75rem 0', color: '#f59e0b', fontSize: '1rem', textAlign: 'center' }}>📜 Ходы партии</h3>
         <div style={{ display: 'grid', gap: '0.25rem', fontSize: '0.9rem', fontFamily: 'monospace' }}>
           {formattedHistory.length === 0 ? (
             <p style={{ color: '#64748b', textAlign: 'center', fontStyle: 'italic' }}>Ходов пока нет</p>
           ) : (
-            formattedHistory.map((row, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '28px 1fr 1fr', gap: '0.25rem', alignItems: 'center', padding: '0.15rem 0.25rem', borderRadius: '4px', background: i === Math.floor(currentMoveIndex / 2) ? 'rgba(59, 130, 246, 0.15)' : 'transparent' }}>
-                <span style={{ color: '#94a3b8', fontWeight: 'bold', minWidth: '28px' }}>{row.num}.</span>
-                <span style={{ 
-                  color: row.white && (i * 2) <= currentMoveIndex ? '#4ade80' : '#64748b',
-                  fontWeight: row.white && (i * 2) <= currentMoveIndex ? '600' : '400'
-                }}>{row.white || ''}</span>
-                <span style={{ 
-                  color: row.black && (i * 2 + 1) <= currentMoveIndex ? '#4ade80' : '#64748b',
-                  fontWeight: row.black && (i * 2 + 1) <= currentMoveIndex ? '600' : '400'
-                }}>{row.black || ''}</span>
-              </div>
-            ))
+            formattedHistory.map((row, i) => {
+              const whiteIdx = i * 2;
+              const blackIdx = i * 2 + 1;
+              const isCurrentRow = whiteIdx <= currentMoveIndex || blackIdx <= currentMoveIndex;
+              
+              return (
+                <div key={i} style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: '28px 1fr 1fr', 
+                  gap: '0.25rem', 
+                  alignItems: 'center', 
+                  padding: '0.15rem 0.25rem', 
+                  borderRadius: '4px', 
+                  background: isCurrentRow ? 'rgba(59, 130, 246, 0.15)' : 'transparent' 
+                }}>
+                  <span style={{ color: '#94a3b8', fontWeight: 'bold', minWidth: '28px' }}>{row.num}.</span>
+                  <span style={{ 
+                    color: row.white && whiteIdx <= currentMoveIndex ? '#4ade80' : '#64748b',
+                    fontWeight: row.white && whiteIdx <= currentMoveIndex ? '600' : '400'
+                  }}>{row.white || ''}</span>
+                  <span style={{ 
+                    color: row.black && blackIdx <= currentMoveIndex ? '#4ade80' : '#64748b',
+                    fontWeight: row.black && blackIdx <= currentMoveIndex ? '600' : '400'
+                  }}>{row.black || ''}</span>
+                </div>
+              );
+            })
           )}
         </div>
         {analysisMode && (
