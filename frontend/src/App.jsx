@@ -2,12 +2,10 @@ import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import { useTranslation } from 'react-i18next';
 import io from 'socket.io-client';
-import WalletConnect from './components/WalletConnect';
 import Navbar from './components/Navbar';
 import ChessBoard from './components/ChessBoard';
 import ChatBox from './components/ChatBox';
 import Profile from './components/Profile';
-import LanguageSwitcher from './components/LanguageSwitcher';
 import { createInviteLink, copyToClipboard } from './utils/gameLink';
 
 const SOCKET_URL = import.meta.env.VITE_WS_URL || 'https://chess4crypto-backend.onrender.com';
@@ -31,7 +29,7 @@ export default function App() {
 
   const userAddress = isGuest ? GUEST_ADDRESS : address;
 
-  // 🔌 Socket
+  // 🔌 Инициализация WebSocket
   useEffect(() => {
     const newSocket = io(SOCKET_URL, { transports: ['websocket', 'polling'], reconnection: true, reconnectionAttempts: 5 });
     setSocket(newSocket);
@@ -134,16 +132,15 @@ export default function App() {
 
   return (
     <div style={styles.app}>
-      <header style={styles.header}>
-        <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{t('header.title')}</span>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <LanguageSwitcher />
-          {isGuest && <span style={styles.badge}>{t('header.guest')}</span>}
-          <WalletConnect />
-          {isGuest && isConnected && <button onClick={() => { setIsGuest(false); setGameMode(null); }} style={styles.btnOutline}>{t('header.disconnect')}</button>}
-        </div>
-      </header>
-      {!gameMode && <Navbar activeTab={activeTab} onTabChange={setActiveTab} isGuest={isGuest} isConnected={isConnected} />}
+      {/* ✅ Единая красочная панель навигации (заменяет старый header) */}
+      <Navbar 
+        activeTab={activeTab} 
+        onTabChange={setActiveTab} 
+        isGuest={isGuest} 
+        isConnected={isConnected}
+        onGuestLogout={() => { setIsGuest(false); setGameMode(null); }}
+      />
+
       <main>{renderContent()}</main>
 
       {inviteModal && (
@@ -164,14 +161,12 @@ export default function App() {
   );
 }
 
+// 🎨 Стили
 const styles = {
   app: { background: '#0f172a', color: '#e2e8f0', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: '#0f172a', borderBottom: '1px solid #1e293b', position: 'sticky', top: 0, zIndex: 50 },
-  badge: { background: '#475569', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', color: '#94a3b8' },
   btnBack: { marginBottom: '1rem', padding: '0.5rem 1rem', background: '#64748b', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' },
   card: (b) => ({ background: '#1e293b', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: `2px solid ${b}` }),
   btnPrimary: (bg, d=false) => ({ padding: '1rem', background: d?'#475569':bg, color:'#fff', border:'none', borderRadius:'8px', cursor:d?'not-allowed':'pointer', fontWeight:'bold', opacity:d?0.5:1 }),
-  btnOutline: { padding: '0.4rem 0.8rem', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' },
   overlay: { position: 'fixed', top:0, left:0, right:0, bottom:0, background: 'rgba(0,0,0,0.8)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:'1rem' },
   modal: { background: '#1e293b', padding: '1.5rem', borderRadius: '12px', maxWidth: '350px', width: '90%', textAlign: 'center', border: '2px solid #3b82f6' }
 };
