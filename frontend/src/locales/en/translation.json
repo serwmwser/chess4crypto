@@ -1,0 +1,14 @@
+{
+    "header": { "title": "♟️ Chess4Crypto", "guest": "👤 Guest", "connect": "🦊 Connect Wallet", "disconnect": "🚪 Exit" },
+    "tabs": { "home": "🏠 Home", "play": "♟️ Play", "chat": "💬 Chat", "profile": "👤 Profile" },
+    "home": { "welcome": "👋 Welcome to Chess4Crypto", "sub": "Play vs AI or challenge opponents online.", "guestBtn": "👤 Enter as Guest" },
+    "play": { "title": "♟️ Game Mode", "vsBot": "🤖 Play vs Bot", "random": "⚡ Random Opponent", "locked": "(🔒)", "invite": "🎯 Direct Invite", "placeholder": "Wallet 0x...", "send": "📨", "online": "🟢 Online: {{count}}", "timeMin": "{{count}} min", "timeHour": "1 hr" },
+    "chess": { "ready": "✅ Ready", "think": "⏳ Bot thinking... ({{count}})", "yourTurn": "✅ Your turn", "oppTurn": "⏳ Opponent's turn...", "mate": "🏆 Checkmate!", "draw": "🤝 Draw", "timeW": "⏰ White's time ran out!", "timeB": "⏰ Black's time ran out!", "history": "📜 Move History", "noMoves": "No moves yet", "analysis": "🔍 Analysis Mode", "hint": "Viewing past position. ⏮ returns to live game.", "restart": "🔄 Restart", "back": "← Back", "fwd": "Forward →", "live": "⏮ Current", "vsBotLabel": "vs Bot", "room": "Room #{{id}}" },
+    "wallet": { "title": "Choose Wallet", "close": "Close", "connecting": "⏳ Connecting..." },
+    "profile": { "title": "👤 Player Profile", "addr": "Your address:", "copy": "📋", "copied": "✓", "net": "Network: {{name}}", "bal": "💰 GROK Balance", "load": "⏳ Loading...", "err": "❌ Error", "playBtn": "🎮 Start Game", "chatBtn": "💬 Open Chat", "buyBtn": "🌐 Buy GROK", "connect": "🔒 Connect wallet" },
+    "chat": { "title": "💬 Game Chat", "empty": "No messages yet", "ph": "Type a message...", "send": "📤" },
+    "match": { "search": "⏳ Searching...", "wait": "Waiting for connection", "cancel": "❌ Cancel" },
+    "game": { "title": "🎮 Game #{{id}}", "opp": "Opponent:", "copyLink": "📋 Copy Link", "copied": "✓ Copied!" },
+    "invite": { "title": "📨 Game Invite", "msg": "<0>{{who}}</0> invites you!", "accept": "✅ Accept", "decline": "❌ Decline" },
+    "lang": { "en": "EN", "ru": "RU" }
+  }
