@@ -13,6 +13,7 @@ export const config = createConfig({
     injected({ target: 'injected' }),
     walletConnect({ projectId: '587fd6a621438c02626b74e674550d43', showQrModal: true })
   ],
+
   transports: {
     [bsc.id]: http(),
     [bscTestnet.id]: http(),
