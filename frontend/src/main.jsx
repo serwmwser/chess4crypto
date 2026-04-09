@@ -11,7 +11,7 @@ export const config = createConfig({
   connectors: [
     metaMask({ shimDisconnect: true }),
     injected({ target: 'injected' }),
-    walletConnect({ projectId: 'ec02d4144278f6333428347809344102', showQrModal: true })
+    walletConnect({ projectId: '587fd6a621438c02626b74e674550d43', showQrModal: true })
   ],
   transports: {
     [bsc.id]: http(),

@@ -14,13 +14,7 @@ const PORT = process.env.PORT || 3001;
 
 // ✅ CORS: разрешаем ВСЕМ (для продакшена можно сузить)
 const corsOptions = {
-  origin: [
-    'https://chess4crypto.vercel.app',
-    'https://chess4crypto-*.vercel.app',
-    'http://localhost:5173',
-    'http://localhost:3000',
-    '*' // ⚠️ Для теста: разрешаем все домены
-  ],
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -29,14 +23,16 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// ✅ Socket.IO с правильной CORS-конфигурацией
+// ✅ Socket.IO: правильная конфигурация для Render + Vercel
 const io = new Server(server, {
   cors: corsOptions,
   pingTimeout: 60000,
-  pingInterval: 25000
+  pingInterval: 25000,
+  transports: ['websocket', 'polling'],
+  path: '/socket.io' // ⚠️ Явно указываем путь!
 });
 
-// 🗄️ Хранилище игр и игроков
+// 🗄️ Хранилище
 const games = new Map();
 const onlinePlayers = new Map();
 const matchQueue = [];
@@ -45,7 +41,6 @@ const matchQueue = [];
 io.on('connection', (socket) => {
   console.log('🔗 Client connected:', socket.id);
 
-  // Регистрация игрока
   socket.on('registerPlayer', ({ address }) => {
     onlinePlayers.set(address, { socketId: socket.id });
     socket.join(`user_${address}`);
@@ -53,7 +48,6 @@ io.on('connection', (socket) => {
     console.log(`👤 Online: ${address}`);
   });
 
-  // Поиск случайного матча
   socket.on('requestMatch', ({ address }) => {
     if (!matchQueue.includes(address)) {
       matchQueue.push(address);
@@ -70,14 +64,12 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Отмена поиска
   socket.on('cancelMatch', ({ address }) => {
     const idx = matchQueue.indexOf(address);
     if (idx !== -1) matchQueue.splice(idx, 1);
     socket.emit('matchStatus', { status: 'canceled' });
   });
 
-  // Прямое приглашение
   socket.on('directInvite', ({ from, to, gameId }) => {
     const target = onlinePlayers.get(to);
     if (target) {
@@ -89,7 +81,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Присоединение к игре
   socket.on('joinGame', ({ gameId, address }) => {
     socket.join(`game_${gameId}`);
     const game = games.get(gameId);
@@ -104,7 +95,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Обработка хода
   socket.on('makeMove', ({ gameId, from, to, promotion, playerAddress }) => {
     const game = games.get(gameId);
     if (!game) return;
@@ -131,14 +121,12 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Чат
   socket.on('chatMessage', ({ gameId, user, text, time }) => {
     const safeText = text.replace(/[<>]/g, '');
     const msg = { user, text: safeText, time };
     io.to(`game_${gameId}`).emit('chatMessage', msg);
   });
 
-  // Отключение
   socket.on('disconnect', () => {
     for (const [addr, data] of onlinePlayers.entries()) {
       if (data.socketId === socket.id) {
@@ -153,18 +141,19 @@ io.on('connection', (socket) => {
   });
 });
 
-// 🏥 Health check (обязательно для Render!)
+// 🏥 Health check (ОБЯЗАТЕЛЬНО для Render!)
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: Date.now(), uptime: process.uptime() });
 });
 
 // 🎯 Root endpoint
 app.get('/', (req, res) => {
-  res.json({ message: 'Chess4Crypto Backend is running 🚀' });
+  res.json({ message: 'Chess4Crypto Backend is running 🚀', endpoints: { health: '/health', socket: '/socket.io' } });
 });
 
 // 🚀 Запуск сервера
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Backend running on port ${PORT}`);
   console.log(`🔗 Health: https://chess4crypto-backend.onrender.com/health`);
+  console.log(`🔗 Socket: wss://chess4crypto-backend.onrender.com/socket.io`);
 });
