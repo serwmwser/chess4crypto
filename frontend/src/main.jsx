@@ -1,19 +1,21 @@
-import './i18n';
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { WagmiProvider, createConfig, http } from 'wagmi'
 import { bsc, bscTestnet } from 'wagmi/chains'
-import { metaMask, walletConnect, injected } from 'wagmi/connectors'
+import { metaMask, injected, walletConnect } from 'wagmi/connectors'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
+import './i18n'
 
-// ✅ Ваш рабочий projectId из cloud.walletconnect.com
-export const config = createConfig({
+// 🔑 Получаем projectId из .env или ставим заглушку (MetaMask всё равно будет работать)
+const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '00000000000000000000000000000000'
+
+const config = createConfig({
   chains: [bsc, bscTestnet],
   connectors: [
-    metaMask({ shimDisconnect: true }),
-    injected({ target: 'injected' }),
-    walletConnect({ projectId: '587fd6a621438c02626b74e674550d43', showQrModal: true })
+    metaMask({ dappMetadata: { name: 'Chess4Crypto', url: 'https://chess4crypto.vercel.app' } }),
+    injected({ shimDisconnect: true }),
+    walletConnect({ projectId, showQrModal: true })
   ],
   transports: {
     [bsc.id]: http(),
@@ -30,5 +32,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <App />
       </QueryClientProvider>
     </WagmiProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 )
