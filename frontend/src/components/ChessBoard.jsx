@@ -12,7 +12,7 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
   
   const timerRef = useRef(null);
   const gameRef = useRef(game);
-  gameRef.current = game; // Мгновенный доступ к актуальному состоянию
+  gameRef.current = game;
 
   const { playMove, playCapture, playCheck, playGameOver } = useChessSounds();
   const myColor = playerColor === 'black' ? 'b' : 'w';
@@ -20,32 +20,25 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
   const isOver = game.isGameOver();
   const fmt = s => `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
 
-  // ⏱️ Строгий шахматный таймер (зависит ТОЛЬКО от смены хода)
+  // ⏱️ СТРОГИЙ ТАЙМЕР (перезапускается ТОЛЬКО при смене хода или конце игры)
   useEffect(() => {
     if (isOver) { clearInterval(timerRef.current); return; }
 
     clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
-      // Читаем ход из ref, чтобы избежать устаревших замыканий
       const currentTurn = gameRef.current.turn();
       if (currentTurn === 'w') setTimeW(t => Math.max(0, t - 1));
       else setTimeB(t => Math.max(0, t - 1));
     }, 1000);
 
     return () => clearInterval(timerRef.current);
-  }, [turn, isOver]); // Перезапуск интервала строго при смене хода или конце игры
+  }, [turn, isOver]); // ⚠️ КРИТИЧЕСКИ ВАЖНО: зависит от хода и окончания игры
 
   // ⏰ Проверка проигрыша по времени
   useEffect(() => {
     if (isOver) return;
-    if (timeW === 0) {
-      playGameOver();
-      setStatus('⏰ Время белых вышло! Победа чёрных.');
-    }
-    if (timeB === 0) {
-      playGameOver();
-      setStatus('⏰ Время чёрных вышло! Победа белых.');
-    }
+    if (timeW === 0) { playGameOver(); setStatus('⏰ Время белых вышло! Победа чёрных.'); }
+    if (timeB === 0) { playGameOver(); setStatus('⏰ Время чёрных вышло! Победа белых.'); }
   }, [timeW, timeB, isOver, playGameOver]);
 
   // 🔊 Звуки
@@ -56,11 +49,10 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
     if (game.inCheck()) setTimeout(playCheck, 150);
   }, [game.fen(), playMove, playCapture, playCheck]);
 
-  // 🤖 ИИ (обновлён для корректной работы с таймером)
+  // 🤖 ИИ с задержкой (чтобы вы видели тиканье его часов)
   const makeBotMove = useCallback(() => {
     if (isOver || turn !== 'b') return;
-    setIsThinking(true); 
-    setStatus('⏳ Бот думает...');
+    setIsThinking(true); setStatus('⏳ Бот думает...');
     
     setTimeout(() => {
       try {
@@ -68,16 +60,13 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
         const m = t.moves({ verbose: true });
         if (!m.length) { setIsThinking(false); return; }
         
-        let best = m.find(x => x.captured) || 
-                   m.find(x => { const c = new Chess(gameRef.current.fen()); c.move(x.san); return !c.inCheck(); }) || 
-                   m[Math.floor(Math.random() * m.length)];
-        
+        let best = m.find(x => x.captured) || m[Math.floor(Math.random() * m.length)];
         const next = new Chess(gameRef.current.fen()); 
         next.move(best.san); 
         setGame(next);
-      } catch(e) { console.error('Bot error:', e); }
+      } catch(e) { console.error(e); }
       setIsThinking(false);
-    }, 800); // 800мс задержка, чтобы вы видели тиканье часов бота
+    }, 900); // 900мс = ровно 1 тик таймера
   }, [isOver, turn]);
 
   useEffect(() => {
@@ -120,12 +109,7 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
         </div>
       </div>
 
-      <Chessboard 
-        position={game.fen()} 
-        onPieceDrop={onDrop} 
-        boardOrientation={playerColor==='black'?'black':'white'} 
-        arePiecesDraggable={!isThinking && !isOver && (!withBot || turn===myColor)} 
-      />
+      <Chessboard position={game.fen()} onPieceDrop={onDrop} boardOrientation={playerColor==='black'?'black':'white'} arePiecesDraggable={!isThinking && !isOver && (!withBot || turn===myColor)} />
 
       <div style={{ textAlign: 'center', marginTop: '0.75rem', padding: '0.5rem', background: '#1e293b', borderRadius: '8px', fontSize: '0.95rem' }}>
         🎮 {withBot?'vs Бот':`Комната #${gameId}`} | <span style={{ color: isThinking?'#f59e0b':'#4ade80' }}>{status}</span>

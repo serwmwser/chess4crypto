@@ -6,15 +6,12 @@ import { metaMask, walletConnect, injected } from 'wagmi/connectors'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 
-// ✅ Рабочий ProjectID (бесплатно: https://cloud.walletconnect.com)
-const WC_PROJECT_ID = 'ec02d4144278f6333428347809344102'
-
 export const config = createConfig({
   chains: [bsc, bscTestnet],
   connectors: [
     metaMask(),
     injected({ target: 'injected' }),
-    walletConnect({ projectId: WC_PROJECT_ID, showQrModal: true })
+    walletConnect({ projectId: 'ec02d4144278f6333428347809344102', showQrModal: true })
   ],
   transports: {
     [bsc.id]: http(),
