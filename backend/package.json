@@ -1,24 +1,16 @@
 {
   "name": "chess4crypto-backend",
   "version": "1.0.0",
-  "description": "WebSocket backend for Chess4Crypto - real-time chess with AI, PvP & crypto wallets",
+  "description": "WebSocket backend for Chess4Crypto",
   "main": "server.js",
   "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "echo \"No tests specified\" && exit 0"
+    "test": "echo \"No tests\" && exit 0"
   },
-  "keywords": [
-    "chess",
-    "websocket",
-    "socket.io",
-    "crypto",
-    "web3",
-    "express",
-    "render"
-  ],
-  "author": "Chess4Crypto Team",
+  "keywords": ["chess", "websocket", "socket.io", "web3"],
+  "author": "Chess4Crypto",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -33,8 +25,5 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "chess.js": "^1.0.0-beta.8"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.2"
   }
 }
