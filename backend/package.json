@@ -1,7 +1,7 @@
 {
   "name": "chess4crypto-backend",
   "version": "1.0.0",
-  "description": "WebSocket backend for Chess4Crypto - real-time chess, chat, matchmaking, betting",
+  "description": "WebSocket backend for Chess4Crypto - real-time chess with AI, PvP & crypto wallets",
   "main": "server.js",
   "type": "module",
   "scripts": {
@@ -15,8 +15,8 @@
     "socket.io",
     "crypto",
     "web3",
-    "blockchain",
-    "bsc"
+    "express",
+    "render"
   ],
   "author": "Chess4Crypto Team",
   "license": "MIT",

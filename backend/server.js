@@ -12,26 +12,31 @@ const app = express();
 const server = createServer(app);
 const PORT = process.env.PORT || 3001;
 
-// ✅ CORS: разрешаем ВСЕМ (для продакшена можно сузить)
+// ✅ CORS: разрешаем Vercel + localhost + Render
 const corsOptions = {
-  origin: '*',
+  origin: [
+    'https://chess4crypto.vercel.app',
+    'http://localhost:5173',
+    'https://chess4crypto-backend.onrender.com'
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Обработка preflight-запросов
+app.options('*', cors(corsOptions));
 app.use(express.json());
 
-// ✅ Socket.IO: конфигурация для Render + Vercel
+// ✅ Socket.IO: конфигурация для Render (критично!)
 const io = new Server(server, {
   cors: corsOptions,
   pingTimeout: 60000,
   pingInterval: 25000,
-  transports: ['websocket', 'polling'], // ⚠️ polling как фолбэк для Render
+  transports: ['websocket', 'polling'], // polling как фолбэк для Render
   path: '/socket.io', // ⚠️ Явно указываем путь
-  allowEIO3: true // Совместимость с разными версиями
+  allowEIO3: true,
+  connectTimeout: 45000
 });
 
 // 🗄️ Хранилище
@@ -47,10 +52,11 @@ io.on('connection', (socket) => {
     onlinePlayers.set(address, { socketId: socket.id });
     socket.join(`user_${address}`);
     io.emit('onlinePlayersUpdate', Array.from(onlinePlayers.keys()));
-    console.log(`👤 Online: ${address}`);
+    console.log(`👤 Registered: ${address}`);
   });
 
   socket.on('requestMatch', ({ address }) => {
+    console.log(`🔍 ${address} requesting match...`);
     if (!matchQueue.includes(address)) {
       matchQueue.push(address);
       socket.emit('matchStatus', { status: 'searching' });
@@ -59,16 +65,20 @@ io.on('connection', (socket) => {
       const p1 = matchQueue.shift();
       const p2 = matchQueue.shift();
       const gameId = Math.random().toString(36).substring(2, 10).toUpperCase();
-      games.set(gameId, { chess: new Chess(), players: [p1, p2] });
+      games.set(gameId, { chess: new Chess(), players: [p1, p2], createdAt: Date.now() });
+      
       io.to(`user_${p1}`).emit('matchFound', { gameId, role: 'white', opponent: p2 });
       io.to(`user_${p2}`).emit('matchFound', { gameId, role: 'black', opponent: p1 });
-      console.log(`🎮 Matched: ${p1} vs ${p2} [${gameId}]`);
+      console.log(`🎮 Match: ${gameId} | ${p1} vs ${p2}`);
     }
   });
 
   socket.on('cancelMatch', ({ address }) => {
     const idx = matchQueue.indexOf(address);
-    if (idx !== -1) matchQueue.splice(idx, 1);
+    if (idx !== -1) {
+      matchQueue.splice(idx, 1);
+      console.log(`❌ ${address} canceled match`);
+    }
     socket.emit('matchStatus', { status: 'canceled' });
   });
 
@@ -79,7 +89,7 @@ io.on('connection', (socket) => {
       io.to(target.socketId).emit('inviteReceived', { from, gameId });
       console.log(`📨 Invite: ${from} -> ${to}`);
     } else {
-      socket.emit('error', '⛔ Игрок не в сети');
+      socket.emit('error', '⛔ Player offline');
     }
   });
 
@@ -94,6 +104,7 @@ io.on('connection', (socket) => {
         gameId, 
         playerColor: isCreator ? 'w' : 'b' 
       });
+      console.log(`👥 Joined: ${address} to ${gameId}`);
     }
   });
 
@@ -103,7 +114,7 @@ io.on('connection', (socket) => {
     const turn = game.chess.turn();
     const expected = game.players[turn === 'w' ? 0 : 1];
     if (playerAddress !== expected) {
-      socket.emit('error', '⛔ Сейчас не ваш ход!');
+      socket.emit('error', '⛔ Not your turn');
       return;
     }
     try {
@@ -113,47 +124,59 @@ io.on('connection', (socket) => {
           fen: game.chess.fen(),
           turn: game.chess.turn(),
           gameOver: game.chess.isGameOver(),
-          result: game.chess.isCheckmate() ? 'Мат' : game.chess.isDraw() ? 'Ничья' : null
+          result: game.chess.isCheckmate() ? 'checkmate' : game.chess.isDraw() ? 'draw' : null
         };
         socket.to(`game_${gameId}`).emit('opponentMove', state);
         socket.emit('moveConfirmed', state);
       }
     } catch (e) {
-      socket.emit('error', '❌ Недопустимый ход');
+      socket.emit('error', '❌ Invalid move');
     }
   });
 
   socket.on('chatMessage', ({ gameId, user, text, time }) => {
     const safeText = text.replace(/[<>]/g, '');
-    const msg = { user, text: safeText, time };
-    io.to(`game_${gameId}`).emit('chatMessage', msg);
+    io.to(`game_${gameId}`).emit('chatMessage', { user, text: safeText, time });
   });
 
   socket.on('disconnect', () => {
     for (const [addr, data] of onlinePlayers.entries()) {
       if (data.socketId === socket.id) {
         onlinePlayers.delete(addr);
-        const qIdx = matchQueue.indexOf(addr);
-        if (qIdx !== -1) matchQueue.splice(qIdx, 1);
+        const idx = matchQueue.indexOf(addr);
+        if (idx !== -1) matchQueue.splice(idx, 1);
         io.emit('onlinePlayersUpdate', Array.from(onlinePlayers.keys()));
+        console.log(`🔌 Disconnected: ${addr}`);
         break;
       }
     }
-    console.log('🔌 Disconnected:', socket.id);
   });
 });
 
 // 🏥 Health check (ОБЯЗАТЕЛЬНО для Render!)
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: Date.now(), uptime: process.uptime() });
+  res.json({ 
+    status: 'ok', 
+    timestamp: Date.now(), 
+    uptime: process.uptime(),
+    io: !!io,
+    port: PORT
+  });
 });
 
 app.get('/', (req, res) => {
-  res.json({ message: 'Chess4Crypto Backend 🚀', endpoints: { health: '/health', socket: '/socket.io' } });
+  res.json({ 
+    message: 'Chess4Crypto Backend 🚀', 
+    endpoints: { 
+      health: '/health', 
+      socket: '/socket.io' 
+    } 
+  });
 });
 
-// 🚀 Запуск на 0.0.0.0 (требуется для Render)
+// 🚀 Запуск на 0.0.0.0 (ОБЯЗАТЕЛЬНО для Render!)
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Backend running on port ${PORT}`);
   console.log(`🔗 Health: https://chess4crypto-backend.onrender.com/health`);
+  console.log(`🔗 Socket: wss://chess4crypto-backend.onrender.com/socket.io`);
 });
