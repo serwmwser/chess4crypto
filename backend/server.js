@@ -12,7 +12,7 @@ const app = express();
 const server = createServer(app);
 const PORT = process.env.PORT || 3001;
 
-// ✅ CORS: разрешаем ВСЕМ (для продакшена можно сузить)
+// ✅ CORS: разрешаем ВСЕМ (Render + Vercel)
 const corsOptions = {
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -23,13 +23,13 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// ✅ Socket.IO: правильная конфигурация для Render + Vercel
+// ✅ Socket.IO: ЯВНО указываем path и transports для Render
 const io = new Server(server, {
   cors: corsOptions,
   pingTimeout: 60000,
   pingInterval: 25000,
   transports: ['websocket', 'polling'],
-  path: '/socket.io' // ⚠️ Явно указываем путь!
+  path: '/socket.io' // ⚠️ КРИТИЧЕСКИ ВАЖНО для Render
 });
 
 // 🗄️ Хранилище
@@ -45,7 +45,6 @@ io.on('connection', (socket) => {
     onlinePlayers.set(address, { socketId: socket.id });
     socket.join(`user_${address}`);
     io.emit('onlinePlayersUpdate', Array.from(onlinePlayers.keys()));
-    console.log(`👤 Online: ${address}`);
   });
 
   socket.on('requestMatch', ({ address }) => {
@@ -60,7 +59,6 @@ io.on('connection', (socket) => {
       games.set(gameId, { chess: new Chess(), players: [p1, p2] });
       io.to(`user_${p1}`).emit('matchFound', { gameId, role: 'white', opponent: p2 });
       io.to(`user_${p2}`).emit('matchFound', { gameId, role: 'black', opponent: p1 });
-      console.log(`🎮 Matched: ${p1} vs ${p2} [${gameId}]`);
     }
   });
 
@@ -75,7 +73,6 @@ io.on('connection', (socket) => {
     if (target) {
       games.set(gameId, { chess: new Chess(), players: [from, to] });
       io.to(target.socketId).emit('inviteReceived', { from, gameId });
-      console.log(`📨 Invite: ${from} -> ${to}`);
     } else {
       socket.emit('error', '⛔ Игрок не в сети');
     }
@@ -137,7 +134,6 @@ io.on('connection', (socket) => {
         break;
       }
     }
-    console.log('🔌 Disconnected:', socket.id);
   });
 });
 
@@ -146,14 +142,12 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: Date.now(), uptime: process.uptime() });
 });
 
-// 🎯 Root endpoint
 app.get('/', (req, res) => {
-  res.json({ message: 'Chess4Crypto Backend is running 🚀', endpoints: { health: '/health', socket: '/socket.io' } });
+  res.json({ message: 'Chess4Crypto Backend 🚀', endpoints: { health: '/health', socket: '/socket.io' } });
 });
 
-// 🚀 Запуск сервера
+// 🚀 Запуск на 0.0.0.0 (требуется для Render)
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Backend running on port ${PORT}`);
   console.log(`🔗 Health: https://chess4crypto-backend.onrender.com/health`);
-  console.log(`🔗 Socket: wss://chess4crypto-backend.onrender.com/socket.io`);
 });
