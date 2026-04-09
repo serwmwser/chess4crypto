@@ -1,68 +1,60 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 
 export default function ChessBoard({ gameId, userAddress, withBot = false, playerColor = 'white', initialTime = 300 }) {
-  const [game, setGame] = useState(new Chess());
-  const [status, setStatus] = useState('✅ Готов к игре');
-  const [isThinking, setIsThinking] = useState(false);
+  // 📊 Единственный источник истины: массив всех ходов
+  const [moves, setMoves] = useState([]);
+  const [viewIndex, setViewIndex] = useState(-1); // -1 = старт, 0 = ход 1, и т.д.
+  
   const [timeW, setTimeW] = useState(initialTime);
   const [timeB, setTimeB] = useState(initialTime);
-  
-  // 📊 История и навигация
-  const [moveHistory, setMoveHistory] = useState([]); // Все ходы партии
-  const [currentMoveIndex, setCurrentMoveIndex] = useState(-1); // На каком ходе сейчас (-1 = начало)
-  const [analysisMode, setAnalysisMode] = useState(false); // Режим анализа (таймеры остановлены)
+  const [status, setStatus] = useState('✅ Готов к игре');
+  const [isThinking, setIsThinking] = useState(false);
   
   const timerRef = useRef(null);
-  const gameRef = useRef(game);
-  gameRef.current = game;
+  const isAnalyzing = viewIndex < moves.length - 1;
 
+  // 🎯 Текущая позиция на доске (вычисляется динамически)
+  const currentFen = useMemo(() => {
+    const temp = new Chess();
+    for (let i = 0; i <= viewIndex; i++) temp.move(moves[i].san);
+    return temp.fen();
+  }, [moves, viewIndex]);
+
+  // ♟️ Реальное состояние партии (для таймеров, валидации, бота)
+  const actualGame = useMemo(() => {
+    const temp = new Chess();
+    for (const m of moves) temp.move(m.san);
+    return temp;
+  }, [moves]);
+
+  const isOver = actualGame.isGameOver();
+  const actualTurn = actualGame.turn();
   const myColor = playerColor === 'black' ? 'b' : 'w';
-  const turn = game.turn();
-  const isOver = game.isGameOver();
   const fmt = s => `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
 
-  // ⏱️ Таймер (только в реальной игре, не в анализе)
+  // ⏱️ Таймеры (тикают ТОЛЬКО в живой игре)
   useEffect(() => {
-    if (isOver || analysisMode) { clearInterval(timerRef.current); return; }
-    clearInterval(timerRef.current);
+    if (isOver || isAnalyzing) { clearInterval(timerRef.current); return; }
     timerRef.current = setInterval(() => {
-      const currentTurn = gameRef.current.turn();
-      if (currentTurn === 'w') setTimeW(p => Math.max(0, p - 1));
-      else setTimeB(p => Math.max(0, p - 1));
+      if (actualTurn === 'w') setTimeW(t => Math.max(0, t - 1));
+      else setTimeB(t => Math.max(0, t - 1));
     }, 1000);
     return () => clearInterval(timerRef.current);
-  }, [turn, isOver, analysisMode]);
+  }, [actualTurn, isOver, isAnalyzing, moves.length]);
 
-  // ⏰ Проверка конца по времени
+  // ⏰ Проверка окончания по времени
   useEffect(() => {
-    if (isOver || analysisMode) return;
-    if (timeW === 0 && turn === 'w') setStatus('⏰ Время белых вышло! Победа чёрных.');
-    if (timeB === 0 && turn === 'b') setStatus('⏰ Время чёрных вышло! Победа белых.');
-  }, [timeW, timeB, turn, isOver, analysisMode]);
+    if (isOver || isAnalyzing) return;
+    if (timeW === 0 && actualTurn === 'w') setStatus('⏰ Время белых вышло!');
+    if (timeB === 0 && actualTurn === 'b') setStatus('⏰ Время чёрных вышло!');
+  }, [timeW, timeB, actualTurn, isOver, isAnalyzing]);
 
-  // 📝 Обновление истории при каждом новом ходе
-  useEffect(() => {
-    const history = game.history({ verbose: true });
-    
-    // Если ходов стало больше — значит сделан НОВЫЙ ход в реальной игре
-    if (history.length > moveHistory.length) {
-      setMoveHistory([...history]);
-      setCurrentMoveIndex(history.length - 1); // 🔥 Переходим на ПОСЛЕДНИЙ ход
-      setAnalysisMode(false); // Выходим из анализа
-    }
-    // Если ходов меньше (редкий кейс) — просто обновляем
-    else {
-      setMoveHistory([...history]);
-    }
-  }, [game.fen()]);
-
-  // 🤖 Бот с задержкой 3 секунды
+  // 🤖 Бот (строго 3 секунды, авто-переход на новую позицию)
   const makeBotMove = useCallback(() => {
-    if (isOver || turn !== 'b' || analysisMode) return;
-    setIsThinking(true); 
-    setStatus('⏳ Бот думает... (03)');
+    if (isOver || actualTurn !== 'b' || isAnalyzing) return;
+    setIsThinking(true); setStatus('⏳ Бот думает... (03)');
     
     let thinkCount = 3;
     const thinkInterval = setInterval(() => {
@@ -73,216 +65,127 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
     setTimeout(() => {
       clearInterval(thinkInterval);
       try {
-        const t = new Chess(gameRef.current.fen());
-        const m = t.moves({ verbose: true });
-        if (!m.length) { setIsThinking(false); return; }
-        let best = m.find(x => x.captured) || m[Math.floor(Math.random() * m.length)];
-        const next = new Chess(gameRef.current.fen()); 
-        next.move(best.san); 
-        setGame(next);
-      } catch(e) { console.error('Bot error:', e); }
-      setIsThinking(false);
+        const temp = new Chess(actualGame.fen());
+        const possible = temp.moves({ verbose: true });
+        if (!possible.length) { setIsThinking(false); return; }
+        const best = possible.find(m => m.captured) || possible[Math.floor(Math.random() * possible.length)];
+        
+        setMoves(prev => [...prev, best]);
+        setViewIndex(prev => prev + 1); // 🔥 Авто-следовать за живой игрой
+        setIsThinking(false);
+      } catch(e) { console.error(e); setIsThinking(false); }
     }, 3000);
-  }, [isOver, turn, analysisMode]);
+  }, [isOver, actualTurn, isAnalyzing, actualGame]);
 
   useEffect(() => {
-    if (withBot && turn === 'b' && !isThinking && !isOver && !analysisMode) {
-      makeBotMove();
-    } else if (!isOver && !analysisMode) {
-      setStatus(turn === myColor ? '✅ Ваш ход' : '⏳ Ход соперника...');
-    }
-  }, [game, withBot, myColor, isThinking, makeBotMove, isOver, analysisMode, turn]);
+    if (withBot && actualTurn === 'b' && !isThinking && !isOver && !isAnalyzing) makeBotMove();
+    else if (!isOver && !isAnalyzing) setStatus(actualTurn === myColor ? '✅ Ваш ход' : '⏳ Ход соперника...');
+  }, [moves.length, withBot, myColor, isThinking, makeBotMove, isOver, isAnalyzing, actualTurn]);
 
-  // 🎯 Ход игрока (только если НЕ в анализе)
+  // 🎯 Ход игрока (добавляет в массив + авто-переход)
   const onDrop = (src, dst) => {
-    if (isThinking || isOver || turn !== myColor || analysisMode) return false;
+    if (isThinking || isOver || actualTurn !== myColor || isAnalyzing) return false;
     try {
-      const next = new Chess(game.fen());
-      const move = next.move({ from: src, to: dst, promotion: 'q' });
+      const temp = new Chess(actualGame.fen());
+      const move = temp.move({ from: src, to: dst, promotion: 'q' });
       if (!move) return false;
-      setGame(next);
-      if (next.isCheckmate()) {
-        clearInterval(timerRef.current);
-        setStatus('🏆 Вы поставили мат!');
-      } else if (next.isDraw()) {
-        clearInterval(timerRef.current);
-        setStatus('🤝 Ничья!');
-      }
+
+      setMoves(prev => [...prev, move]);
+      setViewIndex(prev => prev + 1);
+
+      if (temp.isCheckmate()) { clearInterval(timerRef.current); setStatus('🏆 Мат!'); }
+      else if (temp.isDraw()) { clearInterval(timerRef.current); setStatus('🤝 Ничья!'); }
       return true;
-    } catch (e) { console.error('Move error:', e); return false; }
+    } catch { return false; }
   };
 
-  // 🔙 НАВИГАЦИЯ — ИСПРАВЛЕННАЯ ЛОГИКА
-  
-  // Переход к конкретному индексу хода
-  const goToMove = (targetIndex) => {
-    // Границы: -1 (начало) до moveHistory.length - 1 (последний ход)
-    if (targetIndex < -1 || targetIndex >= moveHistory.length) return;
-    
-    // Создаём новую доску и проигрываем ходы до targetIndex
-    const tempGame = new Chess();
-    for (let i = 0; i <= targetIndex; i++) {
-      tempGame.move(moveHistory[i].san);
-    }
-    
-    setGame(tempGame);
-    setCurrentMoveIndex(targetIndex);
-    
-    // Анализ включается, если мы НЕ на последнем ходе
-    setAnalysisMode(targetIndex < moveHistory.length - 1);
+  // 🔙 НАВИГАЦИЯ (меняет ТОЛЬКО viewIndex)
+  const goBack = () => setViewIndex(i => Math.max(-1, i - 1));
+  const goForward = () => setViewIndex(i => Math.min(moves.length - 1, i + 1));
+  const goLive = () => setViewIndex(moves.length - 1);
+
+  const reset = () => {
+    setMoves([]); setViewIndex(-1); setTimeW(initialTime); setTimeB(initialTime);
+    setStatus('✅ Готов к игре'); setIsThinking(false); clearInterval(timerRef.current);
   };
 
-  // ← Назад: ровно 1 ход
-  const goToPrevious = () => {
-    goToMove(currentMoveIndex - 1);
-  };
-
-  // → Вперёд: ровно 1 ход
-  const goToNext = () => {
-    goToMove(currentMoveIndex + 1);
-  };
-
-  // ⏮ Текущая: прыжок на ПОСЛЕДНИЙ ход (живая игра)
-  const goToLive = () => {
-    goToMove(moveHistory.length - 1);
-  };
-
-  const reset = () => { 
-    setGame(new Chess()); 
-    setTimeW(initialTime); 
-    setTimeB(initialTime); 
-    setStatus('✅ Готов к игре'); 
-    setIsThinking(false); 
-    setAnalysisMode(false);
-    clearInterval(timerRef.current); 
-  };
-
-  // 📋 Форматирование: 1. e4 e5, 2. Nf3 Nc6
-  const formattedHistory = [];
-  for (let i = 0; i < moveHistory.length; i += 2) {
-    const moveNum = Math.floor(i / 2) + 1;
-    const whiteMove = moveHistory[i]?.san || '';
-    const blackMove = moveHistory[i + 1]?.san || '';
-    formattedHistory.push({ num: moveNum, white: whiteMove, black: blackMove });
+  // 📜 Форматирование истории (1. e4 e5, 2. Nf3 Nc6)
+  const historyPairs = [];
+  for (let i = 0; i < moves.length; i += 2) {
+    historyPairs.push({
+      num: Math.floor(i / 2) + 1,
+      white: moves[i].san,
+      black: moves[i + 1]?.san || ''
+    });
   }
 
   // Состояния кнопок
-  const canGoBack = currentMoveIndex >= 0;
-  const canGoForward = currentMoveIndex < moveHistory.length - 1;
-  const canGoLive = analysisMode; // Активна только в режиме анализа
+  const canBack = viewIndex >= 0;
+  const canForward = viewIndex < moves.length - 1;
+  const canLive = isAnalyzing;
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-      
       {/* ♟️ Доска + таймеры */}
       <div style={{ flex: '1 1 500px', minWidth: '300px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', gap: '0.5rem' }}>
-          <div style={{ flex: 1, padding: '0.75rem', background: turn==='w' && !analysisMode ? '#3b82f6' : '#1e293b', color: turn==='w' && !analysisMode ? '#000' : '#e2e8f0', borderRadius: '8px', textAlign: 'center', fontWeight: 'bold', transition: '0.3s', border: turn==='w' && !analysisMode ? '2px solid #60a5fa' : '1px solid #334155' }}>
-            ⚪ Белые: {fmt(timeW)} {turn==='w' && !isOver && !analysisMode && '⏳'}
+          <div style={{ flex: 1, padding: '0.75rem', background: actualTurn==='w' && !isAnalyzing ? '#3b82f6' : '#1e293b', color: actualTurn==='w' && !isAnalyzing ? '#000' : '#e2e8f0', borderRadius: '8px', textAlign: 'center', fontWeight: 'bold', transition: '0.3s', border: actualTurn==='w' && !isAnalyzing ? '2px solid #60a5fa' : '1px solid #334155' }}>
+            ⚪ Белые: {fmt(timeW)} {actualTurn==='w' && !isOver && !isAnalyzing && '⏳'}
           </div>
-          <div style={{ flex: 1, padding: '0.75rem', background: turn==='b' && !analysisMode ? '#3b82f6' : '#1e293b', color: turn==='b' && !analysisMode ? '#000' : '#e2e8f0', borderRadius: '8px', textAlign: 'center', fontWeight: 'bold', transition: '0.3s', border: turn==='b' && !analysisMode ? '2px solid #60a5fa' : '1px solid #334155' }}>
-            ⚫ Чёрные: {fmt(timeB)} {turn==='b' && !isOver && !analysisMode && '⏳'}
+          <div style={{ flex: 1, padding: '0.75rem', background: actualTurn==='b' && !isAnalyzing ? '#3b82f6' : '#1e293b', color: actualTurn==='b' && !isAnalyzing ? '#000' : '#e2e8f0', borderRadius: '8px', textAlign: 'center', fontWeight: 'bold', transition: '0.3s', border: actualTurn==='b' && !isAnalyzing ? '2px solid #60a5fa' : '1px solid #334155' }}>
+            ⚫ Чёрные: {fmt(timeB)} {actualTurn==='b' && !isOver && !isAnalyzing && '⏳'}
           </div>
         </div>
 
         <Chessboard 
-          position={game.fen()} 
+          position={currentFen} 
           onPieceDrop={onDrop} 
           boardOrientation={playerColor==='black' ? 'black' : 'white'} 
-          arePiecesDraggable={!isThinking && !isOver && !analysisMode && (!withBot || turn===myColor)} 
+          arePiecesDraggable={!isThinking && !isOver && !isAnalyzing && (!withBot || actualTurn===myColor)} 
         />
 
-        {/* 🔘 Кнопки навигации — ИСПРАВЛЕНА ЛОГИКА */}
+        {/* 🔘 Навигация */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '0.75rem' }}>
-          <button 
-            onClick={goToPrevious} 
-            disabled={!canGoBack} 
-            style={navBtnStyle(!canGoBack)}
-            title="Отменить 1 ход назад"
-          >
-            ← Назад
-          </button>
-          <button 
-            onClick={goToNext} 
-            disabled={!canGoForward} 
-            style={navBtnStyle(!canGoForward)}
-            title="Вернуть 1 ход вперёд"
-          >
-            Вперёд →
-          </button>
-          <button 
-            onClick={goToLive} 
-            disabled={!canGoLive} 
-            style={navBtnStyle(!canGoLive, '#10b981')}
-            title="Вернуться к текущей позиции игры"
-          >
-            ⏮ Текущая
-          </button>
+          <button onClick={goBack} disabled={!canBack} style={navBtn(!canBack)} title="На 1 ход назад">← Назад</button>
+          <button onClick={goForward} disabled={!canForward} style={navBtn(!canForward)} title="На 1 ход вперёд">Вперёд →</button>
+          <button onClick={goLive} disabled={!canLive} style={navBtn(!canLive, '#10b981')} title="К текущей позиции">⏮ Текущая</button>
         </div>
 
-        <div style={{ textAlign: 'center', marginTop: '0.5rem', padding: '0.5rem', background: analysisMode ? '#7c2d12' : '#1e293b', borderRadius: '8px', fontSize: '0.95rem', border: `1px solid ${analysisMode ? '#f97316' : '#334155'}` }}>
-          🎮 {withBot ? 'vs Бот' : `#${gameId}`} | <span dangerouslySetInnerHTML={{__html: analysisMode ? '🔍 Анализ партии' : `<span style="color: ${isThinking ? '#f59e0b' : '#4ade80'}">${status}</span>`}} />
+        <div style={{ textAlign: 'center', marginTop: '0.5rem', padding: '0.5rem', background: isAnalyzing ? '#7c2d12' : '#1e293b', borderRadius: '8px', fontSize: '0.95rem', border: `1px solid ${isAnalyzing ? '#f97316' : '#334155'}` }}>
+          🎮 {withBot ? 'vs Бот' : `#${gameId}`} | <span style={{ color: isAnalyzing ? '#f97316' : isThinking ? '#f59e0b' : '#4ade80' }}>{isAnalyzing ? '🔍 Анализ партии' : status}</span>
         </div>
 
-        {isOver && !analysisMode && <button onClick={reset} style={{ marginTop: '1rem', padding: '0.75rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', width: '100%', fontWeight: 'bold' }}>🔄 Начать заново</button>}
+        {isOver && !isAnalyzing && <button onClick={reset} style={{ marginTop: '1rem', padding: '0.75rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', width: '100%', fontWeight: 'bold' }}>🔄 Начать заново</button>}
       </div>
 
-      {/* 📋 Панель истории ходов */}
+      {/* 📋 Панель истории */}
       <div style={{ flex: '1 1 250px', minWidth: '200px', background: '#1e293b', borderRadius: '10px', padding: '1rem', border: '1px solid #334155', maxHeight: '500px', overflowY: 'auto' }}>
         <h3 style={{ margin: '0 0 0.75rem 0', color: '#f59e0b', fontSize: '1rem', textAlign: 'center' }}>📜 Ходы партии</h3>
         <div style={{ display: 'grid', gap: '0.25rem', fontSize: '0.9rem', fontFamily: 'monospace' }}>
-          {formattedHistory.length === 0 ? (
+          {historyPairs.length === 0 ? (
             <p style={{ color: '#64748b', textAlign: 'center', fontStyle: 'italic' }}>Ходов пока нет</p>
           ) : (
-            formattedHistory.map((row, i) => {
+            historyPairs.map((row, i) => {
               const whiteIdx = i * 2;
               const blackIdx = i * 2 + 1;
-              const isCurrentRow = whiteIdx <= currentMoveIndex || blackIdx <= currentMoveIndex;
-              
               return (
-                <div key={i} style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: '28px 1fr 1fr', 
-                  gap: '0.25rem', 
-                  alignItems: 'center', 
-                  padding: '0.15rem 0.25rem', 
-                  borderRadius: '4px', 
-                  background: isCurrentRow ? 'rgba(59, 130, 246, 0.15)' : 'transparent' 
-                }}>
-                  <span style={{ color: '#94a3b8', fontWeight: 'bold', minWidth: '28px' }}>{row.num}.</span>
-                  <span style={{ 
-                    color: row.white && whiteIdx <= currentMoveIndex ? '#4ade80' : '#64748b',
-                    fontWeight: row.white && whiteIdx <= currentMoveIndex ? '600' : '400'
-                  }}>{row.white || ''}</span>
-                  <span style={{ 
-                    color: row.black && blackIdx <= currentMoveIndex ? '#4ade80' : '#64748b',
-                    fontWeight: row.black && blackIdx <= currentMoveIndex ? '600' : '400'
-                  }}>{row.black || ''}</span>
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '28px 1fr 1fr', gap: '0.25rem', alignItems: 'center', padding: '0.15rem 0.25rem', borderRadius: '4px', background: (whiteIdx <= viewIndex || blackIdx <= viewIndex) ? 'rgba(59, 130, 246, 0.15)' : 'transparent' }}>
+                  <span style={{ color: '#94a3b8', fontWeight: 'bold' }}>{row.num}.</span>
+                  <span style={{ color: row.white && whiteIdx <= viewIndex ? '#4ade80' : '#64748b', fontWeight: whiteIdx <= viewIndex ? '600' : '400' }}>{row.white || ''}</span>
+                  <span style={{ color: row.black && blackIdx <= viewIndex ? '#4ade80' : '#64748b', fontWeight: blackIdx <= viewIndex ? '600' : '400' }}>{row.black || ''}</span>
                 </div>
               );
             })
           )}
         </div>
-        {analysisMode && (
-          <p style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#f97316', textAlign: 'center', fontStyle: 'italic' }}>
-            🔍 Вы просматриваете прошлую позицию. Нажмите ⏮ чтобы вернуться к текущей.
-          </p>
-        )}
+        {isAnalyzing && <p style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#f97316', textAlign: 'center', fontStyle: 'italic' }}>🔍 Просмотр прошлой позиции. ⏮ вернёт в игру.</p>}
       </div>
     </div>
   );
 }
 
-// 🎨 Стили кнопок навигации
-const navBtnStyle = (disabled, color = '#3b82f6') => ({
-  padding: '0.5rem 0.85rem',
-  background: disabled ? '#475569' : color,
-  color: '#fff',
-  border: 'none',
-  borderRadius: '6px',
-  cursor: disabled ? 'not-allowed' : 'pointer',
-  fontWeight: '500',
-  fontSize: '0.85rem',
-  opacity: disabled ? 0.6 : 1,
-  transition: 'all 0.2s'
+const navBtn = (disabled, color = '#3b82f6') => ({
+  padding: '0.5rem 0.85rem', background: disabled ? '#475569' : color, color: '#fff',
+  border: 'none', borderRadius: '6px', cursor: disabled ? 'not-allowed' : 'pointer',
+  fontWeight: '500', fontSize: '0.85rem', opacity: disabled ? 0.6 : 1, transition: 'all 0.2s'
 });
