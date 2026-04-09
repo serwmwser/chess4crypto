@@ -1,11 +1,17 @@
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function WalletConnect() {
   const { address, isConnected } = useAccount();
-  const { connectors, connect, isPending } = useConnect();
+  const { connectors, connect, isPending, error } = useConnect();
   const { disconnect } = useDisconnect();
   const [showModal, setShowModal] = useState(false);
+  const [readyConnectors, setReadyConnectors] = useState([]);
+
+  // Ждём, пока wagmi проинициализирует коннекторы
+  useEffect(() => {
+    if (connectors && connectors.length > 0) setReadyConnectors(connectors);
+  }, [connectors]);
 
   if (isConnected && address) {
     return (
@@ -18,7 +24,7 @@ export default function WalletConnect() {
   return (
     <>
       <button onClick={() => setShowModal(true)} style={styles.btnConnect} disabled={isPending}>
-        {isPending ? '⏳ Подключение...' : '🦊 Подключить кошелёк'}
+        {isPending ? '⏳...' : '🦊 Подключить'}
       </button>
 
       {showModal && (
@@ -26,17 +32,18 @@ export default function WalletConnect() {
           <div style={styles.modal} onClick={e => e.stopPropagation()}>
             <h3 style={{ color: '#f59e0b', marginBottom: '1rem', textAlign: 'center' }}>Выберите кошелёк</h3>
             <div style={{ display: 'grid', gap: '0.5rem' }}>
-              {connectors.map(conn => (
+              {readyConnectors.map(conn => (
                 <button
                   key={conn.uid || conn.id}
                   disabled={!conn.ready || isPending}
                   onClick={() => { connect({ connector: conn }); setShowModal(false); }}
                   style={styles.connBtn}
                 >
-                  {conn.name}
+                  {conn.name} {isPending ? '⏳' : ''}
                 </button>
               ))}
             </div>
+            {error && <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.5rem' }}>{error.shortMessage}</p>}
             <button onClick={() => setShowModal(false)} style={{ marginTop: '1rem', width: '100%', padding: '0.6rem', background: '#334155', color: '#94a3b8', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Закрыть</button>
           </div>
         </div>

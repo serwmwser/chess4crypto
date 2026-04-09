@@ -9,7 +9,7 @@ import App from './App'
 export const config = createConfig({
   chains: [bsc, bscTestnet],
   connectors: [
-    metaMask(),
+    metaMask({ shimDisconnect: true }),
     injected({ target: 'injected' }),
     walletConnect({ projectId: 'ec02d4144278f6333428347809344102', showQrModal: true })
   ],

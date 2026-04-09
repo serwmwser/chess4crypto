@@ -12,7 +12,7 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
   
   const timerRef = useRef(null);
   const gameRef = useRef(game);
-  gameRef.current = game;
+  gameRef.current = game; // Всегда актуальное состояние
 
   const { playMove, playCapture, playCheck, playGameOver } = useChessSounds();
   const myColor = playerColor === 'black' ? 'b' : 'w';
@@ -22,17 +22,17 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
 
   // ⏱️ СТРОГИЙ ТАЙМЕР (перезапускается ТОЛЬКО при смене хода или конце игры)
   useEffect(() => {
-    if (isOver) { clearInterval(timerRef.current); return; }
-
     clearInterval(timerRef.current);
+    if (isOver) return;
+
     timerRef.current = setInterval(() => {
       const currentTurn = gameRef.current.turn();
-      if (currentTurn === 'w') setTimeW(t => Math.max(0, t - 1));
-      else setTimeB(t => Math.max(0, t - 1));
+      if (currentTurn === 'w') setTimeW(prev => Math.max(0, prev - 1));
+      else setTimeB(prev => Math.max(0, prev - 1));
     }, 1000);
 
     return () => clearInterval(timerRef.current);
-  }, [turn, isOver]); // ⚠️ КРИТИЧЕСКИ ВАЖНО: зависит от хода и окончания игры
+  }, [turn, isOver]); // Зависит ТОЛЬКО от хода и окончания игры
 
   // ⏰ Проверка проигрыша по времени
   useEffect(() => {
@@ -49,7 +49,7 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
     if (game.inCheck()) setTimeout(playCheck, 150);
   }, [game.fen(), playMove, playCapture, playCheck]);
 
-  // 🤖 ИИ с задержкой (чтобы вы видели тиканье его часов)
+  // 🤖 ИИ (задержка 600мс, чтобы вы увидели тик часов)
   const makeBotMove = useCallback(() => {
     if (isOver || turn !== 'b') return;
     setIsThinking(true); setStatus('⏳ Бот думает...');
@@ -59,14 +59,13 @@ export default function ChessBoard({ gameId, userAddress, withBot = false, playe
         const t = new Chess(gameRef.current.fen());
         const m = t.moves({ verbose: true });
         if (!m.length) { setIsThinking(false); return; }
-        
-        let best = m.find(x => x.captured) || m[Math.floor(Math.random() * m.length)];
+        let best = m[Math.floor(Math.random() * m.length)];
         const next = new Chess(gameRef.current.fen()); 
         next.move(best.san); 
         setGame(next);
       } catch(e) { console.error(e); }
       setIsThinking(false);
-    }, 900); // 900мс = ровно 1 тик таймера
+    }, 600);
   }, [isOver, turn]);
 
   useEffect(() => {
