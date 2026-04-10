@@ -4,16 +4,12 @@
   "private": true,
   "type": "module",
   "description": "Web3 Chess Platform with AI, PvP & GROK Token Betting",
-  {
-    "scripts": {
-      "dev": "vite",
-      "build": "vite build",
-      "preview": "vite preview"
-    },
-    "engines": {
-      "node": "18.x"
-    }
-  }
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0"
+  },
   "dependencies": {
     "react": "18.2.0",
     "react-dom": "18.2.0",
