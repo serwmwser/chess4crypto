@@ -25,7 +25,7 @@
     "react-i18next": "14.0.1",
     "@supabase/supabase-js": "2.39.3",
     "zustand": "4.5.0",
-
+    "esbuild": "0.19.12"
     "workbox-window": "7.0.0",
     "lucide-react": "0.323.0",
     "clsx": "2.1.0",
