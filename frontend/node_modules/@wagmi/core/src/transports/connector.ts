@@ -1,13 +1,13 @@
 import {
   ChainDisconnectedError,
+  createTransport,
   type EIP1193Parameters,
   type EIP1193Provider,
   type EIP1193RequestFn,
+  hexToNumber,
   ProviderDisconnectedError,
   type TransportConfig,
   type WalletRpcSchema,
-  createTransport,
-  hexToNumber,
   withRetry,
   withTimeout,
 } from 'viem'
@@ -30,7 +30,7 @@ export type ConnectorTransport = Transport
 export function unstable_connector(
   connector: Pick<Connector, 'type'>,
   config: ConnectorTransportConfig = {},
-): Transport {
+): Transport<'connector'> {
   const { type } = connector
   const { key = 'connector', name = 'Connector', retryDelay } = config
 

@@ -100,9 +100,10 @@ export type AbiDecodingZeroDataErrorType = AbiDecodingZeroDataError & {
   name: 'AbiDecodingZeroDataError'
 }
 export class AbiDecodingZeroDataError extends BaseError {
-  constructor() {
+  constructor({ cause }: { cause?: BaseError | Error | undefined } = {}) {
     super('Cannot decode zero data ("0x") with ABI parameters.', {
       name: 'AbiDecodingZeroDataError',
+      cause,
     })
   }
 }
@@ -210,16 +211,23 @@ export type AbiErrorSignatureNotFoundErrorType =
 export class AbiErrorSignatureNotFoundError extends BaseError {
   signature: Hex
 
-  constructor(signature: Hex, { docsPath }: { docsPath: string }) {
+  constructor(
+    signature: Hex,
+    {
+      docsPath,
+      cause,
+    }: { docsPath: string; cause?: BaseError | Error | undefined },
+  ) {
     super(
       [
         `Encoded error signature "${signature}" not found on ABI.`,
         'Make sure you are using the correct ABI and that the error exists on it.',
-        `You can look up the decoded signature here: https://openchain.xyz/signatures?query=${signature}.`,
+        `You can look up the decoded signature here: https://4byte.sourcify.dev/?q=${signature}.`,
       ].join('\n'),
       {
         docsPath,
         name: 'AbiErrorSignatureNotFoundError',
+        cause,
       },
     )
     this.signature = signature
@@ -249,7 +257,7 @@ export class AbiEventSignatureNotFoundError extends BaseError {
       [
         `Encoded event signature "${signature}" not found on ABI.`,
         'Make sure you are using the correct ABI and that the event exists on it.',
-        `You can look up the signature here: https://openchain.xyz/signatures?query=${signature}.`,
+        `You can look up the signature here: https://4byte.sourcify.dev/?q=${signature}.`,
       ].join('\n'),
       {
         docsPath,
@@ -331,7 +339,7 @@ export class AbiFunctionSignatureNotFoundError extends BaseError {
       [
         `Encoded function signature "${signature}" not found on ABI.`,
         'Make sure you are using the correct ABI and that the function exists on it.',
-        `You can look up the signature here: https://openchain.xyz/signatures?query=${signature}.`,
+        `You can look up the signature here: https://4byte.sourcify.dev/?q=${signature}.`,
       ].join('\n'),
       {
         docsPath,
