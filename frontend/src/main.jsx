@@ -8,7 +8,6 @@ import App from './App'
 import './i18n'
 
 // 🔑 WalletConnect Project ID (из .env или заглушка для работы без ключа)
-// Для продакшена получите ключ на: https://cloud.walletconnect.com
 const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '00000000000000000000000000000000'
 
 // ✅ Конфигурация Wagmi — production-ready для BSC + GROK flow
@@ -24,16 +23,16 @@ export const config = createConfig({
         description: 'Play chess, bet with GROK token on BNB Chain'
       } 
     }),
-    // Injected connector для других кошельков (Rabby, Trust Wallet и т.д.)
+    // Injected connector для других кошельков
     injected({ 
       shimDisconnect: true, 
-      target: 'metaMask' // Приоритет для MetaMask
+      target: 'metaMask'
     }),
     // WalletConnect для мобильных кошельков через QR-код
     walletConnect({ 
       projectId, 
       showQrModal: true,
-      meta {
+      meta: {  // ✅ ИСПРАВЛЕНО: добавлено двоеточие после "meta"
         name: 'Chess4Crypto',
         description: 'Web3 Chess Platform with GROK Token Betting',
         url: window.location.origin,
@@ -45,7 +44,7 @@ export const config = createConfig({
     [bsc.id]: http(),
     [bscTestnet.id]: http(),
   },
-  // ✅ Отключаем SSR для корректной работы с инжектированными провайдерами (MetaMask)
+  // ✅ Отключаем SSR для корректной работы с инжектированными провайдерами
   ssr: false
 })
 
@@ -53,19 +52,18 @@ export const config = createConfig({
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1, // Не спамить повторными запросами при ошибке
-      refetchOnWindowFocus: false, // Не перезапрашивать данные при фокусе окна
-      staleTime: 30_000, // Данные считаются свежими 30 секунд
-      gcTime: 5 * 60 * 1000 // Кэш хранится 5 минут
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 30_000,
+      gcTime: 5 * 60 * 1000
     },
     mutations: {
-      retry: false // Не повторять мутации при ошибке (важно для транзакций)
+      retry: false
     }
   }
 })
 
 // ✅ Рендер приложения с правильной обёрткой провайдеров
-// Порядок важен: WagmiProvider → QueryClientProvider → App
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <WagmiProvider config={config}>
