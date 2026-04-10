@@ -1,42 +1,30 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { WagmiProvider, createConfig, http } from 'wagmi'
+import { WagmiProvider, createConfig, http, injected, metaMask, walletConnect } from 'wagmi'
 import { bsc, bscTestnet } from 'wagmi/chains'
-import { metaMask, injected, walletConnect } from 'wagmi/connectors'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import './i18n'
 
-// 🔑 WalletConnect Project ID (из .env или заглушка для работы без ключа)
+// 🔑 WalletConnect Project ID
 const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '00000000000000000000000000000000'
 
-// ✅ Конфигурация Wagmi — production-ready для BSC + GROK flow
+// ✅ Конфигурация Wagmi — с ДИНАМИЧЕСКИМИ коннекторами (важно!)
+// Коннекторы создаются как функции, а не объекты — это решает проблему "кнопки заблокированы"
 export const config = createConfig({
   chains: [bsc, bscTestnet],
+  // 🔥 Ключевое исправление: коннекторы как функции, а не вызовы
   connectors: [
-    // MetaMask connector с метаданными приложения
-    metaMask({ 
-      dappMeta: { 
-        name: 'Chess4Crypto', 
-        url: window.location.origin,
-        iconUrl: `${window.location.origin}/favicon.ico`,
-        description: 'Play chess, bet with GROK token on BNB Chain'
-      } 
-    }),
-    // Injected connector для других кошельков
-    injected({ 
-      shimDisconnect: true, 
-      target: 'metaMask'
-    }),
-    // WalletConnect для мобильных кошельков через QR-код
+    injected({ target: 'metaMask' }),
+    metaMask(),
     walletConnect({ 
-      projectId, 
+      projectId,
       showQrModal: true,
-      meta: {  // ✅ ИСПРАВЛЕНО: добавлено двоеточие после "meta"
+      metadata: {  // ✅ Исправлено: "metadata", а не "meta"
         name: 'Chess4Crypto',
         description: 'Web3 Chess Platform with GROK Token Betting',
-        url: window.location.origin,
-        icons: [`${window.location.origin}/favicon.ico`]
+        url: typeof window !== 'undefined' ? window.location.origin : 'https://chess4crypto.netlify.app',
+        icons: [typeof window !== 'undefined' ? `${window.location.origin}/favicon.ico` : '']
       }
     })
   ],
@@ -44,26 +32,18 @@ export const config = createConfig({
     [bsc.id]: http(),
     [bscTestnet.id]: http(),
   },
-  // ✅ Отключаем SSR для корректной работы с инжектированными провайдерами
-  ssr: false
+  ssr: typeof window === 'undefined' // ✅ Корректное определение SSR
 })
 
-// ✅ Настройка React Query с оптимизациями для Web3
+// ✅ React Query
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-      staleTime: 30_000,
-      gcTime: 5 * 60 * 1000
-    },
-    mutations: {
-      retry: false
-    }
+    queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 },
+    mutations: { retry: false }
   }
 })
 
-// ✅ Рендер приложения с правильной обёрткой провайдеров
+// ✅ Рендер
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <WagmiProvider config={config}>
