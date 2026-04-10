@@ -5,9 +5,9 @@
   "type": "module",
   "description": "Web3 Chess Platform with AI, PvP & GROK Token Betting",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev": "node node_modules/vite/bin/vite.js",
+    "build": "node node_modules/vite/bin/vite.js build",
+    "preview": "node node_modules/vite/bin/vite.js preview"
   },
   "dependencies": {
     "react": "18.2.0",
