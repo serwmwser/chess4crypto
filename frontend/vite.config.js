@@ -5,39 +5,14 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [
     react()
-    // 🔴 Временно отключаем PWA-плагин для стабильной сборки
+    // 🔴 PWA-плагин временно отключён для стабильной сборки
     // После успешного деплоя можно раскомментировать и настроить
-    // 
-    // VitePWA({
-    //   registerType: 'autoUpdate',
-    //   includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
-    //   manifest: {
-    //     name: 'Chess4Crypto',
-    //     short_name: 'Chess4Crypto',
-    //     description: 'Web3 Chess Platform with GROK Token Betting',
-    //     theme_color: '#0f172a',
-    //     background_color: '#0f172a',
-    //     display: 'standalone',
-    //     start_url: '/',
-    //     icons: [
-    //       { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
-    //       { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' }
-    //     ]
-    //   },
-    //   workbox: {
-    //     globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-    //     runtimeCaching: [{
-    //       urlPattern: /^https:\/\/api\..*\.com\/.*/i,
-    //       handler: 'NetworkFirst',
-    //       options: { cacheName: 'api-cache', expiration: { maxEntries: 50, maxAgeSeconds: 3600 } }
-    //     }]
-    //   }
-    // })
   ],
   build: {
     outDir: 'dist',
     sourcemap: false,
-    minify: 'terser',
+    // ✅ ИСПРАВЛЕНО: используем esbuild вместо terser (уже установлен, быстрее)
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks: {
