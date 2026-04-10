@@ -7,7 +7,7 @@ const GROK_BUY_URL = `https://four.meme/token/${GROK_CONTRACT}?code=AHGX96R5GHK9
 
 export default function WalletConnect() {
   const { address, isConnected, chain } = useAccount();
-  const { connectors, connect, isPending, error } = useConnect();
+  const { connectors, connect, isPending, error,  status } = useConnect();
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
   
@@ -15,16 +15,30 @@ export default function WalletConnect() {
   const [showGrokGuide, setShowGrokGuide] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [lastError, setLastError] = useState(null);
 
-  // ✅ Гидратация + проверка кошельков
+  // ✅ Гидратация
+  useEffect(() => { setMounted(true); }, []);
+
+  // ✅ Логирование ошибок
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    if (error) {
+      console.error('❌ Wagmi connection error:', {
+        message: error.message,
+        shortMessage: error.shortMessage,
+        details: error.details,
+        meta: error.meta
+      });
+      setLastError(error);
+    }
+  }, [error]);
 
   // ✅ Авто-переключение на BSC
   useEffect(() => {
     if (isConnected && chain?.id !== bsc.id && chain?.id !== 97) {
-      switchChain({ chainId: bsc.id }).catch(() => {});
+      switchChain({ chainId: bsc.id }).catch(err => {
+        console.error('Chain switch failed:', err);
+      });
     }
   }, [isConnected, chain, switchChain]);
 
@@ -37,13 +51,23 @@ export default function WalletConnect() {
   };
 
   const handleConnect = async (connector) => {
+    console.log(`🔗 Connecting to ${connector.name}...`, {
+      connectorId: connector.id,
+      ready: connector.ready,
+      type: connector.type
+    });
+    
     try {
       await connect({ connector });
+      console.log('✅ Connection initiated');
       setShowModal(false);
       setTimeout(() => setShowGrokGuide(true), 800);
     } catch (err) {
-      console.error('Connection error:', err);
-      alert(`Ошибка: ${err.message || err}`);
+      console.error('❌ Connection failed:', err);
+      setLastError(err);
+      // Показываем понятное сообщение
+      const msg = err.shortMessage || err.message || 'Неизвестная ошибка';
+      alert(`❌ Ошибка подключения:\n${msg}\n\nПроверьте консоль (F12) для деталей.`);
     }
   };
 
@@ -107,29 +131,37 @@ export default function WalletConnect() {
             <h3 style={styles.modalTitle}>🔗 Подключите кошелёк</h3>
             <p style={styles.modalSubtitle}>Для покупки GROK подключите кошелёк в сети <strong>BNB Chain</strong>.</p>
 
+            {/* 🔴 Блок ошибки */}
+            {lastError && (
+              <div style={styles.errorBox}>
+                <p style={styles.errorTitle}>⚠️ Ошибка подключения:</p>
+                <p style={styles.errorMessage}>{lastError.shortMessage || lastError.message}</p>
+                <details style={styles.errorDetails}>
+                  <summary style={styles.errorSummary}>Показать детали</summary>
+                  <pre style={styles.errorPre}>{JSON.stringify(lastError, null, 2)}</pre>
+                </details>
+                <button onClick={() => setLastError(null)} style={styles.errorCloseBtn}>Закрыть</button>
+              </div>
+            )}
+
             <div style={styles.connectorsGrid}>
-              {connectors.map((conn) => {
-                // 🔥 Ключевое исправление: всегда делаем кнопки активными, пусть wagmi сам обработает ошибку
-                const isDisabled = isPending;
-                return (
-                  <button
-                    key={conn.uid || conn.id}
-                    onClick={() => !isDisabled && handleConnect(conn)}
-                    style={{
-                      ...styles.connectorBtn,
-                      opacity: isDisabled ? 0.5 : 1,
-                      cursor: isDisabled ? 'not-allowed' : 'pointer',
-                      pointerEvents: isDisabled ? 'none' : 'auto'
-                    }}
-                  >
-                    {conn.name} {isPending ? '⏳' : ''}
-                  </button>
-                );
-              })}
+              {connectors.map((conn) => (
+                <button
+                  key={conn.uid || conn.id}
+                  onClick={() => handleConnect(conn)}
+                  style={{
+                    ...styles.connectorBtn,
+                    opacity: isPending ? 0.5 : 1,
+                    cursor: isPending ? 'not-allowed' : 'pointer'
+                  }}
+                  disabled={isPending}
+                >
+                  {conn.name} {isPending ? '⏳' : ''}
+                </button>
+              ))}
             </div>
 
-            {error && <p style={styles.errorText}>⚠️ {error.shortMessage || error.message}</p>}
-
+            {/* 🐸 Быстрый доступ */}
             <div style={styles.grokQuickSection}>
               <p style={styles.grokQuickTitle}>🐸 Купить GROK</p>
               <button onClick={() => { setShowModal(false); setShowGrokGuide(true); }} style={styles.grokQuickBtn}>
@@ -155,13 +187,24 @@ const styles = {
   modal: { background: '#0f172a', borderRadius: '14px', padding: '1.5rem', maxWidth: '360px', width: '90%', border: '2px solid #3b82f6', boxShadow: '0 12px 40px rgba(0,0,0,0.5)' },
   modalTitle: { color: '#f59e0b', marginBottom: '0.5rem', textAlign: 'center', margin: '0 0 0.5rem 0' },
   modalSubtitle: { color: '#94a3b8', fontSize: '0.85rem', textAlign: 'center', marginBottom: '1rem', lineHeight: '1.4' },
+  
+  errorBox: { background: 'rgba(239,68,68,0.15)', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem' },
+  errorTitle: { color: '#fca5a5', fontWeight: 'bold', margin: '0 0 0.3rem 0', fontSize: '0.9rem' },
+  errorMessage: { color: '#fecaca', fontSize: '0.85rem', margin: '0 0 0.5rem 0' },
+  errorDetails: { color: '#94a3b8', fontSize: '0.75rem' },
+  errorSummary: { cursor: 'pointer', color: '#60a5fa' },
+  errorPre: { background: '#1e293b', padding: '0.5rem', borderRadius: '4px', overflow: 'auto', fontSize: '0.7rem', whiteSpace: 'pre-wrap' },
+  errorCloseBtn: { marginTop: '0.5rem', padding: '0.4rem 0.8rem', background: '#475569', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' },
+  
   connectorsGrid: { display: 'grid', gap: '0.5rem', marginBottom: '1rem' },
   connectorBtn: { padding: '0.85rem', background: '#1e293b', color: '#e2e8f0', border: '1px solid #334155', borderRadius: '8px', fontWeight: '500', fontSize: '0.95rem', transition: '0.2s' },
-  errorText: { color: '#ef4444', fontSize: '0.8rem', marginTop: '0.5rem', textAlign: 'center', background: 'rgba(239,68,68,0.1)', padding: '0.5rem', borderRadius: '6px' },
+  
   grokQuickSection: { background: 'rgba(34,197,94,0.1)', borderRadius: '10px', padding: '1rem', marginBottom: '1rem', textAlign: 'center' },
   grokQuickTitle: { color: '#22c55e', fontWeight: 'bold', margin: '0 0 0.3rem 0' },
   grokQuickBtn: { padding: '0.6rem 1rem', background: '#22c55e', color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem' },
   closeBtn: { width: '100%', padding: '0.6rem', background: 'transparent', border: '1px solid #475569', color: '#94a3b8', borderRadius: '8px', cursor: 'pointer' },
+  
+  // GROK modal
   grokModal: { background: '#0f172a', borderRadius: '14px', padding: '1.5rem', maxWidth: '420px', width: '95%', border: '2px solid #22c55e', boxShadow: '0 12px 40px rgba(34,197,94,0.3)' },
   grokTitle: { color: '#22c55e', marginBottom: '1rem', textAlign: 'center', margin: '0 0 1rem 0', fontSize: '1.2rem' },
   stepsContainer: { display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1rem' },
