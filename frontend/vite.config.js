@@ -1,15 +1,27 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      // ✅ Подменяем проблемный пакет на нашу заглушку
+      '@metamask/sdk': path.resolve(__dirname, './src/stubs/metamask-sdk.js')
+    }
+  },
+  optimizeDeps: {
+    // ✅ Исключаем из пред-бандлинга, чтобы Vite не пытался его анализировать
+    exclude: ['@metamask/sdk']
+  },
   build: {
     outDir: 'dist',
     sourcemap: false,
     minify: 'esbuild',
     rollupOptions: {
-      // ✅ Исключаем проблемные пакеты из бандла
-      external: ['@coinbase/wallet-sdk', '@metamask/utils', '@metamask/sdk'],
       output: {
         manualChunks: {
           'vendor': ['react', 'react-dom'],
@@ -27,11 +39,5 @@ export default defineConfig({
   define: {
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
     'global': 'globalThis'
-  },
-  optimizeDeps: {
-    exclude: ['@coinbase/wallet-sdk', '@metamask/utils', '@metamask/sdk']
-  },
-  ssr: {
-    noExternal: ['@coinbase/wallet-sdk', '@metamask/utils']
   }
 })
