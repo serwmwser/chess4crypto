@@ -1,6 +1,9 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { WagmiProvider, createConfig, http, injected, metaMask, walletConnect } from 'wagmi'
+// ✅ Конфигурация — из wagmi
+import { WagmiProvider, createConfig, http } from 'wagmi'
+// ✅ Коннекторы — ИЗ ОТДЕЛЬНОГО МОДУЛЯ
+import { injected, metaMask, walletConnect } from 'wagmi/connectors'
 import { bsc, bscTestnet } from 'wagmi/chains'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
@@ -17,7 +20,7 @@ console.log('🔍 ENV status:', {
 // 🔑 Project ID для WalletConnect
 const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '00000000000000000000000000000000'
 
-// ✅ Создаём конфиг Wagmi (чистый ESM, без require)
+// ✅ Создаём конфиг Wagmi
 export const config = createConfig({
   chains: [bsc, bscTestnet],
   connectors: [
