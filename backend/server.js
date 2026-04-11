@@ -1,185 +1,510 @@
-// backend/server.js
-import express from 'express';
-import { createServer } from 'http';
-import { Server } from 'socket.io';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import { Chess } from 'chess.js';
+// ============================================================================
+// CHESS4CRYPTO BACKEND - Node.js + Socket.IO + Express
+// ✅ CORS настроен для chesscrypto.netlify.app
+// ============================================================================
 
-dotenv.config();
+import express from 'express'
+import { createServer } from 'http'
+import { Server } from 'socket.io'
+import cors from 'cors'
+import dotenv from 'dotenv'
 
-const app = express();
-const PORT = process.env.PORT || 3001;
+// Загружаем переменные окружения
+dotenv.config()
 
-// ✅ CORS: разрешаем Vercel + localhost + Render
+const app = express()
+const PORT = process.env.PORT || 10000
+
+// ============================================================================
+// ✅ CORS НАСТРОЙКИ — РАЗРЕШАЕМ ВАШ ФРОНТЕНД
+// ============================================================================
+
+const allowedOrigins = [
+  'https://chesscrypto.netlify.app',  // ← ВАШ ДОМЕН (основной)
+  'http://localhost:5173',             // ← локальная разработка
+  'https://chess4crypto-*.vercel.app', // ← Vercel preview-деплои
+  'https://chess4crypto.pages.dev',    // ← Cloudflare Pages
+  'http://localhost:3000',             // ← старый фронтенд (для совместимости)
+  'https://chesscrypto.onrender.com'   // ← если фронтенд тоже на Render
+]
+
 const corsOptions = {
-  origin: [
-    'https://chess4crypto.vercel.app',
-    'http://localhost:5173',
-    'https://chess4crypto-backend.onrender.com',
-    '*'
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-};
+  origin: function (origin, callback) {
+    // Разрешаем запросы без origin (мобильные приложения, curl, Postman)
+    if (!origin) return callback(null, true)
+    
+    // Проверяем домен против списка разрешённых
+    const isAllowed = allowedOrigins.some(pattern => {
+      // Поддержка wildcard-шаблонов (например, *.vercel.app)
+      if (pattern.includes('*')) {
+        const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$')
+        return regex.test(origin)
+      }
+      // Точное совпадение
+      return origin === pattern
+    })
+    
+    if (isAllowed) {
+      console.log(`✅ CORS allowed: ${origin}`)
+      return callback(null, true)
+    }
+    
+    console.warn(`❌ CORS rejected: ${origin} (not in allowedOrigins)`)
+    return callback(new Error('Origin not allowed by CORS'))
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}
 
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
-app.use(express.json());
+// Применяем CORS к Express
+app.use(cors(corsOptions))
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
 
-// ✅ Socket.IO: конфигурация для Render
-const server = createServer(app);
-const io = new Server(server, {
+// Создаём HTTP сервер + Socket.IO
+const httpServer = createServer(app)
+
+const io = new Server(httpServer, {
   cors: corsOptions,
   pingTimeout: 60000,
   pingInterval: 25000,
   transports: ['websocket', 'polling'],
-  path: '/socket.io',
-  allowEIO3: true
-});
+  allowEIO3: true // совместимость со старыми клиентами
+})
 
-// 🗄️ Хранилище
-const games = new Map();
-const onlinePlayers = new Map();
-const matchQueue = [];
+// ============================================================================
+// ✅ MIDDLEWARE: Валидация origin для Socket.IO соединений
+// ============================================================================
 
-// 🔌 Socket.IO подключения
+io.use((socket, next) => {
+  const origin = socket.handshake.headers.origin
+  
+  console.log(`🔗 Socket connection attempt from: ${origin || 'no-origin'}`)
+  
+  // Разрешаем соединения без origin (тесты, curl)
+  if (!origin) return next()
+  
+  // Проверяем против allowedOrigins
+  const isAllowed = allowedOrigins.some(pattern => {
+    if (pattern.includes('*')) {
+      const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$')
+      return regex.test(origin)
+    }
+    return origin === pattern
+  })
+  
+  if (isAllowed) {
+    console.log(`✅ Socket origin allowed: ${origin}`)
+    socket.handshake.auth.origin = origin
+    return next()
+  }
+  
+  console.error(`❌ Socket origin rejected: ${origin}`)
+  return next(new Error('Unauthorized: origin not allowed'))
+})
+
+// ============================================================================
+// 🎮 SOCKET.IO ОБРАБОТЧИКИ СОБЫТИЙ
+// ============================================================================
+
+// Хранилище в памяти (для продакшена используйте Redis/Supabase)
+const challenges = new Map()
+const games = new Map()
+const players = new Map()
+
 io.on('connection', (socket) => {
-  console.log('🔗 Client connected:', socket.id);
+  console.log(`🎮 Player connected: ${socket.id} from ${socket.handshake.auth.origin || 'unknown'}`)
 
-  socket.on('registerPlayer', ({ address }) => {
-    onlinePlayers.set(address, { socketId: socket.id });
-    socket.join(`user_${address}`);
-    io.emit('onlinePlayersUpdate', Array.from(onlinePlayers.keys()));
-    console.log(`👤 Registered: ${address}`);
-  });
-
-  socket.on('requestMatch', ({ address }) => {
-    console.log(`🔍 ${address} requesting match...`);
-    if (!matchQueue.includes(address)) {
-      matchQueue.push(address);
-      socket.emit('matchStatus', { status: 'searching' });
+  // 🔹 Игрок присоединился к системе
+  socket.on('player:join', (data) => {
+    console.log(`👤 Player ${socket.id} joined:`, { username: data?.username, roomId: data?.roomId })
+    
+    // Сохраняем информацию об игроке
+    players.set(socket.id, {
+      id: socket.id,
+      username: data?.username || 'Anonymous',
+      joinedAt: new Date().toISOString(),
+      origin: socket.handshake.auth.origin
+    })
+    
+    // Присоединяем к комнате если указана
+    if (data?.roomId) {
+      socket.join(data.roomId)
+      socket.to(data.roomId).emit('player:joined', {
+        playerId: socket.id,
+        username: data.username,
+        timestamp: new Date().toISOString()
+      })
     }
-    if (matchQueue.length >= 2) {
-      const p1 = matchQueue.shift();
-      const p2 = matchQueue.shift();
-      const gameId = Math.random().toString(36).substring(2, 10).toUpperCase();
-      games.set(gameId, { chess: new Chess(), players: [p1, p2], createdAt: Date.now() });
-      io.to(`user_${p1}`).emit('matchFound', { gameId, role: 'white', opponent: p2 });
-      io.to(`user_${p2}`).emit('matchFound', { gameId, role: 'black', opponent: p1 });
-      console.log(`🎮 Match: ${gameId} | ${p1} vs ${p2}`);
-    }
-  });
+    
+    // Подтверждаем подключение
+    socket.emit('player:connected', {
+      playerId: socket.id,
+      username: data?.username,
+      timestamp: new Date().toISOString()
+    })
+  })
 
-  socket.on('cancelMatch', ({ address }) => {
-    const idx = matchQueue.indexOf(address);
-    if (idx !== -1) matchQueue.splice(idx, 1);
-    socket.emit('matchStatus', { status: 'canceled' });
-  });
-
-  socket.on('directInvite', ({ from, to, gameId }) => {
-    const target = onlinePlayers.get(to);
-    if (target) {
-      games.set(gameId, { chess: new Chess(), players: [from, to] });
-      io.to(target.socketId).emit('inviteReceived', { from, gameId });
-    } else {
-      socket.emit('error', '⛔ Player offline');
+  // 🔹 Создание вызова на игру (ставками в GROK)
+  socket.on('challenge:create', (data) => {
+    console.log(`⚔️ Challenge created by ${socket.id}:`, {
+      betAmount: data?.betAmount,
+      gameMode: data?.gameMode,
+      timeControl: data?.timeControl
+    })
+    
+    const challengeId = `challenge_${Date.now()}_${socket.id.slice(0, 6)}`
+    
+    const challenge = {
+      id: challengeId,
+      creator: socket.id,
+      creatorInfo: players.get(socket.id),
+      betAmount: data?.betAmount || 0,
+      token: data?.token || 'GROK',
+      gameMode: data?.gameMode || 'classic',
+      timeControl: data?.timeControl || '10+0',
+      boardSetup: data?.boardSetup || 'standard',
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 минут
     }
-  });
+    
+    // Сохраняем вызов
+    challenges.set(challengeId, challenge)
+    
+    // Отправляем подтверждение создателю
+    socket.emit('challenge:created', {
+      challengeId,
+      status: 'pending',
+      message: 'Challenge created successfully',
+      challenge
+    })
+    
+    // Рассылаем в лобби для листинга
+    socket.broadcast.emit('challenge:new', challenge)
+  })
 
-  socket.on('joinGame', ({ gameId, address }) => {
-    socket.join(`game_${gameId}`);
-    const game = games.get(gameId);
-    if (game) {
-      const isCreator = game.players[0] === address;
-      socket.emit('gameState', { 
-        fen: game.chess.fen(), 
-        turn: game.chess.turn(), 
-        gameId, 
-        playerColor: isCreator ? 'w' : 'b' 
-      });
-    }
-  });
+  // 🔹 Получение списка активных вызовов
+  socket.on('challenges:list', () => {
+    const pending = Array.from(challenges.values())
+      .filter(c => c.status === 'pending' && new Date(c.expiresAt) > new Date())
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    
+    socket.emit('challenges:list', { challenges: pending, count: pending.length })
+  })
 
-  socket.on('makeMove', ({ gameId, from, to, promotion, playerAddress }) => {
-    const game = games.get(gameId);
-    if (!game) return;
-    const turn = game.chess.turn();
-    const expected = game.players[turn === 'w' ? 0 : 1];
-    if (playerAddress !== expected) {
-      socket.emit('error', '⛔ Not your turn');
-      return;
+  // 🔹 Принятие вызова
+  socket.on('challenge:accept', (data) => {
+    console.log(`✅ Challenge ${data?.challengeId} accepted by ${socket.id}`)
+    
+    const challenge = challenges.get(data?.challengeId)
+    
+    if (!challenge) {
+      return socket.emit('challenge:error', {
+        challengeId: data?.challengeId,
+        message: 'Challenge not found or already taken'
+      })
     }
-    try {
-      const move = game.chess.move({ from, to, promotion: promotion || 'q' });
-      if (move) {
-        const state = {
-          fen: game.chess.fen(),
-          turn: game.chess.turn(),
-          gameOver: game.chess.isGameOver(),
-          result: game.chess.isCheckmate() ? 'checkmate' : game.chess.isDraw() ? 'draw' : null
-        };
-        socket.to(`game_${gameId}`).emit('opponentMove', state);
-        socket.emit('moveConfirmed', state);
+    
+    if (challenge.creator === socket.id) {
+      return socket.emit('challenge:error', {
+        challengeId: data?.challengeId,
+        message: 'Cannot accept your own challenge'
+      })
+    }
+    
+    // Обновляем статус вызова
+    challenge.status = 'accepted'
+    challenge.acceptor = socket.id
+    challenge.acceptorInfo = players.get(socket.id)
+    challenge.acceptedAt = new Date().toISOString()
+    
+    // Создаём игровую комнату
+    const roomId = `game_${challenge.id}`
+    socket.join(roomId)
+    
+    // Присоединяем создателя к комнате (если онлайн)
+    const creatorSocket = io.sockets.sockets.get(challenge.creator)
+    if (creatorSocket) {
+      creatorSocket.join(roomId)
+    }
+    
+    // Определяем цвета (создатель играет белыми по умолчанию)
+    const players = [
+      { id: challenge.creator, username: challenge.creatorInfo?.username, role: 'white', socketId: challenge.creator },
+      { id: socket.id, username: challenge.acceptorInfo?.username, role: 'black', socketId: socket.id }
+    ]
+    
+    // Сохраняем игру
+    games.set(roomId, {
+      id: roomId,
+      challengeId: challenge.id,
+      players,
+      status: 'active',
+      startedAt: new Date().toISOString(),
+      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      turn: 'white',
+      moves: []
+    })
+    
+    // Уведомляем обоих игроков о начале игры
+    io.to(roomId).emit('game:start', {
+      roomId,
+      challenge,
+      players,
+      fen: games.get(roomId).fen,
+      turn: games.get(roomId).turn
+    })
+    
+    // Удаляем вызов из листинга
+    challenges.delete(challenge.id)
+    socket.broadcast.emit('challenge:removed', { challengeId: challenge.id })
+  })
+
+  // 🔹 Отмена вызова
+  socket.on('challenge:cancel', (data) => {
+    console.log(`❌ Challenge ${data?.challengeId} cancelled by ${socket.id}`)
+    
+    const challenge = challenges.get(data?.challengeId)
+    if (!challenge || challenge.creator !== socket.id) {
+      return socket.emit('challenge:error', { message: 'Cannot cancel this challenge' })
+    }
+    
+    challenges.delete(challenge.id)
+    socket.emit('challenge:cancelled', { challengeId: challenge.id })
+    socket.broadcast.emit('challenge:removed', { challengeId: challenge.id })
+  })
+
+  // 🔹 Ход в игре
+  socket.on('game:move', (data) => {
+    const game = games.get(data?.roomId)
+    if (!game) {
+      return socket.emit('game:error', { message: 'Game not found' })
+    }
+    
+    // Проверяем, что ход делает правильный игрок
+    const player = game.players.find(p => p.id === socket.id)
+    if (!player || player.role !== game.turn) {
+      return socket.emit('game:error', { message: 'Not your turn' })
+    }
+    
+    console.log(`♟️ Move in ${data.roomId}:`, {
+      from: data?.move?.from,
+      to: data?.move?.to,
+      promotion: data?.move?.promotion,
+      player: player.role
+    })
+    
+    // Обновляем состояние игры (упрощённо - в продакшене валидируйте ходы через chess.js)
+    game.moves.push({
+      ...data.move,
+      playerId: socket.id,
+      role: player.role,
+      timestamp: new Date().toISOString()
+    })
+    
+    // Меняем очередь хода
+    game.turn = game.turn === 'white' ? 'black' : 'white'
+    
+    // Обновляем FEN (упрощённо)
+    // В продакшене: используйте chess.js для расчёта нового FEN
+    game.fen = data?.newFen || game.fen
+    
+    // Рассылаем ход второму игроку
+    socket.to(data.roomId).emit('game:move', {
+      playerId: socket.id,
+      role: player.role,
+      move: data.move,
+      newFen: game.fen,
+      turn: game.turn,
+      timestamp: new Date().toISOString()
+    })
+    
+    // Проверяем конец игры (упрощённо)
+    if (data?.isCheckmate || data?.isDraw || data?.isResignation) {
+      handleGameEnd(data.roomId, socket.id, data.result)
+    }
+  })
+
+  // 🔹 Конец игры
+  socket.on('game:end', (data) => {
+    console.log(`🏁 Game ${data?.roomId} ended:`, data?.result)
+    handleGameEnd(data.roomId, socket.id, data.result)
+  })
+
+  // 🔹 Запрос состояния игры
+  socket.on('game:state', (data) => {
+    const game = games.get(data?.roomId)
+    if (!game) {
+      return socket.emit('game:error', { message: 'Game not found' })
+    }
+    
+    socket.emit('game:state', {
+      roomId: data.roomId,
+      fen: game.fen,
+      turn: game.turn,
+      moves: game.moves,
+      players: game.players,
+      status: game.status
+    })
+  })
+
+  // 🔹 Отключение игрока
+  socket.on('disconnect', (reason) => {
+    console.log(`👋 Player ${socket.id} disconnected: ${reason}`)
+    
+    const player = players.get(socket.id)
+    if (player) {
+      players.delete(socket.id)
+    }
+    
+    // Уведомляем оппонента в активной игре
+    for (const [roomId, game] of games.entries()) {
+      const gamePlayer = game.players.find(p => p.id === socket.id)
+      if (gamePlayer && game.status === 'active') {
+        game.status = 'interrupted'
+        socket.to(roomId).emit('player:disconnected', {
+          playerId: socket.id,
+          username: player?.username,
+          reason,
+          timestamp: new Date().toISOString()
+        })
+        break
       }
-    } catch (e) {
-      socket.emit('error', '❌ Invalid move');
     }
-  });
-
-  socket.on('chatMessage', ({ gameId, user, text, time }) => {
-    const safeText = text.replace(/[<>]/g, '');
-    io.to(`game_${gameId}`).emit('chatMessage', { user, text: safeText, time });
-  });
-
-  socket.on('disconnect', () => {
-    for (const [addr, data] of onlinePlayers.entries()) {
-      if (data.socketId === socket.id) {
-        onlinePlayers.delete(addr);
-        const idx = matchQueue.indexOf(addr);
-        if (idx !== -1) matchQueue.splice(idx, 1);
-        io.emit('onlinePlayersUpdate', Array.from(onlinePlayers.keys()));
-        break;
+    
+    // Очищаем просроченные вызовы этого игрока
+    for (const [id, challenge] of challenges.entries()) {
+      if (challenge.creator === socket.id && challenge.status === 'pending') {
+        challenges.delete(id)
+        io.emit('challenge:removed', { challengeId: id })
       }
     }
-  });
-});
+  })
+})
 
-// 🏥 Health check - ОБЯЗАТЕЛЬНО для Render!
+// ============================================================================
+// 🎮 ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ============================================================================
+
+function handleGameEnd(roomId, winnerId, result) {
+  const game = games.get(roomId)
+  if (!game) return
+  
+  game.status = 'finished'
+  game.endedAt = new Date().toISOString()
+  game.result = result
+  
+  // Обновляем результат в вызове если есть
+  const challenge = Array.from(challenges.values()).find(c => `game_${c.id}` === roomId)
+  if (challenge) {
+    challenge.status = 'completed'
+    challenge.result = result
+  }
+  
+  // Уведомляем всех игроков в комнате
+  io.to(roomId).emit('game:end', {
+    roomId,
+    result,
+    winner: winnerId,
+    players: game.players,
+    timestamp: new Date().toISOString()
+  })
+  
+  // TODO: Здесь можно добавить логику распределения ставок в GROK
+  // distributeBet(challenge, winnerId)
+}
+
+// ============================================================================
+// 🌐 REST API ENDPOINTS
+// ============================================================================
+
+// ✅ Health check
 app.get('/health', (req, res) => {
-  console.log('✅ Health check requested');
-  res.status(200).json({ 
+  res.json({ 
     status: 'ok', 
-    timestamp: Date.now(), 
-    uptime: process.uptime(),
-    port: PORT,
-    io: 'running'
-  });
-});
+    timestamp: new Date().toISOString(),
+    connectedClients: io.engine.clientsCount,
+    activeChallenges: Array.from(challenges.values()).filter(c => c.status === 'pending').length,
+    activeGames: Array.from(games.values()).filter(g => g.status === 'active').length,
+    uptime: process.uptime()
+  })
+})
 
-// 🏠 Root endpoint
-app.get('/', (req, res) => {
-  res.status(200).json({ 
-    message: 'Chess4Crypto Backend is Running 🚀', 
-    endpoints: { 
-      health: '/health', 
-      socket: '/socket.io' 
-    } 
-  });
-});
+// ✅ Список активных вызовов
+app.get('/api/challenges', (req, res) => {
+  const pending = Array.from(challenges.values())
+    .filter(c => c.status === 'pending' && new Date(c.expiresAt) > new Date())
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .map(({ creator, ...rest }) => rest) // Не отправляем сокеты клиентов
+  
+  res.json({ 
+    challenges: pending, 
+    count: pending.length,
+    timestamp: new Date().toISOString()
+  })
+})
 
-// 🚀 Запуск сервера - КРИТИЧНО: 0.0.0.0 для Render!
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server started on port ${PORT}`);
-  console.log(`🔗 Health: https://chess4crypto-backend.onrender.com/health`);
-  console.log(`🔗 Socket: wss://chess4crypto-backend.onrender.com/socket.io`);
-});
+// ✅ Информация о конкретной игре
+app.get('/api/game/:roomId', (req, res) => {
+  const game = games.get(req.params.roomId)
+  if (!game) {
+    return res.status(404).json({ error: 'Game not found' })
+  }
+  
+  res.json({
+    roomId: game.id,
+    status: game.status,
+    fen: game.fen,
+    turn: game.turn,
+    players: game.players.map(({ socketId, ...p }) => p),
+    moves: game.moves,
+    startedAt: game.startedAt
+  })
+})
 
-// 🛡 Обработка ошибок
+// ✅ 404 для остальных запросов
+app.use('*', (req, res) => {
+  res.status(404).json({ 
+    error: 'Not found', 
+    path: req.path,
+    hint: 'Use WebSocket for game events, REST for health/challenges'
+  })
+})
+
+// ============================================================================
+// 🚀 ЗАПУСК СЕРВЕРА
+// ============================================================================
+
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log('🚀 Chess4Crypto backend starting...')
+  console.log(`📦 Port: ${PORT}`)
+  console.log(`🌐 Allowed origins: ${allowedOrigins.join(', ')}`)
+  console.log(`🔗 WebSocket: ws://localhost:${PORT}`)
+  console.log(`🏥 Health: http://localhost:${PORT}/health`)
+  console.log(`✅ Server ready!`)
+})
+
+// ============================================================================
+// 🛡️ ОБРАБОТКА ОШИБОК
+// ============================================================================
+
+process.on('unhandledRejection', (err) => {
+  console.error('❌ Unhandled Promise rejection:', err)
+})
+
 process.on('uncaughtException', (err) => {
-  console.error('❌ Uncaught Exception:', err);
-});
-process.on('unhandledRejection', (reason) => {
-  console.error('❌ Unhandled Rejection:', reason);
-});
+  console.error('❌ Uncaught exception:', err)
+  // Не завершаем процесс сразу — даём шанс на восстановление
+  setTimeout(() => process.exit(1), 1000)
+})
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('🔄 SIGTERM received, shutting down gracefully...')
+  httpServer.close(() => {
+    console.log('✅ Server closed')
+    process.exit(0)
+  })
+})
