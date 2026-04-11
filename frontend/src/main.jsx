@@ -56,7 +56,7 @@ const queryClient = new QueryClient({
 const rootElement = document.getElementById('root')
 if (!rootElement) {
   console.error('❌ FATAL: <div id="root"> not found')
-  document.body.innerHTML = '<div style="padding:2rem;color:#fff">⚠️ Ошибка: root элемент не найден</div>'
+  document.body.innerHTML = '<div style="padding:2rem;color:#fff;background:#000;font-family:sans-serif">⚠️ Ошибка: root элемент не найден</div>'
 } else {
   try {
     ReactDOM.createRoot(rootElement).render(
@@ -71,6 +71,6 @@ if (!rootElement) {
     console.log('✅ App rendered successfully')
   } catch (err) {
     console.error('❌ Render error:', err)
-    rootElement.innerHTML = `<div style="padding:2rem;color:#fff">⚠️ Ошибка рендера: ${err.message}</div>`
+    rootElement.innerHTML = `<div style="padding:2rem;color:#fff;background:#000;font-family:sans-serif">⚠️ Ошибка рендера: ${err.message}</div>`
   }
 }
