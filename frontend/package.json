@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "description": "Web3 Chess Platform with AI, PvP & GROK Token Betting",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -39,6 +40,6 @@
     "eslint-plugin-react-refresh": "0.4.5"
   },
   "engines": {
-    "node": "24.x"
+    "node": ">=18.0.0"
   }
 }
