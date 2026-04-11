@@ -1,14 +1,4 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    }
-  ],
   "routes": [
     {
       "src": "/(.*)",
@@ -16,7 +6,7 @@
     }
   ],
   "env": {
-    "NPM_FLAGS": "--legacy-peer-deps"
+    "NPM_FLAGS": "--legacy-peer-deps --ignore-scripts"
   },
   "build": {
     "env": {
