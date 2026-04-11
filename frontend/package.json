@@ -5,9 +5,10 @@
   "type": "module",
   "description": "Web3 Chess Platform with AI, PvP & GROK Token Betting",
   "scripts": {
-    "dev": "npx vite",
-    "build": "npx vite build",
-    "preview": "npx vite preview"
+    "dev": "vite",
+    "prebuild": "chmod +x node_modules/.bin/vite node_modules/.bin/esbuild 2>/dev/null || true",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "react": "18.2.0",
