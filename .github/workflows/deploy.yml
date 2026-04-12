@@ -1,52 +1,65 @@
+# ============================================================================
+# GITHUB ACTIONS: Deploy Chess4Crypto to GitHub Pages
+# ✅ Исправлено: кэш + совместимость с Node.js 24
+# ============================================================================
+
 name: Deploy to GitHub Pages
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
+  workflow_dispatch:  # Разрешает ручной запуск из вкладки Actions
+
+# ✅ Явно указываем среду для совместимости с Node.js 24
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# ✅ Явно указываем среду для совместимости
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4  # ✅ Актуальная версия
+      # 1️⃣ Клонируем репозиторий
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      # 2️⃣ Устанавливаем Node.js 18 (без автоматического кэша — он вызывал ошибку)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          # ❌ Убрали cache: 'npm' — он вызывал "paths were not resolved"
+          # ✅ Кэш не критичен: сборка занимает ~2 минуты и без него
 
-      - name: Install & Build
+      # 3️⃣ Устанавливаем зависимости и собираем проект
+      - name: Install dependencies & Build
         run: |
           cd frontend
           npm ci --legacy-peer-deps --ignore-scripts
           npm run build
         env:
+          # ✅ Секреты подставляются из GitHub Secrets
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_WALLETCONNECT_PROJECT_ID: ${{ secrets.VITE_WALLETCONNECT_PROJECT_ID }}
           VITE_WS_URL: ${{ secrets.VITE_WS_URL }}
 
+      # 4️⃣ Настраиваем GitHub Pages
       - name: Setup Pages
         uses: actions/configure-pages@v5  # ✅ Обновлённая версия
 
+      # 5️⃣ Загружаем собранные файлы как артефакт
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: frontend/dist
+          path: frontend/dist  # ← Vite собирает именно сюда
 
+      # 6️⃣ Деплоим на GitHub Pages
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4  # ✅ Актуальная версия
