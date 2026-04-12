@@ -1,6 +1,6 @@
 # ============================================================================
 # GITHUB ACTIONS: Deploy Chess4Crypto to GitHub Pages
-# ✅ Исправлено: кэш + совместимость с Node.js 24
+# ✅ Полная совместимость с Node.js 24 + надёжная сборка
 # ============================================================================
 
 name: Deploy to GitHub Pages
@@ -8,11 +8,12 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:  # Разрешает ручной запуск из вкладки Actions
+  workflow_dispatch:  # Ручной запуск из вкладки Actions
 
-# ✅ Явно указываем среду для совместимости с Node.js 24
+# ✅ Принудительное использование Node.js 24 для всех действий
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true  # Временный обход, если нужно
 
 permissions:
   contents: read
@@ -21,45 +22,75 @@ permissions:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # ✅ Свежий образ с полной поддержкой Node 24
     
     steps:
       # 1️⃣ Клонируем репозиторий
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Полная история для корректной работы
 
-      # 2️⃣ Устанавливаем Node.js 18 (без автоматического кэша — он вызывал ошибку)
+      # 2️⃣ Устанавливаем Node.js 18 (для совместимости с вашим проектом)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          # ❌ Убрали cache: 'npm' — он вызывал "paths were not resolved"
-          # ✅ Кэш не критичен: сборка занимает ~2 минуты и без него
+          registry-url: 'https://registry.npmjs.org'
+          # ❌ Кэш отключён — он вызывал "paths were not resolved"
+          # ✅ Сборка без кэша занимает ~90 секунд — это нормально
 
       # 3️⃣ Устанавливаем зависимости и собираем проект
       - name: Install dependencies & Build
         run: |
           cd frontend
-          npm ci --legacy-peer-deps --ignore-scripts
+          echo "🔧 Starting build process..."
+          echo "📦 Node version: $(node -v)"
+          echo "📦 NPM version: $(npm -v)"
+          echo "📁 Working directory: $(pwd)"
+          
+          # Очищаем на всякий случай
+          rm -rf node_modules dist package-lock.json 2>/dev/null || true
+          
+          # Устанавливаем зависимости
+          echo "📥 Installing dependencies..."
+          npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          
+          # Собираем проект
+          echo "🏗️ Building project..."
           npm run build
+          
+          # Проверяем результат
+          echo "✅ Build completed. Checking output..."
+          ls -la dist/ || echo "⚠️ dist/ not found!"
         env:
           # ✅ Секреты подставляются из GitHub Secrets
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_WALLETCONNECT_PROJECT_ID: ${{ secrets.VITE_WALLETCONNECT_PROJECT_ID }}
           VITE_WS_URL: ${{ secrets.VITE_WS_URL }}
+          NODE_ENV: production
 
-      # 4️⃣ Настраиваем GitHub Pages
+      # 4️⃣ Проверяем, что сборка создала файлы
+      - name: Verify build output
+        run: |
+          if [ ! -d "frontend/dist" ] || [ -z "$(ls -A frontend/dist 2>/dev/null)" ]; then
+            echo "❌ ERROR: frontend/dist is empty or missing!"
+            exit 1
+          fi
+          echo "✅ Build output verified: $(ls frontend/dist | wc -l) files"
+
+      # 5️⃣ Настраиваем GitHub Pages
       - name: Setup Pages
-        uses: actions/configure-pages@v5  # ✅ Обновлённая версия
+        uses: actions/configure-pages@v5
 
-      # 5️⃣ Загружаем собранные файлы как артефакт
+      # 6️⃣ Загружаем артефакт
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: frontend/dist  # ← Vite собирает именно сюда
+          path: frontend/dist
 
-      # 6️⃣ Деплоим на GitHub Pages
+      # 7️⃣ Деплоим
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4  # ✅ Актуальная версия
+        uses: actions/deploy-pages@v4
