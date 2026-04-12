@@ -113,3 +113,12 @@ export const connect = () => Promise.resolve({ provider: new SDKProvider() })
 export const request = () => Promise.resolve(null)
 export const on = () => {}
 export const off = () => {}
+// Заглушка для @metamask/sdk — экспортирует всё, что ожидает wagmi
+export const EventType = { CONNECT: 'connect', DISCONNECT: 'disconnect', ACCOUNTS_CHANGED: 'accountsChanged', CHAIN_CHANGED: 'chainChanged', MESSAGE: 'message', ERROR: 'error' }
+export const ProviderType = { MetaMask: 'metamask', MetaMaskSDK: 'metamask_sdk' }
+export class SDKProvider { constructor() {} async request() { return null } on() { return this } removeListener() { return this } }
+export class MetaMaskSDK { constructor() {} async init() { return this } async connect() { return { provider: new SDKProvider() } } getProvider() { return new SDKProvider() } terminate() { return Promise.resolve() } }
+export default MetaMaskSDK
+export const createProvider = () => new SDKProvider()
+export const getSdk = () => new MetaMaskSDK()
+export const disconnect = () => Promise.resolve()
