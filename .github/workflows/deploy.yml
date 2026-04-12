@@ -1,9 +1,14 @@
+# ============================================================================
+# GITHUB ACTIONS: Deploy Chess4Crypto to GitHub Pages
+# ✅ Использует npm ci + package-lock.json для надёжной сборки
+# ============================================================================
+
 name: Deploy to GitHub Pages
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
+  workflow_dispatch:  # Ручной запуск из вкладки Actions
 
 permissions:
   contents: read
@@ -13,31 +18,43 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    
     steps:
+      # 1️⃣ Клонируем репозиторий
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 2️⃣ Устанавливаем Node.js 18
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
+      # 3️⃣ Устанавливаем зависимости и собираем проект
       - name: Build
         run: |
           cd frontend
-          # ✅ Используем npm install вместо npm ci (не требует package-lock.json)
-          npm install --legacy-peer-deps --ignore-scripts
+          # ✅ npm ci требует package-lock.json (который мы только что запушили)
+          npm ci --legacy-peer-deps --ignore-scripts
           npm run build
         env:
+          # ✅ Секреты подставляются из GitHub Secrets
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_WALLETCONNECT_PROJECT_ID: ${{ secrets.VITE_WALLETCONNECT_PROJECT_ID }}
           VITE_WS_URL: ${{ secrets.VITE_WS_URL }}
+          NODE_ENV: production
 
+      # 4️⃣ Настраиваем GitHub Pages
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      # 5️⃣ Загружаем артефакт
       - name: Upload
         uses: actions/upload-pages-artifact@v3
         with:
           path: frontend/dist
 
+      # 6️⃣ Деплоим
       - name: Deploy
         uses: actions/deploy-pages@v4
