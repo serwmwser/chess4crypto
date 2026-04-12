@@ -1,29 +1,23 @@
 {
   "name": "chess4crypto-backend",
   "version": "1.0.0",
-  "description": "WebSocket backend for Chess4Crypto",
-  "main": "server.js",
   "type": "module",
+  "description": "WebSocket backend for Chess4Crypto with Socket.IO",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js",
-    "test": "echo \"No tests\" && exit 0"
-  },
-  "keywords": ["chess", "websocket", "socket.io", "web3"],
-  "author": "Chess4Crypto",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/serwmwser/chess4crypto.git"
-  },
-  "engines": {
-    "node": ">=18.0.0"
+    "dev": "nodemon server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "socket.io": "^4.8.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "chess.js": "^1.0.0-beta.8"
+    "cors": "2.8.5",
+    "dotenv": "16.3.1",
+    "express": "4.18.2",
+    "socket.io": "4.7.4"
+  },
+  "devDependencies": {
+    "nodemon": "3.0.2"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }
