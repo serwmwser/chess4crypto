@@ -1,6 +1,6 @@
 // ============================================================================
 // CHESS4CRYPTO - Entry Point (frontend/src/main.jsx)
-// ✅ Чистый код: без дубликатов, совместим с Vite + ESM
+// ✅ Исправлено: metadata: вместо meta {
 // ============================================================================
 
 import React from 'react'
@@ -12,7 +12,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import './i18n'
 
-// 🔍 Логирование ENV (для отладки)
+// 🔍 Логирование ENV
 console.log('🚀 Chess4Crypto starting...')
 console.log('🔍 ENV status:', {
   SUPABASE: import.meta.env.VITE_SUPABASE_URL ? '✓' : '✗',
@@ -20,7 +20,7 @@ console.log('🔍 ENV status:', {
   WS_URL: import.meta.env.VITE_WS_URL ? '✓' : '✗'
 })
 
-// 🔑 Project ID для WalletConnect (fallback если не задан)
+// 🔑 Project ID для WalletConnect
 const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '00000000000000000000000000000000'
 
 // ✅ Создаём конфиг Wagmi
@@ -31,7 +31,8 @@ export const config = createConfig({
     walletConnect({ 
       projectId,
       showQrModal: true,
-      meta {
+      // ✅ ИСПРАВЛЕНО: metadata: (с двоеточием), а не meta {
+      metadata: {
         name: 'Chess4Crypto',
         description: 'Web3 Chess Platform with GROK Token Betting',
         url: typeof window !== 'undefined' ? window.location.origin : 'https://serwmwser.github.io/chess4crypto',
