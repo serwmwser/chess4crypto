@@ -2,56 +2,27 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Chess } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
 import { useAccount, useConnect, useDisconnect, useBalance } from 'wagmi'
+import { walletConnect, injected } from 'wagmi/connectors'
 import { useTranslation } from 'react-i18next'
 
 // 🎨 5 ТЕМ ДЛЯ ДОСКИ И ФИГУР
 const BOARD_THEMES = {
-  classic: {
-    name: '🏛️ Классика',
-    light: '#eeeed2',
-    dark: '#769656',
-    pieceSet: 'staunton',
-    highlight: 'rgba(255, 255, 0, 0.4)',
-    validMove: 'rgba(20, 85, 30, 0.5)'
-  },
-  neon: {
-    name: '💜 Неон',
-    light: '#1a1a2e',
-    dark: '#16213e',
-    pieceSet: 'merida',
-    highlight: 'rgba(236, 72, 153, 0.5)',
-    validMove: 'rgba(59, 130, 246, 0.6)'
-  },
-  forest: {
-    name: '🌲 Лес',
-    light: '#c8b59a',
-    dark: '#5d7a4f',
-    pieceSet: 'california',
-    highlight: 'rgba(251, 191, 36, 0.4)',
-    validMove: 'rgba(34, 197, 94, 0.5)'
-  },
-  ocean: {
-    name: '🌊 Океан',
-    light: '#a8d8ea',
-    dark: '#2a6f97',
-    pieceSet: 'pixel',
-    highlight: 'rgba(255, 215, 0, 0.4)',
-    validMove: 'rgba(6, 182, 212, 0.5)'
-  },
-  sunset: {
-    name: '🌅 Закат',
-    light: '#ffecd2',
-    dark: '#fcb69f',
-    pieceSet: 'alpha',
-    highlight: 'rgba(245, 158, 11, 0.4)',
-    validMove: 'rgba(239, 68, 68, 0.5)'
-  }
+  classic: { name: '🏛️ Классика', light: '#eeeed2', dark: '#769656', pieceSet: 'staunton', highlight: 'rgba(255, 255, 0, 0.4)', validMove: 'rgba(20, 85, 30, 0.5)' },
+  neon: { name: '💜 Неон', light: '#1a1a2e', dark: '#16213e', pieceSet: 'merida', highlight: 'rgba(236, 72, 153, 0.5)', validMove: 'rgba(59, 130, 246, 0.6)' },
+  forest: { name: '🌲 Лес', light: '#c8b59a', dark: '#5d7a4f', pieceSet: 'california', highlight: 'rgba(251, 191, 36, 0.4)', validMove: 'rgba(34, 197, 94, 0.5)' },
+  ocean: { name: '🌊 Океан', light: '#a8d8ea', dark: '#2a6f97', pieceSet: 'pixel', highlight: 'rgba(255, 215, 0, 0.4)', validMove: 'rgba(6, 182, 212, 0.5)' },
+  sunset: { name: '🌅 Закат', light: '#ffecd2', dark: '#fcb69f', pieceSet: 'alpha', highlight: 'rgba(245, 158, 11, 0.4)', validMove: 'rgba(239, 68, 68, 0.5)' }
 }
+
+// 📱 Определение мобильного устройства
+const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+const isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent)
+const isAndroid = () => /Android/i.test(navigator.userAgent)
 
 function App() {
   const { t, i18n } = useTranslation()
   const { address, isConnected } = useAccount()
-  const { connect, connectors } = useConnect()
+  const { connect, connectors, isError: connectError } = useConnect()
   const { disconnect } = useDisconnect()
   const {  balance: walletBalance } = useBalance({ address })
 
@@ -67,11 +38,14 @@ function App() {
   const [winner, setWinner] = useState(null)
   const [message, setMessage] = useState('')
 
-  // 🎨 Тема доски (загружаем из localStorage)
+  // 📱 Состояние для скачивания/установки
+  const [showInstallModal, setShowInstallModal] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState(null)
+  const [isAppInstalled, setIsAppInstalled] = useState(false)
+
+  // 🎨 Тема доски
   const [boardTheme, setBoardTheme] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('chess4crypto_theme') || 'classic'
-    }
+    if (typeof window !== 'undefined') return localStorage.getItem('chess4crypto_theme') || 'classic'
     return 'classic'
   })
 
@@ -96,59 +70,43 @@ function App() {
   }
   const formatNumber = (n) => n.toLocaleString('ru-RU')
 
-  // 🎨 Стили для подсветки ходов
+  // 🎨 Стили для подсветки
   const customSquareStyles = useMemo(() => {
     const theme = BOARD_THEMES[boardTheme]
     const styles = {}
-    
-    // Подсветка выбранной фигуры
-    if (selectedSquare) {
-      styles[selectedSquare] = { backgroundColor: theme.highlight }
-    }
-    
-    // Зелёные точки на доступных ходах
+    if (selectedSquare) styles[selectedSquare] = { backgroundColor: theme.highlight }
     possibleMoves.forEach(square => {
       styles[square] = {
         backgroundColor: theme.validMove,
         backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.8) 20%, transparent 20%)`,
-        backgroundSize: '12px 12px',
-        backgroundPosition: 'center'
+        backgroundSize: '12px 12px', backgroundPosition: 'center'
       }
     })
-    
     return styles
   }, [selectedSquare, possibleMoves, boardTheme])
 
-  // 🎯 Получение доступных ходов для фигуры
+  // 🎯 Доступные ходы
   const getValidMoves = useCallback((square) => {
-    const chess = gameRef.current
-    const moves = chess.moves({ square, verbose: true })
+    const moves = gameRef.current.moves({ square, verbose: true })
     return moves.map(m => m.to)
   }, [])
 
-  // 🖱️ Клик по клетке — выбор фигуры и подсветка ходов
+  // 🖱️ Клик по клетке
   const onSquareClick = useCallback((square) => {
     if (gameOver) return
-    
     const chess = gameRef.current
     const piece = chess.get(square)
-    
-    // Если кликнули на свою фигуру — показываем ходы
     if (piece && piece.color === (isPlayerTurn ? 'w' : 'b')) {
       setSelectedSquare(square)
       setPossibleMoves(getValidMoves(square))
       return
     }
-    
-    // Если кликнули на подсвеченную клетку — делаем ход
     if (selectedSquare && possibleMoves.includes(square)) {
       onDrop(selectedSquare, square)
       setSelectedSquare(null)
       setPossibleMoves([])
       return
     }
-    
-    // Клик в пустое место — сброс выделения
     setSelectedSquare(null)
     setPossibleMoves([])
   }, [gameOver, isPlayerTurn, selectedSquare, possibleMoves, getValidMoves])
@@ -159,7 +117,6 @@ function App() {
     try {
       const move = gameRef.current.move({ from: source, to: target, promotion: 'q' })
       if (!move) return false
-
       const newFen = gameRef.current.fen()
       const san = gameRef.current.history({ verbose: true }).pop()?.san || `${source}${target}`
       setHistory(prev => [...prev, newFen])
@@ -169,19 +126,11 @@ function App() {
       setIsPlayerTurn(false)
       setTimerActive('bot')
       setMessage('🤖 Бот думает...')
-      
-      // Сброс выделения
       setSelectedSquare(null)
       setPossibleMoves([])
-      
-      // Проверка на конец игры
-      if (gameRef.current.isCheckmate()) {
-        endGame('player')
-      } else if (gameRef.current.isDraw()) {
-        endGame('draw')
-      } else {
-        setTimeout(makeBotMove, 1000)
-      }
+      if (gameRef.current.isCheckmate()) endGame('player')
+      else if (gameRef.current.isDraw()) endGame('draw')
+      else setTimeout(makeBotMove, 1000)
       return true
     } catch { return false }
   }, [isPlayerTurn, gameOver, moveIndex, history.length])
@@ -193,7 +142,6 @@ function App() {
     if (!moves.length) return
     const random = moves[Math.floor(Math.random() * moves.length)]
     gameRef.current.move(random)
-    
     const newFen = gameRef.current.fen()
     const san = gameRef.current.history({ verbose: true }).pop()?.san || random
     setHistory(prev => [...prev, newFen])
@@ -202,14 +150,9 @@ function App() {
     setMoveIndex(prev => prev + 1)
     setIsPlayerTurn(true)
     setTimerActive('player')
-    
-    if (gameRef.current.isCheckmate()) {
-      endGame('player')
-    } else if (gameRef.current.isDraw()) {
-      endGame('draw')
-    } else {
-      setMessage('♟️ Ваш ход!')
-    }
+    if (gameRef.current.isCheckmate()) endGame('player')
+    else if (gameRef.current.isDraw()) endGame('draw')
+    else setMessage('♟️ Ваш ход!')
   }, [gameOver])
 
   // 🏁 Конец игры
@@ -218,7 +161,6 @@ function App() {
     setTimerActive(null)
     setSelectedSquare(null)
     setPossibleMoves([])
-    
     if (result === 'player') {
       setWinner('player')
       setMessage('🏁 КОНЕЦ ИГРЫ! Вы победили!')
@@ -243,13 +185,41 @@ function App() {
     setMessage(`✅ ${amount} GROK внесено!`)
   }
 
-  // 🔹 Подключение кошелька
+  // 🔹 Подключение кошелька (ИСПРАВЛЕНО ДЛЯ МОБИЛЬНЫХ)
   const handleConnect = async () => {
+    setMessage('🔄 Подключение кошелька...')
     try {
-      const connector = connectors.find(c => c.id === 'injected') || connectors[0]
-      if (connector) await connect({ connector })
-      startGame('wallet')
-    } catch (err) { setMessage('⚠️ Ошибка: ' + err.message) }
+      // 📱 На мобильных — приоритет WalletConnect
+      if (isMobile()) {
+        const wcConnector = connectors.find(c => c.id === 'walletConnect')
+        if (wcConnector) {
+          await connect({ connector: wcConnector })
+          setMessage('✅ WalletConnect подключён!')
+          startGame('wallet')
+          return
+        }
+      }
+      // 💻 На десктопе — пробуем MetaMask (injected)
+      const injectedConnector = connectors.find(c => c.id === 'injected')
+      if (injectedConnector) {
+        await connect({ connector: injectedConnector })
+        setMessage('✅ Кошелёк подключён!')
+        startGame('wallet')
+        return
+      }
+      // Fallback: первый доступный коннектор
+      const connector = connectors[0]
+      if (connector) {
+        await connect({ connector })
+        setMessage('✅ Подключено!')
+        startGame('wallet')
+        return
+      }
+      setMessage('⚠️ Нет доступных кошельков. Установите MetaMask или Trust Wallet.')
+    } catch (err) {
+      console.error('Connect error:', err)
+      setMessage('⚠️ Ошибка: ' + (err?.shortMessage || err?.message || 'Неизвестная ошибка'))
+    }
   }
 
   // 🚀 Старт игры
@@ -284,11 +254,76 @@ function App() {
     window.open('https://four.meme/token/0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444?code=AHGX96R5GHK9', '_blank')
   }
 
-  // 🎨 Смена темы доски
+  // 🎨 Смена темы
   const handleThemeChange = (themeKey) => {
     setBoardTheme(themeKey)
     localStorage.setItem('chess4crypto_theme', themeKey)
     setMessage(`🎨 Тема: ${BOARD_THEMES[themeKey].name}`)
+  }
+
+  // 📱 Обработчик PWA install
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+    
+    // Проверка, установлено ли как PWA
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsAppInstalled(true)
+    }
+    
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  const handleInstallApp = async () => {
+    if (!deferredPrompt) {
+      // Показать инструкции
+      setShowInstallModal(true)
+      return
+    }
+    deferredPrompt.prompt()
+    const { outcome } = await deferredPrompt.userChoice
+    if (outcome === 'accepted') {
+      setMessage('✅ Приложение установлено!')
+      setIsAppInstalled(true)
+    }
+    setDeferredPrompt(null)
+  }
+
+  const getInstallInstructions = () => {
+    if (isIOS()) {
+      return {
+        title: '📱 Установка на iPhone/iPad',
+        steps: [
+          '1. Нажмите кнопку "Поделиться" ⎋ в браузере Safari',
+          '2. Прокрутите вниз и выберите "На экран «Домой»"',
+          '3. Подтвердите название и нажмите "Добавить"',
+          '4. Приложение появится на главном экране!'
+        ]
+      }
+    } else if (isAndroid()) {
+      return {
+        title: '📱 Установка на Android',
+        steps: [
+          '1. Нажмите меню "⋮" в браузере Chrome',
+          '2. Выберите "Установить приложение" или "Добавить на главный экран"',
+          '3. Подтвердите установку',
+          '4. Приложение появится в меню!'
+        ]
+      }
+    } else {
+      return {
+        title: '💻 Установка на компьютер',
+        steps: [
+          '1. В браузере Chrome/Edge нажмите на иконку "📥" в адресной строке',
+          '2. Или: Меню → "Дополнительные инструменты" → "Создать ярлык"',
+          '3. Поставьте галочку "Открывать в отдельном окне"',
+          '4. Ярлык появится на рабочем столе!'
+        ]
+      }
+    }
   }
 
   // ⏱️ Таймер
@@ -311,6 +346,7 @@ function App() {
   ]
   const depositOptions = [1000, 5000, 10000, 50000, 100000, 500000]
   const theme = BOARD_THEMES[boardTheme]
+  const installInfo = getInstallInstructions()
 
   // ============================================================================
   // 🎨 МЕНЮ ВХОДА
@@ -321,6 +357,12 @@ function App() {
         <h1 style={styles.title}>♟️ {t('app.title')}</h1>
         <p style={styles.sub}>{t('app.subtitle')}</p>
         
+        {/* 📱 КНОПКА СКАЧАТЬ/УСТАНОВИТЬ */}
+        <button onClick={handleInstallApp} style={styles.btnInstall}>
+          {isAppInstalled ? '✅ Приложение установлено' : '📱 Скачать приложение'}
+        </button>
+        {!isAppInstalled && <p style={styles.installHint}>Установите как приложение для игры оффлайн и быстрых запусков</p>}
+
         <button onClick={handleBuyGrok} style={styles.btnGrok}>💰 Купить GROK</button>
         <p style={styles.grokHint}>Подключи кошелёк в сети BNB → купи GROK на four.meme</p>
 
@@ -335,9 +377,7 @@ function App() {
           <>
             <div style={styles.balanceRow}>
               <span>💼 Баланс GROK:</span>
-              <strong style={{color:'#fbbf24'}}>
-                {walletBalance ? parseFloat(walletBalance.formatted).toFixed(2) : '0.00'}
-              </strong>
+              <strong style={{color:'#fbbf24'}}>{walletBalance ? parseFloat(walletBalance.formatted).toFixed(2) : '0.00'}</strong>
             </div>
             <div style={styles.depositGroup}>
               <label style={styles.label}>💰 Внести в игру:</label>
@@ -356,13 +396,11 @@ function App() {
         <div style={styles.btnGroup}>
           <button onClick={() => startGame('guest')} style={styles.btnPrimary}>👤 {t('app.guestLogin')}</button>
           <button onClick={handleConnect} style={styles.btnWallet}>
-            {connectors.length > 0 ? '🦊 ' : '⚠️ '} {t('app.connectWallet')}
+            {connectors.length > 0 ? (isMobile() ? '🔗 ' : '🦊 ') : '⚠️ '} {t('app.connectWallet')}
           </button>
         </div>
 
-        {gameBalance > 0 && (
-          <div style={styles.gameBalanceBadge}>🎮 Баланс: <strong>{formatNumber(gameBalance)} GROK</strong></div>
-        )}
+        {gameBalance > 0 && <div style={styles.gameBalanceBadge}>🎮 Баланс: <strong>{formatNumber(gameBalance)} GROK</strong></div>}
 
         <select value={i18n.language} onChange={e => i18n.changeLanguage(e.target.value)} style={styles.langSelect}>
           <option value="ru">🇷🇺 Русский</option>
@@ -373,7 +411,7 @@ function App() {
   }
 
   // ============================================================================
-  // 👤 ПРОФИЛЬ С ВЫБОРОМ ТЕМЫ
+  // 👤 ПРОФИЛЬ
   // ============================================================================
   if (view === 'profile') {
     return (
@@ -386,34 +424,24 @@ function App() {
         <div style={styles.balanceCard}>
           <div style={styles.balanceLabel}>🎮 Баланс игры</div>
           <div style={styles.balanceValue}>{formatNumber(gameBalance)} <span style={{fontSize:'1rem'}}>GROK</span></div>
-          <p style={styles.balanceHint}>
-            {gameBalance > 0 ? 'Сумма для участия в ставках' : 'Внесите депозит, чтобы играть на токены'}
-          </p>
+          <p style={styles.balanceHint}>{gameBalance > 0 ? 'Сумма для участия в ставках' : 'Внесите депозит, чтобы играть на токены'}</p>
           {isConnected && gameBalance === 0 && (
             <div style={styles.depositQuick}>
               {depositOptions.slice(0,3).map(amt => (
-                <button key={amt} onClick={() => { handleDeposit(amt); setView('game'); }} style={styles.btnDepositSmall}>
-                  +{formatNumber(amt)}
-                </button>
+                <button key={amt} onClick={() => { handleDeposit(amt); setView('game'); }} style={styles.btnDepositSmall}>+{formatNumber(amt)}</button>
               ))}
             </div>
           )}
         </div>
 
-        {/* 🎨 ВЫБОР ТЕМЫ ДОСКИ */}
+        {/* 🎨 ТЕМЫ */}
         <div style={styles.themeCard}>
           <h3 style={styles.statsTitle}>🎨 Дизайн доски</h3>
           <div style={styles.themeGrid}>
             {Object.entries(BOARD_THEMES).map(([key, t]) => (
-              <button
-                key={key}
-                onClick={() => handleThemeChange(key)}
-                style={{
-                  ...styles.themeBtn,
-                  border: boardTheme === key ? '3px solid #fbbf24' : '2px solid #475569',
-                  background: `linear-gradient(135deg, ${t.light}, ${t.dark})`
-                }}
-              >
+              <button key={key} onClick={() => handleThemeChange(key)}
+                style={{...styles.themeBtn, border: boardTheme === key ? '3px solid #fbbf24' : '2px solid #475569',
+                  background: `linear-gradient(135deg, ${t.light}, ${t.dark})`}}>
                 <div style={styles.themePreview}>
                   <div style={{...styles.themeSquare, background: t.light}} />
                   <div style={{...styles.themeSquare, background: t.dark}} />
@@ -465,75 +493,54 @@ function App() {
             {winner === 'bot' && '😔 БОТ ПОБЕДИЛ'}
             {winner === 'draw' && '🤝 НИЧЬЯ'}
           </div>
-          {winner === 'player' && gameBalance > 0 && (
-            <div style={styles.prizeText}>+{formatNumber(gameBalance)} GROK зачислено!</div>
-          )}
+          {winner === 'player' && gameBalance > 0 && <div style={styles.prizeText}>+{formatNumber(gameBalance)} GROK зачислено!</div>}
           <button onClick={() => { setView('menu'); }} style={styles.btnNewGame}>🔄 Новая игра</button>
         </div>
       )}
 
       <div style={styles.timers}>
-        <div style={{...styles.timerBox, active: timerActive === 'player' && !gameOver}}>
-          <span>👤 Вы</span>
-          <span style={styles.timerText}>{fmtTime(playerTime)}</span>
-        </div>
-        <div style={{...styles.timerBox, active: timerActive === 'bot' && !gameOver}}>
-          <span>🤖 Бот</span>
-          <span style={styles.timerText}>{fmtTime(botTime)}</span>
-        </div>
+        <div style={{...styles.timerBox, active: timerActive === 'player' && !gameOver}}><span>👤 Вы</span><span style={styles.timerText}>{fmtTime(playerTime)}</span></div>
+        <div style={{...styles.timerBox, active: timerActive === 'bot' && !gameOver}}><span>🤖 Бот</span><span style={styles.timerText}>{fmtTime(botTime)}</span></div>
       </div>
 
-      {gameBalance > 0 && !gameOver && (
-        <div style={styles.gameBalance}>
-          💰 Ставка: <strong>{formatNumber(gameBalance)} GROK</strong>
-        </div>
-      )}
-
+      {gameBalance > 0 && !gameOver && <div style={styles.gameBalance}>💰 Ставка: <strong>{formatNumber(gameBalance)} GROK</strong></div>}
       {!gameOver && message && <div style={styles.statusMsg}>{message}</div>}
 
-      {/* 🎨 ШАХМАТНАЯ ДОСКА С ПОДСВЕТКОЙ ХОДОВ */}
       <div style={styles.boardWrap}>
-        <Chessboard
-          position={fen}
-          onPieceDrop={onDrop}
-          onSquareClick={onSquareClick}
-          customSquareStyles={customSquareStyles}
-          boardOrientation="white"
-          customDarkSquareStyle={{ backgroundColor: theme.dark }}
-          customLightSquareStyle={{ backgroundColor: theme.light }}
-        />
+        <Chessboard position={fen} onPieceDrop={onDrop} onSquareClick={onSquareClick} customSquareStyles={customSquareStyles}
+          boardOrientation="white" customDarkSquareStyle={{ backgroundColor: theme.dark }} customLightSquareStyle={{ backgroundColor: theme.light }} />
       </div>
 
-      {/* 📜 История ходов */}
       <div style={styles.historyPanel}>
-        <div style={styles.historyHeader}>
-          <span>📜 Ходы:</span>
-          <span style={styles.historyCount}>{movesList.length}</span>
-        </div>
+        <div style={styles.historyHeader}><span>📜 Ходы:</span><span style={styles.historyCount}>{movesList.length}</span></div>
         <div style={styles.historyList}>
-          {movesList.map((m, i) => (
-            <span key={i} style={{...styles.moveChip, highlight: i === moveIndex - 1, playerTurn: i % 2 === 0}}>
-              {Math.floor(i/2)+1}.{i%2===0?'':'..'} {m.san}
-            </span>
-          ))}
+          {movesList.map((m, i) => (<span key={i} style={{...styles.moveChip, highlight: i === moveIndex - 1, playerTurn: i % 2 === 0}}>{Math.floor(i/2)+1}.{i%2===0?'':'..'} {m.san}</span>))}
           {movesList.length === 0 && <span style={styles.emptyHist}>Ходов нет...</span>}
         </div>
       </div>
 
-      {/* Кнопки управления */}
       <div style={styles.controls}>
-        <button onClick={() => { setSelectedSquare(null); setPossibleMoves([]); }} style={styles.btnCtrl}>✖️ Сброс</button>
-        <button onClick={() => { /* назад */ }} disabled={moveIndex === 0 || gameOver} style={styles.btnCtrl}>⏪</button>
-        <button onClick={() => { /* вперёд */ }} disabled={moveIndex === history.length-1 || gameOver} style={styles.btnCtrl}>⏩</button>
+        <button onClick={() => { setSelectedSquare(null); setPossibleMoves([]); }} style={styles.btnCtrl}>✖️</button>
+        <button onClick={() => {}} disabled={moveIndex === 0 || gameOver} style={styles.btnCtrl}>⏪</button>
+        <button onClick={() => {}} disabled={moveIndex === history.length-1 || gameOver} style={styles.btnCtrl}>⏩</button>
         <button onClick={goToProfile} style={styles.btnProfile}>🎨</button>
-        {isConnected && !gameOver && (
-          <button onClick={() => handleDeposit(1000)} style={styles.btnAdd}>+1K</button>
-        )}
+        {isConnected && !gameOver && <button onClick={() => handleDeposit(1000)} style={styles.btnAdd}>+1K</button>}
       </div>
 
-      <p style={styles.modeInfo}>
-        {isConnected ? '🦊 Кошелёк' : '👤 Гость'} • {timeOptions.find(o=>o.value===timeControl)?.label} • {theme.name}
-      </p>
+      <p style={styles.modeInfo}>{isConnected ? '🦊 Кошелёк' : '👤 Гость'} • {timeOptions.find(o=>o.value===timeControl)?.label} • {theme.name}</p>
+
+      {/* 📱 МОДАЛКА УСТАНОВКИ */}
+      {showInstallModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowInstallModal(false)}>
+          <div style={styles.modal} onClick={e => e.stopPropagation()}>
+            <h3 style={styles.modalTitle}>{installInfo.title}</h3>
+            <ol style={styles.modalSteps}>
+              {installInfo.steps.map((step, i) => <li key={i} style={styles.modalStep}>{step}</li>)}
+            </ol>
+            <button onClick={() => setShowInstallModal(false)} style={styles.modalClose}>✓ Понятно</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -543,6 +550,8 @@ const styles = {
   screen: { minHeight: '100vh', background: '#0b1120', color: '#e2e8f0', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.8rem' },
   title: { fontSize: '1.8rem', margin: '0.3rem 0', textAlign: 'center' },
   sub: { color: '#94a3b8', marginBottom: '0.8rem', textAlign: 'center', maxWidth: '360px', fontSize: '0.95rem' },
+  btnInstall: { padding: '0.7rem 1.2rem', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '1rem', marginBottom: '0.3rem', width: '100%', maxWidth: '320px' },
+  installHint: { color: '#94a3b8', fontSize: '0.75rem', textAlign: 'center', marginBottom: '0.6rem', maxWidth: '320px' },
   btnGrok: { padding: '0.7rem 1.2rem', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#000', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '1rem', marginBottom: '0.4rem', width: '100%', maxWidth: '320px' },
   grokHint: { color: '#94a3b8', fontSize: '0.8rem', textAlign: 'center', marginBottom: '0.8rem', maxWidth: '320px', lineHeight: '1.3' },
   controlGroup: { background: '#1e293b', padding: '0.7rem', borderRadius: '10px', marginBottom: '0.6rem', width: '100%', maxWidth: '320px' },
@@ -593,15 +602,21 @@ const styles = {
   statsCard: { background: '#1e293b', padding: '0.8rem', borderRadius: '12px', width: '100%', maxWidth: '360px', marginBottom: '0.8rem' },
   statsTitle: { margin: '0 0 0.6rem 0', fontSize: '1rem', color: '#cbd5e1' },
   statRow: { display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0', borderBottom: '1px solid #334155', fontSize: '0.85rem' },
-  
-  // 🎨 ТЕМЫ
   themeCard: { background: '#1e293b', padding: '0.8rem', borderRadius: '12px', width: '100%', maxWidth: '360px', marginBottom: '0.8rem' },
   themeGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' },
-  themeBtn: { padding: '0.5rem', borderRadius: '10px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', transition: 'all 0.2s' },
+  themeBtn: { padding: '0.5rem', borderRadius: '10px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', transition: 'all 0.2s', position: 'relative' },
   themePreview: { display: 'flex', gap: '2px' },
   themeSquare: { width: '20px', height: '20px', borderRadius: '3px' },
   themeName: { fontSize: '0.75rem', color: '#e2e8f0' },
-  themeCheck: { position: 'absolute', top: '-5px', right: '-5px', background: '#10b981', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }
+  themeCheck: { position: 'absolute', top: '-5px', right: '-5px', background: '#10b981', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  
+  // 📱 Модальное окно установки
+  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' },
+  modal: { background: '#1e293b', padding: '1.2rem', borderRadius: '16px', maxWidth: '400px', width: '100%', border: '2px solid #475569' },
+  modalTitle: { fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.8rem', color: '#fbbf24', textAlign: 'center' },
+  modalSteps: { paddingLeft: '1.2rem', marginBottom: '1rem', color: '#e2e8f0', fontSize: '0.9rem', lineHeight: '1.6' },
+  modalStep: { marginBottom: '0.4rem' },
+  modalClose: { width: '100%', padding: '0.7rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '1rem' }
 }
 
 export default App
