@@ -3,7 +3,6 @@ import { Chess } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
 import { useAccount, useConnect, useDisconnect, useBalance, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { useTranslation } from 'react-i18next'
-import { CHESS4CRYPTO_ABI, CONTRACT_ADDRESS, GROK_TOKEN_ADDRESS, ERC20_ABI, generateGameHash, toWei, fromWei } from './lib/contract'
 
 // 🎨 5 ТЕМ ДЛЯ ДОСКИ
 const BOARD_THEMES = {
@@ -12,6 +11,50 @@ const BOARD_THEMES = {
   forest: { name: '🌲 Лес', light: '#c8b59a', dark: '#5d7a4f', highlight: 'rgba(251,191,36,0.4)', validMove: 'rgba(34,197,94,0.5)' },
   ocean: { name: '🌊 Океан', light: '#a8d8ea', dark: '#2a6f97', highlight: 'rgba(255,215,0,0.4)', validMove: 'rgba(6,182,212,0.5)' },
   sunset: { name: '🌅 Закат', light: '#ffecd2', dark: '#fcb69f', highlight: 'rgba(245,158,11,0.4)', validMove: 'rgba(239,68,68,0.5)' }
+}
+
+// 🔑 КОНСТАНТЫ КОНТРАКТА (встроены для простоты)
+// В продакшене вынесите в отдельный файл: src/lib/contract.js
+const CONTRACT_ADDRESS = "0xYourDeployedContractAddressHere" // ← ОБНОВИТЕ ПОСЛЕ ДЕПЛОЯ!
+const GROK_TOKEN_ADDRESS = "0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444"
+const CHESS4CRYPTO_ABI = [
+  "function createGame(uint256 _stakeAmount, bytes32 _gameHash) external returns (bytes32)",
+  "function joinGame(bytes32 _gameHash) external",
+  "function endGame(bytes32 _gameHash, address _winner) external",
+  "function claimPrize(bytes32 _gameHash) external",
+  "function getGame(bytes32 _gameHash) external view returns (address, address, uint256, address, bool)"
+]
+const ERC20_ABI = [
+  "function approve(address spender, uint256 amount) external returns (bool)",
+  "function allowance(address owner, address spender) external view returns (uint256)",
+  "function decimals() external view returns (uint8)"
+]
+
+// 🎲 Генерация gameHash
+const generateGameHash = (player, timestamp, nonce) => {
+  if (typeof require !== 'undefined') {
+    const ethers = require('ethers')
+    return ethers.keccak256(ethers.solidityPacked(['address', 'uint256', 'uint256'], [player, timestamp, nonce]))
+  }
+  // Fallback для браузера
+  return `game_${timestamp}_${Math.random().toString(36).substr(2, 9)}`
+}
+
+// 💰 Конвертация в wei (18 знаков для GROK)
+const toWei = (amount) => {
+  if (typeof require !== 'undefined') {
+    const ethers = require('ethers')
+    return ethers.parseUnits(amount.toString(), 18)
+  }
+  return BigInt(Math.floor(amount * 1e18))
+}
+
+const fromWei = (wei) => {
+  if (typeof require !== 'undefined') {
+    const ethers = require('ethers')
+    return parseFloat(ethers.formatUnits(wei, 18))
+  }
+  return Number(wei) / 1e18
 }
 
 const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
@@ -28,7 +71,7 @@ function App() {
 
   // 🎮 Состояние игры
   const gameRef = useRef(new Chess())
-  const [view, setView] = useState('menu') // menu, profile, game
+  const [view, setView] = useState('menu')
   const [fen, setFen] = useState(gameRef.current.fen())
   const [history, setHistory] = useState([gameRef.current.fen()])
   const [moveIndex, setMoveIndex] = useState(0)
@@ -56,13 +99,14 @@ function App() {
   // 💰 Баланс & Лобби & Крипто
   const [gameBalance, setGameBalance] = useState(0)
   const [pendingDeposit, setPendingDeposit] = useState(null)
-  const [lobbyMode, setLobbyMode] = useState('idle') // idle, create, join, waiting, playing
+  const [lobbyMode, setLobbyMode] = useState('idle')
   const [gameId, setGameId] = useState(null)
   const [inviteLink, setInviteLink] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [copied, setCopied] = useState(false)
-  const [creatorStake, setCreatorStake] = useState(0) // Ставка создателя (для второго игрока)
-  const [gameData, setGameData] = useState(null) // Данные игры из контракта
+  const [creatorStake, setCreatorStake] = useState(0)
+  const [stakeAmount, setStakeAmount] = useState(1000)
+  const [gameData, setGameData] = useState(null)
 
   // 🔤 Форматирование
   const fmtTime = (s) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60; return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : `${m}:${String(sec).padStart(2,'0')}` }
@@ -119,7 +163,7 @@ function App() {
     setLobbyMode('idle')
   }
 
-  // 💰 Депозит в игру (симуляция для фронтенда, в продакшене — вызов контракта)
+  // 💰 Депозит в игру
   const handleDeposit = async (amount) => {
     if (!isConnected) { setMessage('⚠️ Сначала подключите кошелёк'); return }
     setPendingDeposit(amount); setMessage(`🔄 Вносим ${amount} GROK...`)
@@ -157,7 +201,7 @@ function App() {
     }
   }
 
-  // 🏆 Забрать приз (в продакшене — вызов claimPrize в контракте)
+  // 🏆 Забрать приз
   const handleClaimPrize = async () => {
     if (!gameId || !isConnected) return
     setMessage('🎁 Забираю приз...')
@@ -197,10 +241,9 @@ function App() {
     }
   }
 
-  // 👁️ Автопереход в профиль при подключении + обработка приглашения
+  // 👁️ Автопереход в профиль при подключении
   useEffect(() => {
     if (status === 'connected' && address) {
-      // Если есть активное приглашение — показываем форму входа с суммой
       if (joinCode && lobbyMode === 'join' && creatorStake > 0) {
         setMessage(`✅ Кошелёк подключён! Внесите ${formatNumber(creatorStake)} GROK для входа в игру.`)
       } else {
@@ -210,7 +253,7 @@ function App() {
     }
   }, [status, address, joinCode, lobbyMode, creatorStake])
 
-  // 🔗 Обработка ссылки-приглашения при загрузке страницы
+  // 🔗 Обработка ссылки-приглашения
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
@@ -224,22 +267,9 @@ function App() {
         setLobbyMode('join')
         setMessage('🔗 Найдено приглашение! Подключите кошелёк для входа.')
         
-        // 🔹 В ПРОДАКШЕНЕ: загрузка данных игры из контракта
-        /*
-        const fetchGameData = async () => {
-          const [creator, challenger, stake, winner, active] = await readContract({
-            address: CONTRACT_ADDRESS, abi: CHESS4CRYPTO_ABI,
-            functionName: 'getGame', args: [extractedGameId]
-          })
-          setGameData({ creator, challenger, stake, winner, active })
-          setCreatorStake(fromWei(stake))
-        }
-        fetchGameData()
-        */
-        
-        // 🔹 ДЛЯ ДЕМО: имитация загрузки ставки создателя
+        // 🔹 ДЛЯ ДЕМО: имитация загрузки ставки
         setTimeout(() => {
-          const mockStake = 1000 // В реальном приложении — из контракта
+          const mockStake = 1000
           setCreatorStake(mockStake)
           setMessage(`💰 Для входа внесите ${formatNumber(mockStake)} GROK (как создатель)`)
         }, 500)
@@ -284,15 +314,6 @@ function App() {
     setGameId(id); setLobbyMode('create')
     
     try {
-      // 🔹 В ПРОДАКШЕНЕ: вызов контракта
-      /*
-      await writeContractAsync({
-        address: CONTRACT_ADDRESS, abi: CHESS4CRYPTO_ABI,
-        functionName: 'createGame', args: [toWei(stakeAmount), id],
-        chain: { id: chain?.id || 56 }
-      })
-      */
-      
       // 🔹 ДЛЯ ДЕМО:
       const link = `${getShareUrl()}?invite=${id}`
       setInviteLink(link)
@@ -319,18 +340,6 @@ function App() {
 
   const handleJoinGame = async () => {
     if (!joinCode || !isConnected) { setMessage('⚠️ Введите код или подключите кошелёк'); return }
-    
-    // 🔹 В ПРОДАКШЕНЕ: загрузка данных игры и проверка ставки
-    /*
-    const [creator, challenger, stake] = await readContract({
-      address: CONTRACT_ADDRESS, abi: CHESS4CRYPTO_ABI,
-      functionName: 'getGame', args: [joinCode]
-    })
-    if (challenger !== address(0)) { setMessage('❌ Игра уже заполнена'); return }
-    setCreatorStake(fromWei(stake))
-    */
-    
-    // 🔹 ДЛЯ ДЕМО:
     setLobbyMode('join')
     setMessage(`💰 Внесите ${formatNumber(creatorStake || 1000)} GROK для входа в игру`)
   }
@@ -374,20 +383,15 @@ function App() {
         {isConnected && gameBalance === 0 && <div style={styles.depositQuick}>{depositOptions.slice(0,3).map(amt => <button key={amt} onClick={() => handleDeposit(amt)} style={styles.btnDepositSmall}>+{formatNumber(amt)}</button>)}</div>}
       </div>
 
-      {/* 🔗 Обработка приглашения */}
       {lobbyMode === 'join' && joinCode && (
         <div style={styles.lobbyCard}>
           <h3 style={styles.lobbyTitle}>🔗 Приглашение в игру</h3>
           <p style={styles.infoText}>Код игры: <strong>{joinCode}</strong></p>
-          {creatorStake > 0 && (
-            <p style={styles.infoText}>💰 Ставка создателя: <strong>{formatNumber(creatorStake)} GROK</strong></p>
-          )}
+          {creatorStake > 0 && <p style={styles.infoText}>💰 Ставка создателя: <strong>{formatNumber(creatorStake)} GROK</strong></p>}
           <p style={styles.infoText}>Внесите такую же сумму для входа</p>
-          
           <div style={styles.formGroup}><label style={styles.label}>Сумма депозита (GROK)</label>
             <input type="number" value={creatorStake || 1000} readOnly style={{...styles.input, background:'#334155', cursor:'not-allowed'}} />
           </div>
-          
           <button onClick={() => handleDeposit(creatorStake || 1000)} disabled={pendingDeposit !== null} style={styles.btnPrimary}>
             {pendingDeposit ? '⏳ Обработка...' : `💰 Внести ${formatNumber(creatorStake || 1000)} GROK`}
           </button>
@@ -395,7 +399,6 @@ function App() {
         </div>
       )}
 
-      {/* Создание игры */}
       {lobbyMode === 'idle' && (
         <div style={styles.lobbyCard}>
           <h3 style={styles.lobbyTitle}>🎯 Что будем делать?</h3>
