@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Chess } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
-import { useAccount, useConnect, useDisconnect, useBalance } from 'wagmi'
+import { useAccount, useConnect, useDisconnect, useBalance, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { useTranslation } from 'react-i18next'
+import { CHESS4CRYPTO_ABI, CONTRACT_ADDRESS, GROK_TOKEN_ADDRESS, ERC20_ABI, generateGameHash, toWei, fromWei } from './lib/contract'
 
-// 🎨 5 ТЕМ
+// 🎨 5 ТЕМ ДЛЯ ДОСКИ
 const BOARD_THEMES = {
   classic: { name: '🏛️ Классика', light: '#eeeed2', dark: '#769656', highlight: 'rgba(255,255,0,0.4)', validMove: 'rgba(20,85,30,0.5)' },
   neon: { name: '💜 Неон', light: '#1a1a2e', dark: '#16213e', highlight: 'rgba(236,72,153,0.5)', validMove: 'rgba(59,130,246,0.6)' },
@@ -18,15 +19,16 @@ const getShareUrl = () => typeof window !== 'undefined' ? window.location.origin
 
 function App() {
   const { t, i18n } = useTranslation()
-  // ✅ Используем status из wagmi вместо ручного connectStatus
-  const { address, isConnected, status } = useAccount()
-  const { connect, connectors, error: connectError } = useConnect()
+  const { address, isConnected, status, chain } = useAccount()
+  const { connect, connectors } = useConnect()
   const { disconnect } = useDisconnect()
-  const {  balance: walletBalance } = useBalance({ address })
+  const {  balance: walletBalance } = useBalance({ address, token: GROK_TOKEN_ADDRESS })
+  const { writeContractAsync } = useWriteContract()
+  const { isLoading: isTxLoading, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({})
 
-  // 🎮 Состояние
+  // 🎮 Состояние игры
   const gameRef = useRef(new Chess())
-  const [view, setView] = useState('menu')
+  const [view, setView] = useState('menu') // menu, profile, game
   const [fen, setFen] = useState(gameRef.current.fen())
   const [history, setHistory] = useState([gameRef.current.fen()])
   const [moveIndex, setMoveIndex] = useState(0)
@@ -51,18 +53,22 @@ function App() {
   const [botTime, setBotTime] = useState(timeControl * 60)
   const [timerActive, setTimerActive] = useState(null)
 
-  // 💰 Баланс & Лобби
+  // 💰 Баланс & Лобби & Крипто
   const [gameBalance, setGameBalance] = useState(0)
   const [pendingDeposit, setPendingDeposit] = useState(null)
-  const [lobbyMode, setLobbyMode] = useState('idle')
+  const [lobbyMode, setLobbyMode] = useState('idle') // idle, create, join, waiting, playing
   const [gameId, setGameId] = useState(null)
   const [inviteLink, setInviteLink] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [copied, setCopied] = useState(false)
+  const [creatorStake, setCreatorStake] = useState(0) // Ставка создателя (для второго игрока)
+  const [gameData, setGameData] = useState(null) // Данные игры из контракта
 
+  // 🔤 Форматирование
   const fmtTime = (s) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60; return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : `${m}:${String(sec).padStart(2,'0')}` }
   const formatNumber = (n) => n.toLocaleString('ru-RU')
 
+  // 🎨 Подсветка ходов
   const customSquareStyles = useMemo(() => {
     const theme = BOARD_THEMES[boardTheme], styles = {}
     if (selectedSquare) styles[selectedSquare] = { backgroundColor: theme.highlight }
@@ -71,6 +77,7 @@ function App() {
   }, [selectedSquare, possibleMoves, boardTheme])
 
   const getValidMoves = useCallback((square) => gameRef.current.moves({ square, verbose: true }).map(m => m.to), [])
+  
   const onSquareClick = useCallback((square) => {
     if (gameOver || lobbyMode !== 'playing') return
     const piece = gameRef.current.get(square)
@@ -104,46 +111,141 @@ function App() {
 
   const endGame = (result) => {
     setGameOver(true); setTimerActive(null); setSelectedSquare(null); setPossibleMoves([])
-    if (result === 'player') { setWinner('player'); setMessage('🏁 КОНЕЦ ИГРЫ! Вы победили!'); if (gameBalance > 0) setMessage(`🎁 +${gameBalance} GROK зачислено!`) }
-    else if (result === 'bot') { setWinner('bot'); setMessage('🏁 КОНЕЦ ИГРЫ! Бот победил.') }
-    else { setWinner('draw'); setMessage('🤝 НИЧЬЯ!') }
+    if (result === 'player') { 
+      setWinner('player'); setMessage('🏁 КОНЕЦ ИГРЫ! Вы победили!')
+      if (gameBalance > 0) handleClaimPrize()
+    } else if (result === 'bot') { setWinner('bot'); setMessage('🏁 КОНЕЦ ИГРЫ! Бот победил.') }
+    else { setWinner('draw'); setMessage('🤝 НИЧЬЯ!'); if (gameBalance > 0) handleClaimPrize() }
     setLobbyMode('idle')
   }
 
+  // 💰 Депозит в игру (симуляция для фронтенда, в продакшене — вызов контракта)
   const handleDeposit = async (amount) => {
     if (!isConnected) { setMessage('⚠️ Сначала подключите кошелёк'); return }
     setPendingDeposit(amount); setMessage(`🔄 Вносим ${amount} GROK...`)
-    await new Promise(resolve => setTimeout(resolve, 800)); setGameBalance(prev => prev + amount); setPendingDeposit(null); setMessage(`✅ ${amount} GROK внесено!`)
+    
+    try {
+      // 🔹 В ПРОДАКШЕНЕ: реальный вызов контракта
+      /*
+      // 1. Approve токенов
+      await writeContractAsync({
+        address: GROK_TOKEN_ADDRESS, abi: ERC20_ABI, functionName: 'approve',
+        args: [CONTRACT_ADDRESS, toWei(amount)], chain: { id: chain?.id || 56 }
+      })
+      // 2. Депозит в игру
+      await writeContractAsync({
+        address: CONTRACT_ADDRESS, abi: CHESS4CRYPTO_ABI,
+        functionName: lobbyMode === 'create' ? 'createGame' : 'joinGame',
+        args: [toWei(amount), generateGameHash(address, Date.now(), Math.random())],
+        chain: { id: chain?.id || 56 }
+      })
+      */
+      
+      // 🔹 ДЛЯ ДЕМО: симуляция депозита
+      await new Promise(resolve => setTimeout(resolve, 1200))
+      setGameBalance(prev => prev + amount)
+      setPendingDeposit(null); setMessage(`✅ ${amount} GROK внесено!`)
+      
+      // Если это присоединение к игре — сразу стартуем
+      if (lobbyMode === 'join' && joinCode) {
+        setLobbyMode('playing'); startGame('wallet')
+      }
+    } catch (err) {
+      console.error('Deposit error:', err)
+      setMessage('⚠️ Ошибка депозита: ' + (err?.message || 'Неизвестная'))
+      setPendingDeposit(null)
+    }
   }
 
-  // 🔗 ИСПРАВЛЕННОЕ ПОДКЛЮЧЕНИЕ (ПК + Мобильные)
+  // 🏆 Забрать приз (в продакшене — вызов claimPrize в контракте)
+  const handleClaimPrize = async () => {
+    if (!gameId || !isConnected) return
+    setMessage('🎁 Забираю приз...')
+    
+    try {
+      // 🔹 В ПРОДАКШЕНЕ:
+      /*
+      await writeContractAsync({
+        address: CONTRACT_ADDRESS, abi: CHESS4CRYPTO_ABI,
+        functionName: 'claimPrize', args: [gameId],
+        chain: { id: chain?.id || 56 }
+      })
+      */
+      
+      // 🔹 ДЛЯ ДЕМО:
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      setMessage(`✅ ${formatNumber(gameBalance)} GROK зачислено на ваш кошелёк!`)
+      setGameBalance(0)
+    } catch (err) {
+      setMessage('⚠️ Ошибка получения приза')
+    }
+  }
+
+  // 🔗 Подключение кошелька
   const handleConnect = async () => {
     setMessage('🔄 Открываю кошелёк...')
     try {
-      // 📱 Мобильные → WalletConnect | 💻 ПК → MetaMask (или первый injected)
       const connector = isMobile()
         ? connectors.find(c => c.id === 'walletConnect')
         : (connectors.find(c => c.id === 'metaMask') || connectors.find(c => c.id === 'injected'))
-        
       if (!connector) throw new Error('Кошелёк не найден. Установите MetaMask или Trust Wallet.')
-      
       await connect({ connector })
-      // Wagmi обновляет статус асинхронно. Ждем реакции.
       await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      if (!isConnected) throw new Error('Подключение отменено пользователем')
+      if (!isConnected) throw new Error('Подключение отменено')
     } catch (err) {
       setMessage('⚠️ ' + (err.shortMessage || err.message || 'Не удалось подключиться'))
     }
   }
 
-  // 👁️ АВТОПЕРЕХОД В ПРОФИЛЬ ПРИ УСПЕШНОМ ПОДКЛЮЧЕНИИ
+  // 👁️ Автопереход в профиль при подключении + обработка приглашения
   useEffect(() => {
-    if (status === 'connected' && address && view === 'menu') {
-      setView('profile')
-      setMessage('✅ Кошелёк подключён! Добро пожаловать в лобби.')
+    if (status === 'connected' && address) {
+      // Если есть активное приглашение — показываем форму входа с суммой
+      if (joinCode && lobbyMode === 'join' && creatorStake > 0) {
+        setMessage(`✅ Кошелёк подключён! Внесите ${formatNumber(creatorStake)} GROK для входа в игру.`)
+      } else {
+        setView('profile')
+        setMessage('✅ Кошелёк подключён! Добро пожаловать в лобби.')
+      }
     }
-  }, [status, address, view])
+  }, [status, address, joinCode, lobbyMode, creatorStake])
+
+  // 🔗 Обработка ссылки-приглашения при загрузке страницы
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const invite = params.get('invite') || params.get('game')
+      
+      if (invite) {
+        const extractedGameId = invite.replace(/^.*invite=/, '')
+        setJoinCode(extractedGameId)
+        setGameId(extractedGameId)
+        setView('profile')
+        setLobbyMode('join')
+        setMessage('🔗 Найдено приглашение! Подключите кошелёк для входа.')
+        
+        // 🔹 В ПРОДАКШЕНЕ: загрузка данных игры из контракта
+        /*
+        const fetchGameData = async () => {
+          const [creator, challenger, stake, winner, active] = await readContract({
+            address: CONTRACT_ADDRESS, abi: CHESS4CRYPTO_ABI,
+            functionName: 'getGame', args: [extractedGameId]
+          })
+          setGameData({ creator, challenger, stake, winner, active })
+          setCreatorStake(fromWei(stake))
+        }
+        fetchGameData()
+        */
+        
+        // 🔹 ДЛЯ ДЕМО: имитация загрузки ставки создателя
+        setTimeout(() => {
+          const mockStake = 1000 // В реальном приложении — из контракта
+          setCreatorStake(mockStake)
+          setMessage(`💰 Для входа внесите ${formatNumber(mockStake)} GROK (как создатель)`)
+        }, 500)
+      }
+    }
+  }, [])
 
   // 🎮 Запуск игры
   const startGame = (mode = 'guest') => {
@@ -167,19 +269,6 @@ function App() {
   useEffect(() => { const h = (e) => { e.preventDefault(); setDeferredPrompt(e) }; window.addEventListener('beforeinstallprompt', h); return () => window.removeEventListener('beforeinstallprompt', h) }, [])
   const handleInstallApp = async () => { if (!deferredPrompt) { setShowInstallModal(true); return }; deferredPrompt.prompt(); await deferredPrompt.userChoice; setDeferredPrompt(null); setMessage('✅ Установлено!') }
 
-  // 🔗 Обработка ссылки-приглашения
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      const invite = params.get('invite') || params.get('game')
-      if (invite && (isConnected || status === 'disconnected')) {
-        setJoinCode(invite)
-        setView('profile')
-        setLobbyMode('join')
-      }
-    }
-  }, [isConnected, status])
-
   // ⏱️ Таймер
   useEffect(() => { if (!timerActive || gameOver || lobbyMode !== 'playing') return; const interval = setInterval(() => { if (timerActive === 'player') { setPlayerTime(prev => { if (prev <= 1) { endGame('bot'); return 0 } return prev - 1 }) } else { setBotTime(prev => { if (prev <= 1) { endGame('player'); return 0 } return prev - 1 }) } }, 1000); return () => clearInterval(interval) }, [timerActive, gameOver, lobbyMode])
 
@@ -187,13 +276,66 @@ function App() {
   const depositOptions = [1000, 5000, 10000, 50000, 100000, 500000]
   const theme = BOARD_THEMES[boardTheme]
 
-  const handleCreateGame = () => {
-    const id = `game_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
-    setGameId(id); setInviteLink(`${getShareUrl()}?invite=${id}`); setLobbyMode('create'); setMessage('🎉 Игра создана! Отправьте ссылку.')
+  // 🔗 Логика создания/приглашения
+  const handleCreateGame = async () => {
+    if (!isConnected) { setMessage('⚠️ Сначала подключите кошелёк'); return }
+    
+    const id = generateGameHash(address, Date.now(), Math.random())
+    setGameId(id); setLobbyMode('create')
+    
+    try {
+      // 🔹 В ПРОДАКШЕНЕ: вызов контракта
+      /*
+      await writeContractAsync({
+        address: CONTRACT_ADDRESS, abi: CHESS4CRYPTO_ABI,
+        functionName: 'createGame', args: [toWei(stakeAmount), id],
+        chain: { id: chain?.id || 56 }
+      })
+      */
+      
+      // 🔹 ДЛЯ ДЕМО:
+      const link = `${getShareUrl()}?invite=${id}`
+      setInviteLink(link)
+      setLobbyMode('waiting')
+      setMessage('🎉 Игра создана! Отправьте ссылку другу.')
+    } catch (err) {
+      setMessage('⚠️ Ошибка создания игры')
+    }
   }
-  const handleShareInvite = async () => { if (navigator.share) { try { await navigator.share({ title: 'Chess4Crypto', text: `Присоединяйся! Ставка: ${formatNumber(1000)} GROK`, url: inviteLink }) } catch(e){copyToClipboard()} } else copyToClipboard() }
-  const copyToClipboard = () => { navigator.clipboard.writeText(inviteLink || `${getShareUrl()}?invite=${joinCode}`); setCopied(true); setMessage('📋 Скопировано!'); setTimeout(() => setCopied(false), 2000) }
-  const handleJoinGame = () => { if (!joinCode) { setMessage('⚠️ Введите код/ссылку'); return }; setGameId(joinCode.replace(/^.*invite=/, '')); setLobbyMode('playing'); startGame(isConnected ? 'wallet' : 'guest') }
+
+  const handleShareInvite = async () => {
+    const url = inviteLink || `${getShareUrl()}?invite=${joinCode}`
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Chess4Crypto', text: `Присоединяйся к игре! Ставка: ${formatNumber(creatorStake || stakeAmount)} GROK`, url }) }
+      catch (e) { copyToClipboard(url) }
+    } else { copyToClipboard(url) }
+  }
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text)
+    setCopied(true); setMessage('📋 Ссылка скопирована!')
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleJoinGame = async () => {
+    if (!joinCode || !isConnected) { setMessage('⚠️ Введите код или подключите кошелёк'); return }
+    
+    // 🔹 В ПРОДАКШЕНЕ: загрузка данных игры и проверка ставки
+    /*
+    const [creator, challenger, stake] = await readContract({
+      address: CONTRACT_ADDRESS, abi: CHESS4CRYPTO_ABI,
+      functionName: 'getGame', args: [joinCode]
+    })
+    if (challenger !== address(0)) { setMessage('❌ Игра уже заполнена'); return }
+    setCreatorStake(fromWei(stake))
+    */
+    
+    // 🔹 ДЛЯ ДЕМО:
+    setLobbyMode('join')
+    setMessage(`💰 Внесите ${formatNumber(creatorStake || 1000)} GROK для входа в игру`)
+  }
+
+  const timeOptionsLobby = timeOptions.map(o => ({...o, value: Number(o.value)}))
 
   // ============================================================================
   // 🎨 МЕНЮ ВХОДА
@@ -205,7 +347,6 @@ function App() {
       <button onClick={handleBuyGrok} style={styles.btnGrok}>💰 Купить GROK</button><p style={styles.grokHint}>Подключи кошелёк в BNB → купи GROK</p>
       <div style={styles.controlGroup}><label style={styles.label}>⏱️ Время:</label><select value={timeControl} onChange={e => setTimeControl(Number(e.target.value))} style={styles.select}>{timeOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
       
-      {/* 🔗 КНОПКА ПОДКЛЮЧЕНИЯ (Всегда видна, чёткий статус) */}
       <div style={styles.btnGroup}>
         <button onClick={handleGuestLogin} style={styles.btnPrimary}>👤 {t('app.guestLogin')}</button>
         <button onClick={handleConnect} style={styles.btnWallet} disabled={status === 'connecting'}>
@@ -233,12 +374,34 @@ function App() {
         {isConnected && gameBalance === 0 && <div style={styles.depositQuick}>{depositOptions.slice(0,3).map(amt => <button key={amt} onClick={() => handleDeposit(amt)} style={styles.btnDepositSmall}>+{formatNumber(amt)}</button>)}</div>}
       </div>
 
+      {/* 🔗 Обработка приглашения */}
+      {lobbyMode === 'join' && joinCode && (
+        <div style={styles.lobbyCard}>
+          <h3 style={styles.lobbyTitle}>🔗 Приглашение в игру</h3>
+          <p style={styles.infoText}>Код игры: <strong>{joinCode}</strong></p>
+          {creatorStake > 0 && (
+            <p style={styles.infoText}>💰 Ставка создателя: <strong>{formatNumber(creatorStake)} GROK</strong></p>
+          )}
+          <p style={styles.infoText}>Внесите такую же сумму для входа</p>
+          
+          <div style={styles.formGroup}><label style={styles.label}>Сумма депозита (GROK)</label>
+            <input type="number" value={creatorStake || 1000} readOnly style={{...styles.input, background:'#334155', cursor:'not-allowed'}} />
+          </div>
+          
+          <button onClick={() => handleDeposit(creatorStake || 1000)} disabled={pendingDeposit !== null} style={styles.btnPrimary}>
+            {pendingDeposit ? '⏳ Обработка...' : `💰 Внести ${formatNumber(creatorStake || 1000)} GROK`}
+          </button>
+          <button onClick={() => { setLobbyMode('idle'); setJoinCode(''); }} style={styles.btnSmall}>↩️ Отмена</button>
+        </div>
+      )}
+
+      {/* Создание игры */}
       {lobbyMode === 'idle' && (
         <div style={styles.lobbyCard}>
           <h3 style={styles.lobbyTitle}>🎯 Что будем делать?</h3>
           <div style={styles.lobbyGrid}>
             <button onClick={() => setLobbyMode('create')} style={styles.lobbyBtn}>➕ Создать игру</button>
-            <button onClick={() => setLobbyMode('join')} style={styles.lobbyBtn}>🔍 Присоединиться</button>
+            <button onClick={() => { setLobbyMode('join'); setMessage('Введите код приглашения') }} style={styles.lobbyBtn}>🔍 Присоединиться</button>
             <button onClick={() => startGame(isConnected ? 'wallet' : 'guest')} style={styles.lobbyBtn}>🤖 Играть с ботом</button>
             <button onClick={handleBuyGrok} style={styles.lobbyBtnSecondary}>💰 Купить GROK</button>
           </div>
@@ -248,28 +411,22 @@ function App() {
       {lobbyMode === 'create' && (
         <div style={styles.lobbyCard}>
           <h3 style={styles.lobbyTitle}>➕ Создание игры</h3>
-          <button onClick={handleCreateGame} style={styles.btnPrimary}>🎲 Сгенерировать ссылку</button>
+          <div style={styles.formGroup}><label style={styles.label}>Ставка (GROK)</label><input type="number" value={stakeAmount} onChange={e => setStakeAmount(Number(e.target.value))} style={styles.input} min="1" /></div>
+          <div style={styles.formGroup}><label style={styles.label}>Время на партию</label><select value={timeControl} onChange={e => setTimeControl(Number(e.target.value))} style={styles.select}>{timeOptionsLobby.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
+          <button onClick={handleCreateGame} style={styles.btnPrimary}>🎲 Создать и получить ссылку</button>
           <button onClick={() => setLobbyMode('idle')} style={styles.btnSmall}>↩️ Назад</button>
         </div>
       )}
 
-      {lobbyMode === 'join' && (
+      {lobbyMode === 'waiting' && inviteLink && (
         <div style={styles.lobbyCard}>
-          <h3 style={styles.lobbyTitle}>🔍 Присоединиться к игре</h3>
-          <div style={styles.formGroup}><label style={styles.label}>Код или ссылка</label><input value={joinCode} onChange={e => setJoinCode(e.target.value)} style={styles.input} placeholder="Вставьте ссылку..." /></div>
-          <button onClick={handleJoinGame} style={styles.btnPrimary}>🤝 Войти в игру</button>
-          <button onClick={() => setLobbyMode('idle')} style={styles.btnSmall}>↩️ Назад</button>
-        </div>
-      )}
-
-      {lobbyMode === 'create' && inviteLink && (
-        <div style={styles.lobbyCard}>
-          <h3 style={styles.lobbyTitle}>⏳ Отправьте ссылку другу</h3>
+          <h3 style={styles.lobbyTitle}>⏳ Ожидание соперника</h3>
+          <p style={styles.infoText}>Ссылка скопирована. Отправьте её другу!</p>
           <div style={styles.codeBox}>{inviteLink}</div>
           <div style={styles.waitActions}>
-            <button onClick={copyToClipboard} style={styles.btnSmall}>{copied ? '✅ Скопировано' : '📋 Копировать'}</button>
+            <button onClick={() => copyToClipboard(inviteLink)} style={styles.btnSmall}>{copied ? '✅ Скопировано' : '📋 Копировать'}</button>
             <button onClick={handleShareInvite} style={styles.btnSmall}>📤 Отправить</button>
-            <button onClick={() => setLobbyMode('idle')} style={styles.btnSmallCancel}>❌ Назад</button>
+            <button onClick={() => { setLobbyMode('idle'); setMessage('Ожидание отменено') }} style={styles.btnSmallCancel}>❌ Отменить</button>
           </div>
         </div>
       )}
@@ -283,7 +440,12 @@ function App() {
   // 🎮 ИГРОВОЙ ЭКРАН
   // ============================================================================
   return (<div style={styles.screen}><header style={styles.header}><span style={styles.headerTitle}>♟️ Chess4Crypto</span><div style={styles.headerRight}>{isConnected && address && <span style={styles.walletBadge}>🔗 {address.slice(0,6)}...{address.slice(-4)}</span>}<button onClick={goToProfile} style={styles.btnSmall}>🏠</button></div></header>
-    {gameOver && winner && <div style={styles.gameOverBanner}><div style={styles.gameOverIcon}>{winner === 'player' ? '🏆' : winner === 'bot' ? '🤖' : '🤝'}</div><div style={styles.gameOverText}>{winner === 'player' && '🎉 ВЫ ПОБЕДИЛИ!'}{winner === 'bot' && '😔 БОТ ПОБЕДИЛ'}{winner === 'draw' && '🤝 НИЧЬЯ'}</div>{winner === 'player' && gameBalance > 0 && <div style={styles.prizeText}>+{formatNumber(gameBalance)} GROK!</div>}<button onClick={() => { setView('profile'); setGameOver(false); setLobbyMode('idle'); }} style={styles.btnNewGame}>🏠 В лобби</button></div>}
+    {gameOver && winner && <div style={styles.gameOverBanner}>
+      <div style={styles.gameOverIcon}>{winner === 'player' ? '🏆' : winner === 'bot' ? '🤖' : '🤝'}</div>
+      <div style={styles.gameOverText}>{winner === 'player' && '🎉 ВЫ ПОБЕДИЛИ!'}{winner === 'bot' && '😔 БОТ ПОБЕДИЛ'}{winner === 'draw' && '🤝 НИЧЬЯ'}</div>
+      {winner === 'player' && gameBalance > 0 && <div style={styles.prizeText}>+{formatNumber(gameBalance)} GROK зачислено!</div>}
+      <button onClick={() => { setView('profile'); setGameOver(false); setLobbyMode('idle'); }} style={styles.btnNewGame}>🏠 В лобби</button>
+    </div>}
     <div style={styles.timers}><div style={{...styles.timerBox, active: timerActive === 'player' && !gameOver}}><span>👤</span><span style={styles.timerText}>{fmtTime(playerTime)}</span></div><div style={{...styles.timerBox, active: timerActive === 'bot' && !gameOver}}><span>🤖</span><span style={styles.timerText}>{fmtTime(botTime)}</span></div></div>
     {gameBalance > 0 && !gameOver && <div style={styles.gameBalance}>💰 {formatNumber(gameBalance)} GROK</div>}
     {!gameOver && message && <div style={styles.statusMsg}>{message}</div>}
