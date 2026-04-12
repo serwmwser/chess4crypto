@@ -1,8 +1,3 @@
-// ============================================================================
-// CHESS4CRYPTO - Main App Component (frontend/src/App.jsx)
-// ✅ Явные кнопки: Гостевой вход + Подключить кошелёк
-// ============================================================================
-
 import { useState, useEffect } from 'react'
 import { useAccount, useConnect, useDisconnect, useBalance } from 'wagmi'
 import { Chessboard } from 'react-chessboard'
@@ -14,373 +9,154 @@ function App() {
   const { address, isConnected } = useAccount()
   const { connect, connectors } = useConnect()
   const { disconnect } = useDisconnect()
-  const { data: balance } = useBalance({ address })
+  const {  balance } = useBalance({ address })
 
-  const [gameMode, setGameMode] = useState('guest') // 'guest' | 'wallet'
+  const [view, setView] = useState('menu') // 'menu' | 'game'
   const [chess] = useState(() => new Chess())
   const [boardPosition, setBoardPosition] = useState(chess.fen())
   const [message, setMessage] = useState('')
+  const [isPlayerTurn, setIsPlayerTurn] = useState(true)
 
-  // 🔍 Лог при монтировании
   useEffect(() => {
-    console.log('✅ App component mounted')
-    console.log('🔗 Wagmi connected:', isConnected)
-    console.log('👛 Address:', address)
-    console.log('💰 Balance:', balance?.formatted)
-  }, [isConnected, address, balance])
+    console.log('✅ App mounted. Language:', i18n.language)
+  }, [i18n.language])
 
-  // 🔹 Обработчик подключения кошелька
+  // 🔹 Гостевой вход -> сразу игра с ботом
+  const handleGuestLogin = () => {
+    console.log('👤 Guest login')
+    setView('game')
+    setIsPlayerTurn(true)
+    setMessage(t('app.yourTurn'))
+    setTimeout(() => makeBotMove(), 1200)
+  }
+
+  // 🔹 Подключение кошелька
   const handleConnectWallet = async () => {
     try {
-      console.log('🦊 Connect wallet clicked')
-      // Подключаем первый доступный коннектор (MetaMask)
+      console.log('🦊 Connect wallet')
       const connector = connectors.find(c => c.id === 'injected') || connectors[0]
       if (connector) {
         await connect({ connector })
-        setGameMode('wallet')
-        setMessage('✅ Кошелёк подключён!')
+        setView('game')
+        setMessage('✅ ' + (isConnected ? 'Кошелёк подключён' : 'Подключение...'))
       }
     } catch (err) {
-      console.error('❌ Connect error:', err)
-      setMessage('⚠️ Ошибка подключения: ' + err.message)
+      setMessage('⚠️ ' + (err.message || 'Ошибка'))
     }
   }
 
-  // 🔹 Обработчик гостевого входа
-  const handleGuestLogin = () => {
-    console.log('👤 Guest login clicked')
-    setGameMode('guest')
-    setMessage('🎮 Гостевой режим активирован')
-  }
-
-  // 🔹 Обработчик выхода
+  // 🔹 Выход
   const handleLogout = () => {
     if (isConnected) disconnect()
-    setGameMode('guest')
-    setMessage('👋 Вы вышли')
+    setView('menu')
+    chess.reset()
+    setBoardPosition(chess.fen())
+    setMessage('')
   }
 
-  // 🔹 Обработчик хода (для демонстрации)
-  const onDrop = (sourceSquare, targetSquare) => {
+  // 🔹 Ход игрока
+  const onDrop = (source, target) => {
+    if (!isPlayerTurn || chess.isGameOver()) return false
     try {
-      const move = chess.move({ from: sourceSquare, to: targetSquare, promotion: 'q' })
-      if (move === null) return false
+      const move = chess.move({ from: source, to: target, promotion: 'q' })
+      if (!move) return false
       setBoardPosition(chess.fen())
+      setIsPlayerTurn(false)
+      setMessage(t('app.botTurn'))
+      setTimeout(() => makeBotMove(), 800)
       return true
-    } catch {
-      return false
-    }
+    } catch { return false }
+  }
+
+  // 🔹 Простой бот (случайный легальный ход)
+  const makeBotMove = () => {
+    if (chess.isGameOver()) return
+    const moves = chess.moves()
+    if (!moves.length) return
+    const random = moves[Math.floor(Math.random() * moves.length)]
+    chess.move(random)
+    setBoardPosition(chess.fen())
+    setIsPlayerTurn(true)
+    
+    if (chess.isCheckmate()) setMessage(t('app.checkmate'))
+    else if (chess.isDraw()) setMessage(t('app.draw'))
+    else setMessage(t('app.yourTurn'))
+  }
+
+  // 🔹 Смена языка
+  const changeLang = (lng) => {
+    i18n.changeLanguage(lng)
+    console.log('🌐 Language:', lng)
   }
 
   // ============================================================================
-  // 🎨 РЕНДЕР: Экран выбора входа (если ещё не подключены)
+  // 🎨 МЕНЮ ВХОДА
   // ============================================================================
-  if (!isConnected && gameMode === 'guest' && !address) {
+  if (view === 'menu') {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-        color: '#fff',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '2rem',
-        fontFamily: 'system-ui, -apple-system, sans-serif'
-      }}>
-        {/* Заголовок */}
-        <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem', textAlign: 'center' }}>
-          ♟️ Chess4Crypto
-        </h1>
-        <p style={{ color: '#aaa', marginBottom: '2rem', textAlign: 'center' }}>
-          Web3 Chess Platform with AI, PvP & GROK Token Betting
-        </p>
-
-        {/* Кнопки входа */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1rem',
-          width: '100%',
-          maxWidth: '400px'
-        }}>
-          {/* Кнопка гостевого входа */}
-          <button
-            onClick={handleGuestLogin}
-            style={{
-              padding: '1rem 2rem',
-              fontSize: '1.1rem',
-              background: '#4a5568',
-              color: '#fff',
-              border: '2px solid #718096',
-              borderRadius: '12px',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.background = '#5a6578'}
-            onMouseOut={(e) => e.currentTarget.style.background = '#4a5568'}
-          >
-            👤 {t('app.guestLogin', 'Гостевой вход')}
-          </button>
-
-          {/* Кнопка подключения кошелька */}
-          <button
-            onClick={handleConnectWallet}
-            style={{
-              padding: '1rem 2rem',
-              fontSize: '1.1rem',
-              background: '#f6851b',
-              color: '#fff',
-              border: '2px solid #ff9f43',
-              borderRadius: '12px',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              fontWeight: '600'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.background = '#ff9f43'}
-            onMouseOut={(e) => e.currentTarget.style.background = '#f6851b'}
-          >
-            🦊 {t('app.connectWallet', 'Подключить кошелёк')}
-          </button>
-
-          {/* Доступные коннекторы (для отладки) */}
-          <div style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.9rem', color: '#888' }}>
-            <p>Доступные кошельки:</p>
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-              {connectors.map((c) => (
-                <span key={c.id} style={{
-                  padding: '0.3rem 0.8rem',
-                  background: '#2d3748',
-                  borderRadius: '20px',
-                  fontSize: '0.8rem'
-                }}>
-                  {c.name}
-                </span>
-              ))}
-            </div>
+      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0b1120, #1e293b)', color: '#e2e8f0', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+        <h1 style={{ fontSize: '2.2rem', marginBottom: '0.3rem' }}>♟️ {t('app.title')}</h1>
+        <p style={{ color: '#94a3b8', marginBottom: '2rem', textAlign: 'center' }}>{t('app.subtitle')}</p>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', width: '100%', maxWidth: '320px' }}>
+          <button onClick={handleGuestLogin} style={btnStyle('#475569')}>{t('app.guestLogin')}</button>
+          <button onClick={handleConnectWallet} style={btnStyle('#f59e0b', '#000')}>{t('app.connectWallet')}</button>
+          
+          <div style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#64748b', textAlign: 'center' }}>
+            {t('app.availableWallets')} {connectors.map(c => c.name).join(', ') || '...'}
           </div>
         </div>
 
-        {/* Статус */}
-        {message && (
-          <p style={{ marginTop: '1.5rem', color: '#68d391', textAlign: 'center' }}>
-            {message}
-          </p>
-        )}
-
-        {/* Футер */}
-        <footer style={{
-          marginTop: 'auto',
-          padding: '1rem',
-          color: '#666',
-          fontSize: '0.9rem',
-          textAlign: 'center'
-        }}>
-          <p>🔗 Backend: {import.meta.env.VITE_WS_URL || 'not set'}</p>
-          <p>🌐 Language: {i18n.language}</p>
-        </footer>
+        <select value={i18n.language} onChange={(e) => changeLang(e.target.value)} style={{ marginTop: '1.5rem', padding: '0.5rem', background: '#334155', color: '#fff', border: '1px solid #475569', borderRadius: '8px', cursor: 'pointer' }}>
+          <option value="ru">🇷🇺 Русский</option>
+          <option value="en">🇬🇧 English</option>
+        </select>
       </div>
     )
   }
 
   // ============================================================================
-  // 🎮 РЕНДЕР: Основной интерфейс (после входа)
+  // 🎮 ИГРОВОЙ ЭКРАН
   // ============================================================================
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-      color: '#fff',
-      fontFamily: 'system-ui, -apple-system, sans-serif'
-    }}>
-      {/* Хедер */}
-      <header style={{
-        padding: '1rem 2rem',
-        background: 'rgba(0,0,0,0.3)',
-        borderBottom: '1px solid #333',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '1rem'
-      }}>
-        <h1 style={{ margin: 0, fontSize: '1.5rem' }}>♟️ Chess4Crypto</h1>
-        
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Статус кошелька */}
+    <div style={{ minHeight: '100vh', background: '#0b1120', color: '#e2e8f0', fontFamily: 'system-ui, sans-serif' }}>
+      <header style={{ padding: '1rem', background: '#1e293b', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <h2 style={{ margin: 0, fontSize: '1.2rem' }}>♟️ {t('app.title')}</h2>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           {isConnected && address && (
-            <span style={{
-              padding: '0.4rem 1rem',
-              background: '#2d3748',
-              borderRadius: '20px',
-              fontSize: '0.9rem'
-            }}>
-              🔗 {address.slice(0, 6)}...{address.slice(-4)}
-              {balance?.formatted && ` | ${parseFloat(balance.formatted).toFixed(4)} ${balance.symbol}`}
+            <span style={{ fontSize: '0.8rem', padding: '0.3rem 0.6rem', background: '#334155', borderRadius: '20px' }}>
+              🔗 {address.slice(0,6)}...{address.slice(-4)}
             </span>
           )}
-          
-          {/* Кнопка выхода */}
-          <button
-            onClick={handleLogout}
-            style={{
-              padding: '0.5rem 1rem',
-              background: '#e53e3e',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '0.9rem'
-            }}
-          >
-            🚪 Выйти
-          </button>
-          
-          {/* Переключатель языка */}
-          <select
-            value={i18n.language}
-            onChange={(e) => i18n.changeLanguage(e.target.value)}
-            style={{
-              padding: '0.5rem',
-              background: '#2d3748',
-              color: '#fff',
-              border: '1px solid #4a5568',
-              borderRadius: '8px',
-              cursor: 'pointer'
-            }}
-          >
+          <select value={i18n.language} onChange={(e) => changeLang(e.target.value)} style={{ padding: '0.3rem', background: '#334155', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
             <option value="ru">🇷🇺 RU</option>
             <option value="en">🇬🇧 EN</option>
-            <option value="es">🇪🇸 ES</option>
           </select>
+          <button onClick={handleLogout} style={{ ...btnStyle('#ef4444', '#fff', '0.3rem 0.6rem', '0.8rem') }}>{t('app.logout')}</button>
         </div>
       </header>
 
-      {/* Основной контент */}
-      <main style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem' }}>
+      <main style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+        {message && <p style={{ color: '#38bdf8', textAlign: 'center', margin: 0, fontSize: '1rem' }}>{message}</p>}
         
-        {/* Статус сообщения */}
-        {message && (
-          <div style={{
-            padding: '0.8rem 1.5rem',
-            background: '#2d3748',
-            borderRadius: '12px',
-            color: '#68d391',
-            textAlign: 'center'
-          }}>
-            {message}
-          </div>
-        )}
-
-        {/* Шахматная доска */}
-        <div style={{
-          width: 'min(90vw, 500px)',
-          aspectRatio: '1/1',
-          background: '#1a202c',
-          borderRadius: '16px',
-          overflow: 'hidden',
-          boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
-        }}>
-          <Chessboard
-            position={boardPosition}
-            onPieceDrop={onDrop}
-            boardOrientation="white"
-            customDarkSquareStyle={{ backgroundColor: '#4a5568' }}
-            customLightSquareStyle={{ backgroundColor: '#e2e8f0' }}
-          />
+        <div style={{ width: 'min(95vw, 480px)', background: '#1e293b', padding: '0.5rem', borderRadius: '12px' }}>
+          <Chessboard position={boardPosition} onPieceDrop={onDrop} boardOrientation="white" />
         </div>
 
-        {/* Кнопки действий */}
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-          <button
-            onClick={() => { chess.reset(); setBoardPosition(chess.fen()); setMessage('🔄 Новая игра') }}
-            style={{
-              padding: '0.8rem 1.5rem',
-              background: '#4299e1',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '12px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: '500'
-            }}
-          >
-            🔄 Новая игра
-          </button>
-          
-          <button
-            onClick={() => setMessage('🔍 Поиск соперника...')}
-            style={{
-              padding: '0.8rem 1.5rem',
-              background: '#9f7aea',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '12px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: '500'
-            }}
-          >
-            ⚔️ Найти соперника
-          </button>
-          
-          <button
-            onClick={() => window.location.href = '/profile'}
-            style={{
-              padding: '0.8rem 1.5rem',
-              background: '#38a169',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '12px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: '500'
-            }}
-          >
-            👤 Профиль
-          </button>
+        <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <button onClick={() => { chess.reset(); setBoardPosition(chess.fen()); setIsPlayerTurn(true); setMessage(t('app.yourTurn')); setTimeout(makeBotMove, 1000) }} style={btnStyle('#3b82f6')}>🔄 {t('app.newGame')}</button>
+          <button onClick={() => window.location.hash = '#/profile'} style={btnStyle('#10b981')}>👤 {t('app.profile')}</button>
         </div>
-
-        {/* Информация о режиме */}
-        <div style={{
-          padding: '1rem',
-          background: 'rgba(255,255,255,0.1)',
-          borderRadius: '12px',
-          textAlign: 'center',
-          maxWidth: '500px'
-        }}>
-          <p style={{ margin: 0, fontSize: '0.95rem' }}>
-            {gameMode === 'guest' 
-              ? '🎮 Гостевой режим: играйте без подключения кошелька' 
-              : '🦊 Режим кошелька: делайте ставки в GROK токенах'}
-          </p>
-        </div>
+        
+        <p style={{ color: '#64748b', fontSize: '0.85rem' }}>{view === 'game' ? (isConnected ? t('app.walletMode') : t('app.guestMode')) : ''}</p>
       </main>
-
-      {/* Футер */}
-      <footer style={{
-        padding: '1.5rem 2rem',
-        textAlign: 'center',
-        color: '#666',
-        fontSize: '0.9rem',
-        borderTop: '1px solid #333',
-        marginTop: 'auto'
-      }}>
-        <p>♟️ Chess4Crypto © 2026 | Web3 Chess with GROK Betting</p>
-        <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#888' }}>
-          Backend: {import.meta.env.VITE_WS_URL || 'not configured'}
-        </p>
-      </footer>
     </div>
   )
 }
+
+// 🎨 Вспомогательный стиль кнопок
+const btnStyle = (bg, color = '#fff', padding = '0.9rem 1.5rem', fontSize = '1rem') => ({
+  padding, fontSize, background: bg, color, border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', transition: 'opacity 0.2s', width: '100%'
+})
 
 export default App
