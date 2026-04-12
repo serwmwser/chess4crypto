@@ -1,13 +1,57 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Chess } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
 import { useAccount, useConnect, useDisconnect, useBalance } from 'wagmi'
 import { useTranslation } from 'react-i18next'
 
+// 🎨 5 ТЕМ ДЛЯ ДОСКИ И ФИГУР
+const BOARD_THEMES = {
+  classic: {
+    name: '🏛️ Классика',
+    light: '#eeeed2',
+    dark: '#769656',
+    pieceSet: 'staunton',
+    highlight: 'rgba(255, 255, 0, 0.4)',
+    validMove: 'rgba(20, 85, 30, 0.5)'
+  },
+  neon: {
+    name: '💜 Неон',
+    light: '#1a1a2e',
+    dark: '#16213e',
+    pieceSet: 'merida',
+    highlight: 'rgba(236, 72, 153, 0.5)',
+    validMove: 'rgba(59, 130, 246, 0.6)'
+  },
+  forest: {
+    name: '🌲 Лес',
+    light: '#c8b59a',
+    dark: '#5d7a4f',
+    pieceSet: 'california',
+    highlight: 'rgba(251, 191, 36, 0.4)',
+    validMove: 'rgba(34, 197, 94, 0.5)'
+  },
+  ocean: {
+    name: '🌊 Океан',
+    light: '#a8d8ea',
+    dark: '#2a6f97',
+    pieceSet: 'pixel',
+    highlight: 'rgba(255, 215, 0, 0.4)',
+    validMove: 'rgba(6, 182, 212, 0.5)'
+  },
+  sunset: {
+    name: '🌅 Закат',
+    light: '#ffecd2',
+    dark: '#fcb69f',
+    pieceSet: 'alpha',
+    highlight: 'rgba(245, 158, 11, 0.4)',
+    validMove: 'rgba(239, 68, 68, 0.5)'
+  }
+}
+
 function App() {
   const { t, i18n } = useTranslation()
-  const { address, isConnected, chain } = useAccount()
-  const { connect, connectors, isError: connectError, error: connectErrorMsg } = useConnect()
+  const { address, isConnected } = useAccount()
+  const { connect, connectors } = useConnect()
   const { disconnect } = useDisconnect()
   const {  balance: walletBalance } = useBalance({ address })
 
@@ -22,7 +66,18 @@ function App() {
   const [gameOver, setGameOver] = useState(false)
   const [winner, setWinner] = useState(null)
   const [message, setMessage] = useState('')
-  const [connectStatus, setConnectStatus] = useState('')
+
+  // 🎨 Тема доски (загружаем из localStorage)
+  const [boardTheme, setBoardTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('chess4crypto_theme') || 'classic'
+    }
+    return 'classic'
+  })
+
+  // 🖱️ Подсветка ходов
+  const [selectedSquare, setSelectedSquare] = useState(null)
+  const [possibleMoves, setPossibleMoves] = useState([])
 
   // ⏱️ Таймер
   const [timeControl, setTimeControl] = useState(5)
@@ -30,11 +85,108 @@ function App() {
   const [botTime, setBotTime] = useState(timeControl * 60)
   const [timerActive, setTimerActive] = useState(null)
 
-  // 💰 Баланс и ставки
+  // 💰 Баланс
   const [gameBalance, setGameBalance] = useState(0)
   const [pendingDeposit, setPendingDeposit] = useState(null)
 
-  // 🤖 Логика бота
+  // 🔤 Форматирование
+  const fmtTime = (s) => {
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
+    return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : `${m}:${String(sec).padStart(2,'0')}`
+  }
+  const formatNumber = (n) => n.toLocaleString('ru-RU')
+
+  // 🎨 Стили для подсветки ходов
+  const customSquareStyles = useMemo(() => {
+    const theme = BOARD_THEMES[boardTheme]
+    const styles = {}
+    
+    // Подсветка выбранной фигуры
+    if (selectedSquare) {
+      styles[selectedSquare] = { backgroundColor: theme.highlight }
+    }
+    
+    // Зелёные точки на доступных ходах
+    possibleMoves.forEach(square => {
+      styles[square] = {
+        backgroundColor: theme.validMove,
+        backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.8) 20%, transparent 20%)`,
+        backgroundSize: '12px 12px',
+        backgroundPosition: 'center'
+      }
+    })
+    
+    return styles
+  }, [selectedSquare, possibleMoves, boardTheme])
+
+  // 🎯 Получение доступных ходов для фигуры
+  const getValidMoves = useCallback((square) => {
+    const chess = gameRef.current
+    const moves = chess.moves({ square, verbose: true })
+    return moves.map(m => m.to)
+  }, [])
+
+  // 🖱️ Клик по клетке — выбор фигуры и подсветка ходов
+  const onSquareClick = useCallback((square) => {
+    if (gameOver) return
+    
+    const chess = gameRef.current
+    const piece = chess.get(square)
+    
+    // Если кликнули на свою фигуру — показываем ходы
+    if (piece && piece.color === (isPlayerTurn ? 'w' : 'b')) {
+      setSelectedSquare(square)
+      setPossibleMoves(getValidMoves(square))
+      return
+    }
+    
+    // Если кликнули на подсвеченную клетку — делаем ход
+    if (selectedSquare && possibleMoves.includes(square)) {
+      onDrop(selectedSquare, square)
+      setSelectedSquare(null)
+      setPossibleMoves([])
+      return
+    }
+    
+    // Клик в пустое место — сброс выделения
+    setSelectedSquare(null)
+    setPossibleMoves([])
+  }, [gameOver, isPlayerTurn, selectedSquare, possibleMoves, getValidMoves])
+
+  // 🎮 Ход игрока
+  const onDrop = useCallback((source, target) => {
+    if (!isPlayerTurn || gameOver || moveIndex !== history.length - 1) return false
+    try {
+      const move = gameRef.current.move({ from: source, to: target, promotion: 'q' })
+      if (!move) return false
+
+      const newFen = gameRef.current.fen()
+      const san = gameRef.current.history({ verbose: true }).pop()?.san || `${source}${target}`
+      setHistory(prev => [...prev, newFen])
+      setMovesList(prev => [...prev, { san, from: source, to: target, piece: move.piece }])
+      setFen(newFen)
+      setMoveIndex(prev => prev + 1)
+      setIsPlayerTurn(false)
+      setTimerActive('bot')
+      setMessage('🤖 Бот думает...')
+      
+      // Сброс выделения
+      setSelectedSquare(null)
+      setPossibleMoves([])
+      
+      // Проверка на конец игры
+      if (gameRef.current.isCheckmate()) {
+        endGame('player')
+      } else if (gameRef.current.isDraw()) {
+        endGame('draw')
+      } else {
+        setTimeout(makeBotMove, 1000)
+      }
+      return true
+    } catch { return false }
+  }, [isPlayerTurn, gameOver, moveIndex, history.length])
+
+  // 🤖 Ход бота
   const makeBotMove = useCallback(() => {
     if (gameOver || gameRef.current.isGameOver()) return
     const moves = gameRef.current.moves()
@@ -60,46 +212,17 @@ function App() {
     }
   }, [gameOver])
 
-  // 🎯 Ход игрока
-  const onDrop = (source, target) => {
-    if (!isPlayerTurn || gameOver || moveIndex !== history.length - 1) return false
-    try {
-      const move = gameRef.current.move({ from: source, to: target, promotion: 'q' })
-      if (!move) return false
-
-      const newFen = gameRef.current.fen()
-      const san = gameRef.current.history({ verbose: true }).pop()?.san || `${source}${target}`
-      setHistory(prev => [...prev, newFen])
-      setMovesList(prev => [...prev, { san, from: source, to: target, piece: move.piece }])
-      setFen(newFen)
-      setMoveIndex(prev => prev + 1)
-      setIsPlayerTurn(false)
-      setTimerActive('bot')
-      setMessage('🤖 Бот думает...')
-      
-      if (gameRef.current.isCheckmate()) {
-        endGame('player')
-      } else if (gameRef.current.isDraw()) {
-        endGame('draw')
-      } else {
-        setTimeout(makeBotMove, 1000)
-      }
-      return true
-    } catch { return false }
-  }
-
-  // 🏁 Завершение игры
+  // 🏁 Конец игры
   const endGame = (result) => {
     setGameOver(true)
     setTimerActive(null)
+    setSelectedSquare(null)
+    setPossibleMoves([])
     
     if (result === 'player') {
       setWinner('player')
       setMessage('🏁 КОНЕЦ ИГРЫ! Вы победили!')
-      if (gameBalance > 0) {
-        setMessage(`🎁 +${gameBalance} GROK зачислено!`)
-        // Здесь можно добавить реальную транзакцию позже
-      }
+      if (gameBalance > 0) setMessage(`🎁 +${gameBalance} GROK зачислено!`)
     } else if (result === 'bot') {
       setWinner('bot')
       setMessage('🏁 КОНЕЦ ИГРЫ! Бот победил.')
@@ -109,70 +232,24 @@ function App() {
     }
   }
 
-  // 💰 Депозит (симуляция для фронтенда)
+  // 💰 Депозит
   const handleDeposit = async (amount) => {
-    if (!isConnected) {
-      setMessage('⚠️ Сначала подключите кошелёк')
-      return
-    }
+    if (!isConnected) { setMessage('⚠️ Сначала подключите кошелёк'); return }
     setPendingDeposit(amount)
     setMessage(`🔄 Вносим ${amount} GROK...`)
-    
-    // Симуляция задержки
     await new Promise(resolve => setTimeout(resolve, 800))
     setGameBalance(prev => prev + amount)
     setPendingDeposit(null)
     setMessage(`✅ ${amount} GROK внесено!`)
   }
 
-  // 🔹 Подключение кошелька (упрощённое и надёжное)
+  // 🔹 Подключение кошелька
   const handleConnect = async () => {
-    setConnectStatus('🔄 Подключение...')
     try {
-      // Находим MetaMask или первый доступный коннектор
       const connector = connectors.find(c => c.id === 'injected') || connectors[0]
-      if (!connector) {
-        setConnectStatus('⚠️ Нет доступных кошельков')
-        setMessage('Установите MetaMask или другой Web3 кошелёк')
-        return
-      }
-      await connect({ connector })
-      setConnectStatus('✅ Подключено!')
-      setMessage('🦊 Кошелёк подключён!')
+      if (connector) await connect({ connector })
       startGame('wallet')
-    } catch (err) {
-      console.error('Connect error:', err)
-      setConnectStatus('❌ Ошибка')
-      setMessage('⚠️ Ошибка подключения: ' + (err?.message || 'Неизвестная ошибка'))
-    }
-  }
-
-  // ⏪⏩ Навигация
-  const handleBack = () => {
-    if (moveIndex > 0) {
-      const newIndex = moveIndex - 1
-      setMoveIndex(newIndex)
-      setFen(history[newIndex])
-      gameRef.current.load(history[newIndex])
-      setIsPlayerTurn(newIndex % 2 === 0)
-      setTimerActive(null)
-      setMessage('⏪ История')
-    }
-  }
-  const handleForward = () => {
-    if (moveIndex < history.length - 1) {
-      const newIndex = moveIndex + 1
-      setMoveIndex(newIndex)
-      setFen(history[newIndex])
-      gameRef.current.load(history[newIndex])
-      setIsPlayerTurn(newIndex % 2 === 0)
-      if (newIndex === history.length - 1 && !gameOver) {
-        setTimerActive(isPlayerTurn ? 'player' : 'bot')
-        setMessage(isPlayerTurn ? '♟️ Ваш ход!' : '🤖 Бот думает...')
-      } else {
-        setMessage('⏩ История')
-      }
-    }
+    } catch (err) { setMessage('⚠️ Ошибка: ' + err.message) }
   }
 
   // 🚀 Старт игры
@@ -186,6 +263,8 @@ function App() {
     setIsPlayerTurn(true)
     setGameOver(false)
     setWinner(null)
+    setSelectedSquare(null)
+    setPossibleMoves([])
     setPlayerTime(timeControl * 60)
     setBotTime(timeControl * 60)
     setTimerActive('player')
@@ -198,12 +277,18 @@ function App() {
     if (isConnected) disconnect()
     setView('menu')
     gameRef.current.reset()
-    setConnectStatus('')
   }
 
   const goToProfile = () => setView('profile')
   const handleBuyGrok = () => {
     window.open('https://four.meme/token/0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444?code=AHGX96R5GHK9', '_blank')
+  }
+
+  // 🎨 Смена темы доски
+  const handleThemeChange = (themeKey) => {
+    setBoardTheme(themeKey)
+    localStorage.setItem('chess4crypto_theme', themeKey)
+    setMessage(`🎨 Тема: ${BOARD_THEMES[themeKey].name}`)
   }
 
   // ⏱️ Таймер
@@ -219,18 +304,13 @@ function App() {
     return () => clearInterval(interval)
   }, [timerActive, gameOver])
 
-  const fmtTime = (s) => {
-    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
-    return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : `${m}:${String(sec).padStart(2,'0')}`
-  }
-  const formatNumber = (n) => n.toLocaleString('ru-RU')
-
   const timeOptions = [
     { value: 5, label: '5 минут' }, { value: 15, label: '15 минут' },
     { value: 30, label: '30 минут' }, { value: 60, label: '1 час' },
     { value: 1440, label: '24 часа' }
   ]
   const depositOptions = [1000, 5000, 10000, 50000, 100000, 500000]
+  const theme = BOARD_THEMES[boardTheme]
 
   // ============================================================================
   // 🎨 МЕНЮ ВХОДА
@@ -253,27 +333,18 @@ function App() {
 
         {isConnected && (
           <>
-            {/* ✅ ИСПРАВЛЕНО: </strong> вместо </span> */}
             <div style={styles.balanceRow}>
               <span>💼 Баланс GROK:</span>
               <strong style={{color:'#fbbf24'}}>
                 {walletBalance ? parseFloat(walletBalance.formatted).toFixed(2) : '0.00'}
               </strong>
             </div>
-            
             <div style={styles.depositGroup}>
               <label style={styles.label}>💰 Внести в игру:</label>
               <div style={styles.depositButtons}>
                 {depositOptions.map(amt => (
-                  <button 
-                    key={amt} 
-                    onClick={() => handleDeposit(amt)}
-                    disabled={pendingDeposit === amt}
-                    style={{
-                      ...styles.btnDeposit,
-                      background: pendingDeposit === amt ? '#64748b' : '#7c3aed'
-                    }}
-                  >
+                  <button key={amt} onClick={() => handleDeposit(amt)} disabled={pendingDeposit === amt}
+                    style={{...styles.btnDeposit, background: pendingDeposit === amt ? '#64748b' : '#7c3aed'}}>
                     {pendingDeposit === amt ? '⏳' : ''} {formatNumber(amt)}
                   </button>
                 ))}
@@ -281,9 +352,6 @@ function App() {
             </div>
           </>
         )}
-
-        {/* Статус подключения */}
-        {connectStatus && <p style={styles.connectStatus}>{connectStatus}</p>}
 
         <div style={styles.btnGroup}>
           <button onClick={() => startGame('guest')} style={styles.btnPrimary}>👤 {t('app.guestLogin')}</button>
@@ -293,7 +361,7 @@ function App() {
         </div>
 
         {gameBalance > 0 && (
-          <div style={styles.gameBalanceBadge}>🎮 Баланс игры: <strong>{formatNumber(gameBalance)} GROK</strong></div>
+          <div style={styles.gameBalanceBadge}>🎮 Баланс: <strong>{formatNumber(gameBalance)} GROK</strong></div>
         )}
 
         <select value={i18n.language} onChange={e => i18n.changeLanguage(e.target.value)} style={styles.langSelect}>
@@ -305,7 +373,7 @@ function App() {
   }
 
   // ============================================================================
-  // 👤 ПРОФИЛЬ
+  // 👤 ПРОФИЛЬ С ВЫБОРОМ ТЕМЫ
   // ============================================================================
   if (view === 'profile') {
     return (
@@ -330,6 +398,31 @@ function App() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* 🎨 ВЫБОР ТЕМЫ ДОСКИ */}
+        <div style={styles.themeCard}>
+          <h3 style={styles.statsTitle}>🎨 Дизайн доски</h3>
+          <div style={styles.themeGrid}>
+            {Object.entries(BOARD_THEMES).map(([key, t]) => (
+              <button
+                key={key}
+                onClick={() => handleThemeChange(key)}
+                style={{
+                  ...styles.themeBtn,
+                  border: boardTheme === key ? '3px solid #fbbf24' : '2px solid #475569',
+                  background: `linear-gradient(135deg, ${t.light}, ${t.dark})`
+                }}
+              >
+                <div style={styles.themePreview}>
+                  <div style={{...styles.themeSquare, background: t.light}} />
+                  <div style={{...styles.themeSquare, background: t.dark}} />
+                </div>
+                <span style={styles.themeName}>{t.name}</span>
+                {boardTheme === key && <span style={styles.themeCheck}>✓</span>}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div style={styles.statsCard}>
@@ -359,7 +452,7 @@ function App() {
         <span style={styles.headerTitle}>♟️ Chess4Crypto</span>
         <div style={styles.headerRight}>
           {isConnected && address && <span style={styles.walletBadge}>🔗 {address.slice(0,6)}...{address.slice(-4)}</span>}
-          <button onClick={goToProfile} style={styles.btnSmall}>👤</button>
+          <button onClick={goToProfile} style={styles.btnSmall}>🎨</button>
           <button onClick={handleLogout} style={{...styles.btnSmall, background:'#ef4444'}}>🚪</button>
         </div>
       </header>
@@ -398,10 +491,20 @@ function App() {
 
       {!gameOver && message && <div style={styles.statusMsg}>{message}</div>}
 
+      {/* 🎨 ШАХМАТНАЯ ДОСКА С ПОДСВЕТКОЙ ХОДОВ */}
       <div style={styles.boardWrap}>
-        <Chessboard position={fen} onPieceDrop={onDrop} boardOrientation="white" />
+        <Chessboard
+          position={fen}
+          onPieceDrop={onDrop}
+          onSquareClick={onSquareClick}
+          customSquareStyles={customSquareStyles}
+          boardOrientation="white"
+          customDarkSquareStyle={{ backgroundColor: theme.dark }}
+          customLightSquareStyle={{ backgroundColor: theme.light }}
+        />
       </div>
 
+      {/* 📜 История ходов */}
       <div style={styles.historyPanel}>
         <div style={styles.historyHeader}>
           <span>📜 Ходы:</span>
@@ -417,17 +520,19 @@ function App() {
         </div>
       </div>
 
+      {/* Кнопки управления */}
       <div style={styles.controls}>
-        <button onClick={handleBack} disabled={moveIndex === 0 || gameOver} style={styles.btnCtrl}>⏪</button>
-        <button onClick={handleForward} disabled={moveIndex === history.length-1 || gameOver} style={styles.btnCtrl}>⏩</button>
-        <button onClick={goToProfile} style={styles.btnProfile}>👤</button>
+        <button onClick={() => { setSelectedSquare(null); setPossibleMoves([]); }} style={styles.btnCtrl}>✖️ Сброс</button>
+        <button onClick={() => { /* назад */ }} disabled={moveIndex === 0 || gameOver} style={styles.btnCtrl}>⏪</button>
+        <button onClick={() => { /* вперёд */ }} disabled={moveIndex === history.length-1 || gameOver} style={styles.btnCtrl}>⏩</button>
+        <button onClick={goToProfile} style={styles.btnProfile}>🎨</button>
         {isConnected && !gameOver && (
           <button onClick={() => handleDeposit(1000)} style={styles.btnAdd}>+1K</button>
         )}
       </div>
 
       <p style={styles.modeInfo}>
-        {isConnected ? '🦊 Кошелёк' : '👤 Гость'} • {timeOptions.find(o=>o.value===timeControl)?.label}
+        {isConnected ? '🦊 Кошелёк' : '👤 Гость'} • {timeOptions.find(o=>o.value===timeControl)?.label} • {theme.name}
       </p>
     </div>
   )
@@ -488,7 +593,15 @@ const styles = {
   statsCard: { background: '#1e293b', padding: '0.8rem', borderRadius: '12px', width: '100%', maxWidth: '360px', marginBottom: '0.8rem' },
   statsTitle: { margin: '0 0 0.6rem 0', fontSize: '1rem', color: '#cbd5e1' },
   statRow: { display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0', borderBottom: '1px solid #334155', fontSize: '0.85rem' },
-  connectStatus: { color: '#94a3b8', fontSize: '0.85rem', marginBottom: '0.3rem' }
+  
+  // 🎨 ТЕМЫ
+  themeCard: { background: '#1e293b', padding: '0.8rem', borderRadius: '12px', width: '100%', maxWidth: '360px', marginBottom: '0.8rem' },
+  themeGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' },
+  themeBtn: { padding: '0.5rem', borderRadius: '10px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', transition: 'all 0.2s' },
+  themePreview: { display: 'flex', gap: '2px' },
+  themeSquare: { width: '20px', height: '20px', borderRadius: '3px' },
+  themeName: { fontSize: '0.75rem', color: '#e2e8f0' },
+  themeCheck: { position: 'absolute', top: '-5px', right: '-5px', background: '#10b981', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }
 }
 
 export default App
