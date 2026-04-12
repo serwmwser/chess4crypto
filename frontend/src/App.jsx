@@ -2,10 +2,9 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Chess } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
 import { useAccount, useConnect, useDisconnect, useBalance } from 'wagmi'
-import { walletConnect, injected } from 'wagmi/connectors'
 import { useTranslation } from 'react-i18next'
 
-// 🎨 5 ТЕМ ДЛЯ ДОСКИ
+// 🎨 5 ТЕМ
 const BOARD_THEMES = {
   classic: { name: '🏛️ Классика', light: '#eeeed2', dark: '#769656', highlight: 'rgba(255,255,0,0.4)', validMove: 'rgba(20,85,30,0.5)' },
   neon: { name: '💜 Неон', light: '#1a1a2e', dark: '#16213e', highlight: 'rgba(236,72,153,0.5)', validMove: 'rgba(59,130,246,0.6)' },
@@ -15,6 +14,7 @@ const BOARD_THEMES = {
 }
 
 const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+const getShareUrl = () => typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://serwmwser.github.io/chess4crypto'
 
 function App() {
   const { t, i18n } = useTranslation()
@@ -23,8 +23,9 @@ function App() {
   const { disconnect } = useDisconnect()
   const {  balance: walletBalance } = useBalance({ address })
 
+  // 🎮 Состояние
   const gameRef = useRef(new Chess())
-  const [view, setView] = useState('menu')
+  const [view, setView] = useState('menu') // menu, profile, game
   const [fen, setFen] = useState(gameRef.current.fen())
   const [history, setHistory] = useState([gameRef.current.fen()])
   const [moveIndex, setMoveIndex] = useState(0)
@@ -33,21 +34,39 @@ function App() {
   const [gameOver, setGameOver] = useState(false)
   const [winner, setWinner] = useState(null)
   const [message, setMessage] = useState('')
+  
+  // 📱 PWA
+  const [showInstallModal, setShowInstallModal] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState(null)
+
+  // 🎨 Тема & Ходы
   const [boardTheme, setBoardTheme] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('chess4crypto_theme') || 'classic' : 'classic')
   const [selectedSquare, setSelectedSquare] = useState(null)
   const [possibleMoves, setPossibleMoves] = useState([])
+
+  // ⏱️ Таймер
   const [timeControl, setTimeControl] = useState(5)
   const [playerTime, setPlayerTime] = useState(timeControl * 60)
   const [botTime, setBotTime] = useState(timeControl * 60)
   const [timerActive, setTimerActive] = useState(null)
+
+  // 💰 Баланс & Подключение
   const [gameBalance, setGameBalance] = useState(0)
   const [pendingDeposit, setPendingDeposit] = useState(null)
-  const [showInstallModal, setShowInstallModal] = useState(false)
-  const [deferredPrompt, setDeferredPrompt] = useState(null)
+  const [connectStatus, setConnectStatus] = useState('idle')
+
+  // 🤝 ЛОББИ / ИГРА С ДРУГОМ
+  const [lobbyMode, setLobbyMode] = useState('idle') // idle, create, join, waiting, playing
+  const [gameId, setGameId] = useState(null)
+  const [inviteLink, setInviteLink] = useState('')
+  const [stakeAmount, setStakeAmount] = useState(1000)
+  const [joinCode, setJoinCode] = useState('')
+  const [copied, setCopied] = useState(false)
 
   const fmtTime = (s) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60; return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : `${m}:${String(sec).padStart(2,'0')}` }
   const formatNumber = (n) => n.toLocaleString('ru-RU')
 
+  // 🎨 Подсветка ходов
   const customSquareStyles = useMemo(() => {
     const theme = BOARD_THEMES[boardTheme], styles = {}
     if (selectedSquare) styles[selectedSquare] = { backgroundColor: theme.highlight }
@@ -56,17 +75,16 @@ function App() {
   }, [selectedSquare, possibleMoves, boardTheme])
 
   const getValidMoves = useCallback((square) => gameRef.current.moves({ square, verbose: true }).map(m => m.to), [])
-
   const onSquareClick = useCallback((square) => {
-    if (gameOver) return
-    const chess = gameRef.current, piece = chess.get(square)
+    if (gameOver || lobbyMode !== 'playing') return
+    const piece = gameRef.current.get(square)
     if (piece && piece.color === (isPlayerTurn ? 'w' : 'b')) { setSelectedSquare(square); setPossibleMoves(getValidMoves(square)); return }
     if (selectedSquare && possibleMoves.includes(square)) { onDrop(selectedSquare, square); setSelectedSquare(null); setPossibleMoves([]); return }
     setSelectedSquare(null); setPossibleMoves([])
-  }, [gameOver, isPlayerTurn, selectedSquare, possibleMoves, getValidMoves])
+  }, [gameOver, isPlayerTurn, selectedSquare, possibleMoves, getValidMoves, lobbyMode])
 
   const onDrop = useCallback((source, target) => {
-    if (!isPlayerTurn || gameOver || moveIndex !== history.length - 1) return false
+    if (!isPlayerTurn || gameOver || moveIndex !== history.length - 1 || lobbyMode !== 'playing') return false
     try {
       const move = gameRef.current.move({ from: source, to: target, promotion: 'q' }); if (!move) return false
       const newFen = gameRef.current.fen(), san = gameRef.current.history({ verbose: true }).pop()?.san || `${source}${target}`
@@ -76,23 +94,24 @@ function App() {
       if (gameRef.current.isCheckmate()) endGame('player'); else if (gameRef.current.isDraw()) endGame('draw'); else setTimeout(makeBotMove, 1000)
       return true
     } catch { return false }
-  }, [isPlayerTurn, gameOver, moveIndex, history.length])
+  }, [isPlayerTurn, gameOver, moveIndex, history.length, lobbyMode])
 
   const makeBotMove = useCallback(() => {
-    if (gameOver || gameRef.current.isGameOver()) return
+    if (gameOver || gameRef.current.isGameOver() || lobbyMode !== 'playing') return
     const moves = gameRef.current.moves(); if (!moves.length) return
     const random = moves[Math.floor(Math.random() * moves.length)]; gameRef.current.move(random)
     const newFen = gameRef.current.fen(), san = gameRef.current.history({ verbose: true }).pop()?.san || random
     setHistory(prev => [...prev, newFen]); setMovesList(prev => [...prev, { san, from: random.from, to: random.to, piece: random.piece }])
     setFen(newFen); setMoveIndex(prev => prev + 1); setIsPlayerTurn(true); setTimerActive('player')
     if (gameRef.current.isCheckmate()) endGame('player'); else if (gameRef.current.isDraw()) endGame('draw'); else setMessage('♟️ Ваш ход!')
-  }, [gameOver])
+  }, [gameOver, lobbyMode])
 
   const endGame = (result) => {
     setGameOver(true); setTimerActive(null); setSelectedSquare(null); setPossibleMoves([])
     if (result === 'player') { setWinner('player'); setMessage('🏁 КОНЕЦ ИГРЫ! Вы победили!'); if (gameBalance > 0) setMessage(`🎁 +${gameBalance} GROK зачислено!`) }
     else if (result === 'bot') { setWinner('bot'); setMessage('🏁 КОНЕЦ ИГРЫ! Бот победил.') }
     else { setWinner('draw'); setMessage('🤝 НИЧЬЯ!') }
+    setLobbyMode('idle')
   }
 
   const handleDeposit = async (amount) => {
@@ -101,88 +120,188 @@ function App() {
     await new Promise(resolve => setTimeout(resolve, 800)); setGameBalance(prev => prev + amount); setPendingDeposit(null); setMessage(`✅ ${amount} GROK внесено!`)
   }
 
+  // 🔗 Подключение кошелька → открывает ПРОФИЛЬ/ЛОББИ
   const handleConnect = async () => {
-    setMessage('🔄 Подключение...')
+    setConnectStatus('connecting'); setMessage('🔄 Открываю кошелёк...')
     try {
-      if (isMobile()) { const wc = connectors.find(c => c.id === 'walletConnect'); if (wc) { await connect({ connector: wc }); setMessage('✅ Подключено!'); startGame('wallet'); return } }
-      const inj = connectors.find(c => c.id === 'injected'); if (inj) { await connect({ connector: inj }); setMessage('✅ Подключено!'); startGame('wallet'); return }
-      const conn = connectors[0]; if (conn) { await connect({ connector: conn }); setMessage('✅ Подключено!'); startGame('wallet'); return }
-      setMessage('⚠️ Установите MetaMask или Trust Wallet')
-    } catch (err) { setMessage('⚠️ Ошибка: ' + (err?.message || 'Неизвестная')) }
+      const connector = isMobile() ? connectors.find(c => c.id === 'walletConnect') : connectors.find(c => c.id === 'injected')
+      if (!connector) throw new Error('Нет доступных кошельков. Установите MetaMask или Trust Wallet.')
+      await connect({ connector }); await new Promise(resolve => setTimeout(resolve, 3000))
+      if (!isConnected) throw new Error('Подключение отменено')
+    } catch (err) {
+      setConnectStatus('error'); setMessage('⚠️ ' + (err.shortMessage || err.message || 'Не удалось подключиться'))
+    }
   }
 
+  useEffect(() => {
+    if (isConnected && address && connectStatus === 'connecting') {
+      setConnectStatus('connected'); setMessage('✅ Кошелёк подключён!'); setView('profile'); setConnectStatus('idle')
+    }
+  }, [isConnected, address, connectStatus])
+
+  // 🎮 Запуск игры
   const startGame = (mode = 'guest') => {
     gameRef.current.reset(); const startFen = gameRef.current.fen()
     setFen(startFen); setHistory([startFen]); setMoveIndex(0); setMovesList([]); setIsPlayerTurn(true); setGameOver(false); setWinner(null)
     setSelectedSquare(null); setPossibleMoves([]); setPlayerTime(timeControl * 60); setBotTime(timeControl * 60); setTimerActive('player')
-    if (mode === 'wallet' && gameBalance === 0) setGameBalance(0); setMessage('♟️ Ваш ход!'); setView('game')
+    if (mode === 'wallet' && gameBalance === 0) setGameBalance(0)
+    setMessage('♟️ Ваш ход!'); setView('game'); setLobbyMode('playing')
   }
 
-  const handleLogout = () => { if (isConnected) disconnect(); setView('menu'); gameRef.current.reset() }
+  const handleGuestLogin = () => { setConnectStatus('idle'); startGame('guest') }
+  const handleLogout = () => { if (isConnected) disconnect(); setView('menu'); setLobbyMode('idle'); gameRef.current.reset() }
   const goToProfile = () => setView('profile')
   const handleBuyGrok = () => window.open('https://four.meme/token/0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444?code=AHGX96R5GHK9', '_blank')
   const handleThemeChange = (key) => { setBoardTheme(key); localStorage.setItem('chess4crypto_theme', key); setMessage(`🎨 Тема: ${BOARD_THEMES[key].name}`) }
 
-  // ⏪ ИСПРАВЛЕНА: Кнопка НАЗАД
-  const handleBack = () => {
-    if (moveIndex > 0 && !gameOver) {
-      const newIndex = moveIndex - 1
-      setMoveIndex(newIndex); setFen(history[newIndex]); gameRef.current.load(history[newIndex])
-      setIsPlayerTurn(newIndex % 2 === 0); setTimerActive(null); setMessage('⏪ История: ход ' + (newIndex + 1))
-    }
-  }
+  const handleBack = () => { if (moveIndex > 0 && !gameOver) { const i = moveIndex - 1; setMoveIndex(i); setFen(history[i]); gameRef.current.load(history[i]); setIsPlayerTurn(i % 2 === 0); setTimerActive(null); setMessage('⏪ История') } }
+  const handleForward = () => { if (moveIndex < history.length - 1 && !gameOver) { const i = moveIndex + 1; setMoveIndex(i); setFen(history[i]); gameRef.current.load(history[i]); setIsPlayerTurn(i % 2 === 0); if (i === history.length - 1) { setTimerActive(isPlayerTurn ? 'player' : 'bot'); setMessage(isPlayerTurn ? '♟️ Ваш ход!' : '🤖 Бот думает...') } else setMessage('⏩ История') } }
 
-  // ⏩ ИСПРАВЛЕНА: Кнопка ВПЕРЁД
-  const handleForward = () => {
-    if (moveIndex < history.length - 1 && !gameOver) {
-      const newIndex = moveIndex + 1
-      setMoveIndex(newIndex); setFen(history[newIndex]); gameRef.current.load(history[newIndex])
-      setIsPlayerTurn(newIndex % 2 === 0)
-      if (newIndex === history.length - 1) { setTimerActive(isPlayerTurn ? 'player' : 'bot'); setMessage(isPlayerTurn ? '♟️ Ваш ход!' : '🤖 Бот думает...') }
-      else { setMessage('⏩ История: ход ' + (newIndex + 1)) }
-    }
-  }
+  // 📱 PWA
+  useEffect(() => { const h = (e) => { e.preventDefault(); setDeferredPrompt(e) }; window.addEventListener('beforeinstallprompt', h); return () => window.removeEventListener('beforeinstallprompt', h) }, [])
+  const handleInstallApp = async () => { if (!deferredPrompt) { setShowInstallModal(true); return }; deferredPrompt.prompt(); await deferredPrompt.userChoice; setDeferredPrompt(null); setMessage('✅ Установлено!') }
 
-  // 📱 PWA установка
+  // 🔗 Обработка ссылки-приглашения при загрузке
   useEffect(() => {
-    const handler = (e) => { e.preventDefault(); setDeferredPrompt(e) }
-    window.addEventListener('beforeinstallprompt', handler)
-    if (window.matchMedia('(display-mode: standalone)').matches) { /* installed */ }
-    return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
-  const handleInstallApp = async () => { if (!deferredPrompt) { setShowInstallModal(true); return }; deferredPrompt.prompt(); const { outcome } = await deferredPrompt.userChoice; if (outcome === 'accepted') { setMessage('✅ Установлено!') }; setDeferredPrompt(null) }
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const invite = params.get('invite') || params.get('game')
+      if (invite && isConnected) {
+        setJoinCode(invite)
+        setView('profile')
+        setLobbyMode('join')
+      }
+    }
+  }, [isConnected])
 
   // ⏱️ Таймер
-  useEffect(() => { if (!timerActive || gameOver) return; const interval = setInterval(() => { if (timerActive === 'player') { setPlayerTime(prev => { if (prev <= 1) { endGame('bot'); return 0 } return prev - 1 }) } else { setBotTime(prev => { if (prev <= 1) { endGame('player'); return 0 } return prev - 1 }) } }, 1000); return () => clearInterval(interval) }, [timerActive, gameOver])
+  useEffect(() => { if (!timerActive || gameOver || lobbyMode !== 'playing') return; const interval = setInterval(() => { if (timerActive === 'player') { setPlayerTime(prev => { if (prev <= 1) { endGame('bot'); return 0 } return prev - 1 }) } else { setBotTime(prev => { if (prev <= 1) { endGame('player'); return 0 } return prev - 1 }) } }, 1000); return () => clearInterval(interval) }, [timerActive, gameOver, lobbyMode])
 
-  const timeOptions = [{ value: 5, label: '5 минут' }, { value: 15, label: '15 минут' }, { value: 30, label: '30 минут' }, { value: 60, label: '1 час' }, { value: 1440, label: '24 часа' }]
+  const timeOptions = [{ value: 5, label: '5 мин' }, { value: 15, label: '15 мин' }, { value: 30, label: '30 мин' }, { value: 60, label: '1 ч' }, { value: 1440, label: '24 ч' }]
   const depositOptions = [1000, 5000, 10000, 50000, 100000, 500000]
   const theme = BOARD_THEMES[boardTheme]
 
+  // 🔗 Логика создания/приглашения
+  const handleCreateGame = () => {
+    const id = `game_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+    setGameId(id)
+    const link = `${getShareUrl()}?invite=${id}`
+    setInviteLink(link)
+    setLobbyMode('create')
+    setMessage('🎉 Игра создана! Отправьте ссылку другу.')
+  }
+
+  const handleShareInvite = async () => {
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Chess4Crypto', text: `Присоединяйся к игре в шахматы! Ставка: ${formatNumber(stakeAmount)} GROK`, url: inviteLink }) }
+      catch (e) { copyToClipboard() }
+    } else { copyToClipboard() }
+  }
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(inviteLink || `${getShareUrl()}?invite=${joinCode}`)
+    setCopied(true); setMessage('📋 Ссылка скопирована!')
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleJoinGame = () => {
+    if (!joinCode) { setMessage('⚠️ Введите код или ссылку'); return }
+    setGameId(joinCode.replace(/^.*invite=/, ''))
+    setLobbyMode('playing')
+    startGame(isConnected ? 'wallet' : 'guest')
+  }
+
+  const timeOptionsLobby = timeOptions.map(o => ({...o, value: Number(o.value)}))
+
+  // ============================================================================
+  // 🎨 МЕНЮ ВХОДА
+  // ============================================================================
   if (view === 'menu') {
-    return (<div style={styles.screen}><h1 style={styles.title}>♟️ {t('app.title')}</h1><p style={styles.sub}>{t('app.subtitle')}</p>
+    return (<div style={styles.screen}>
+      <h1 style={styles.title}>♟️ {t('app.title')}</h1><p style={styles.sub}>{t('app.subtitle')}</p>
       <button onClick={handleInstallApp} style={styles.btnInstall}>📱 Скачать приложение</button>
       <button onClick={handleBuyGrok} style={styles.btnGrok}>💰 Купить GROK</button><p style={styles.grokHint}>Подключи кошелёк в BNB → купи GROK</p>
       <div style={styles.controlGroup}><label style={styles.label}>⏱️ Время:</label><select value={timeControl} onChange={e => setTimeControl(Number(e.target.value))} style={styles.select}>{timeOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
       {isConnected && <><div style={styles.balanceRow}><span>💼 Баланс:</span><strong style={{color:'#fbbf24'}}>{walletBalance ? parseFloat(walletBalance.formatted).toFixed(2) : '0.00'}</strong></div><div style={styles.depositGroup}><label style={styles.label}>💰 Внести:</label><div style={styles.depositButtons}>{depositOptions.map(amt => <button key={amt} onClick={() => handleDeposit(amt)} disabled={pendingDeposit === amt} style={{...styles.btnDeposit, background: pendingDeposit === amt ? '#64748b' : '#7c3aed'}}>{pendingDeposit === amt ? '⏳' : ''} {formatNumber(amt)}</button>)}</div></div></>}
-      <div style={styles.btnGroup}><button onClick={() => startGame('guest')} style={styles.btnPrimary}>👤 {t('app.guestLogin')}</button><button onClick={handleConnect} style={styles.btnWallet}>{isMobile() ? '🔗 ' : '🦊 '} {t('app.connectWallet')}</button></div>
+      <div style={styles.btnGroup}>
+        <button onClick={handleGuestLogin} style={styles.btnPrimary}>👤 {t('app.guestLogin')}</button>
+        <button onClick={handleConnect} style={styles.btnWallet} disabled={connectStatus === 'connecting'}>{connectStatus === 'connecting' ? '⏳' : isMobile() ? '🔗 ' : '🦊 '} {t('app.connectWallet')}</button>
+      </div>
       {gameBalance > 0 && <div style={styles.gameBalanceBadge}>🎮 Баланс: <strong>{formatNumber(gameBalance)} GROK</strong></div>}
       <select value={i18n.language} onChange={e => i18n.changeLanguage(e.target.value)} style={styles.langSelect}><option value="ru">🇷🇺 RU</option><option value="en">🇬🇧 EN</option></select>
     </div>)
   }
 
+  // ============================================================================
+  // 👤 ПРОФИЛЬ / ЛОББИ
+  // ============================================================================
   if (view === 'profile') {
-    return (<div style={styles.screen}><header style={styles.header}><span style={styles.headerTitle}>👤 Профиль</span><button onClick={() => setView('menu')} style={styles.btnSmall}>←</button></header>
-      <div style={styles.balanceCard}><div style={styles.balanceLabel}>🎮 Баланс</div><div style={styles.balanceValue}>{formatNumber(gameBalance)} <span style={{fontSize:'1rem'}}>GROK</span></div><p style={styles.balanceHint}>{gameBalance > 0 ? 'Для ставок' : 'Внесите депозит'}</p>{isConnected && gameBalance === 0 && <div style={styles.depositQuick}>{depositOptions.slice(0,3).map(amt => <button key={amt} onClick={() => { handleDeposit(amt); setView('game'); }} style={styles.btnDepositSmall}>+{formatNumber(amt)}</button>)}</div>}</div>
-      <div style={styles.themeCard}><h3 style={styles.statsTitle}>🎨 Тема</h3><div style={styles.themeGrid}>{Object.entries(BOARD_THEMES).map(([key, t]) => <button key={key} onClick={() => handleThemeChange(key)} style={{...styles.themeBtn, border: boardTheme === key ? '3px solid #fbbf24' : '2px solid #475569', background: `linear-gradient(135deg, ${t.light}, ${t.dark})`}}><div style={styles.themePreview}><div style={{...styles.themeSquare, background: t.light}} /><div style={{...styles.themeSquare, background: t.dark}} /></div><span style={styles.themeName}>{t.name}</span>{boardTheme === key && <span style={styles.themeCheck}>✓</span>}</button>)}</div></div>
-      <div style={styles.statsCard}><h3 style={styles.statsTitle}>📊 Статистика</h3><div style={styles.statRow}><span>Игр:</span><strong>0</strong></div><div style={styles.statRow}><span>Побед:</span><strong>0</strong></div></div>
-      <button onClick={handleBuyGrok} style={styles.btnGrok}>🛒 Купить GROK</button><p style={styles.grokHint}>1. Перейди → 2. Подключи в BNB → 3. Купи</p>
+    return (<div style={styles.screen}>
+      <header style={styles.header}><span style={styles.headerTitle}>👤 Профиль & Лобби</span><div style={styles.headerRight}><button onClick={handleLogout} style={{...styles.btnSmall, background:'#ef4444'}}>🚪 Выйти</button></div></header>
+      
+      {/* Баланс и кошелёк */}
+      <div style={styles.balanceCard}>
+        <div style={styles.balanceLabel}>🎮 Баланс игры</div>
+        <div style={styles.balanceValue}>{formatNumber(gameBalance)} <span style={{fontSize:'1rem'}}>GROK</span></div>
+        {isConnected && address && <div style={{fontSize:'0.8rem', color:'#94a3b8', marginTop:'0.3rem'}}>🔗 {address.slice(0,6)}...{address.slice(-4)}</div>}
+        {isConnected && gameBalance === 0 && <div style={styles.depositQuick}>{depositOptions.slice(0,3).map(amt => <button key={amt} onClick={() => handleDeposit(amt)} style={styles.btnDepositSmall}>+{formatNumber(amt)}</button>)}</div>}
+      </div>
+
+      {/* Логика Лобби */}
+      {lobbyMode === 'idle' && (
+        <div style={styles.lobbyCard}>
+          <h3 style={styles.lobbyTitle}>🎯 Что будем делать?</h3>
+          <div style={styles.lobbyGrid}>
+            <button onClick={() => setLobbyMode('create')} style={styles.lobbyBtn}>➕ Создать игру</button>
+            <button onClick={() => setLobbyMode('join')} style={styles.lobbyBtn}>🔍 Присоединиться</button>
+            <button onClick={() => startGame(isConnected ? 'wallet' : 'guest')} style={styles.lobbyBtn}>🤖 Играть с ботом</button>
+            <button onClick={handleBuyGrok} style={styles.lobbyBtnSecondary}>💰 Купить GROK</button>
+          </div>
+        </div>
+      )}
+
+      {lobbyMode === 'create' && (
+        <div style={styles.lobbyCard}>
+          <h3 style={styles.lobbyTitle}>➕ Создание игры</h3>
+          <div style={styles.formGroup}><label style={styles.label}>Ставка (GROK)</label><input type="number" value={stakeAmount} onChange={e => setStakeAmount(Number(e.target.value))} style={styles.input} min="1" /></div>
+          <div style={styles.formGroup}><label style={styles.label}>Время на партию</label><select value={timeControl} onChange={e => setTimeControl(Number(e.target.value))} style={styles.select}>{timeOptionsLobby.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
+          <button onClick={handleCreateGame} style={styles.btnPrimary}>🎲 Сгенерировать ссылку</button>
+          <button onClick={() => setLobbyMode('idle')} style={styles.btnSmall}>↩️ Назад</button>
+        </div>
+      )}
+
+      {lobbyMode === 'join' && (
+        <div style={styles.lobbyCard}>
+          <h3 style={styles.lobbyTitle}>🔍 Присоединиться к игре</h3>
+          <div style={styles.formGroup}><label style={styles.label}>Код или ссылка приглашения</label><input value={joinCode} onChange={e => setJoinCode(e.target.value)} style={styles.input} placeholder="Вставьте ссылку или код..." /></div>
+          <button onClick={handleJoinGame} style={styles.btnPrimary}>🤝 Войти в игру</button>
+          <button onClick={() => setLobbyMode('idle')} style={styles.btnSmall}>↩️ Назад</button>
+        </div>
+      )}
+
+      {lobbyMode === 'waiting' && (
+        <div style={styles.lobbyCard}>
+          <h3 style={styles.lobbyTitle}>⏳ Ожидание соперника</h3>
+          <p style={styles.infoText}>Ссылка скопирована. Отправьте её другу через мессенджер!</p>
+          <div style={styles.codeBox}>{inviteLink}</div>
+          <div style={styles.waitActions}>
+            <button onClick={copyToClipboard} style={styles.btnSmall}>{copied ? '✅ Скопировано' : '📋 Копировать'}</button>
+            <button onClick={handleShareInvite} style={styles.btnSmall}>📤 Отправить</button>
+            <button onClick={() => { setLobbyMode('idle'); setMessage('Ожидание отменено') }} style={styles.btnSmallCancel}>❌ Отменить</button>
+          </div>
+        </div>
+      )}
+
+      <div style={styles.themeCard}><h3 style={styles.statsTitle}>🎨 Дизайн доски</h3><div style={styles.themeGrid}>{Object.entries(BOARD_THEMES).map(([key, t]) => <button key={key} onClick={() => handleThemeChange(key)} style={{...styles.themeBtn, border: boardTheme === key ? '3px solid #fbbf24' : '2px solid #475569', background: `linear-gradient(135deg, ${t.light}, ${t.dark})`}}><div style={styles.themePreview}><div style={{...styles.themeSquare, background: t.light}} /><div style={{...styles.themeSquare, background: t.dark}} /></div><span style={styles.themeName}>{t.name}</span>{boardTheme === key && <span style={styles.themeCheck}>✓</span>}</button>)}</div></div>
       <select value={i18n.language} onChange={e => i18n.changeLanguage(e.target.value)} style={styles.langSelect}><option value="ru">🇷🇺 RU</option><option value="en">🇬🇧 EN</option></select>
     </div>)
   }
 
-  return (<div style={styles.screen}><header style={styles.header}><span style={styles.headerTitle}>♟️ Chess4Crypto</span><div style={styles.headerRight}>{isConnected && address && <span style={styles.walletBadge}>🔗 {address.slice(0,6)}...{address.slice(-4)}</span>}<button onClick={goToProfile} style={styles.btnSmall}>🎨</button><button onClick={handleLogout} style={{...styles.btnSmall, background:'#ef4444'}}>🚪</button></div></header>
-    {gameOver && winner && <div style={styles.gameOverBanner}><div style={styles.gameOverIcon}>{winner === 'player' ? '🏆' : winner === 'bot' ? '🤖' : '🤝'}</div><div style={styles.gameOverText}>{winner === 'player' && '🎉 ВЫ ПОБЕДИЛИ!'}{winner === 'bot' && '😔 БОТ ПОБЕДИЛ'}{winner === 'draw' && '🤝 НИЧЬЯ'}</div>{winner === 'player' && gameBalance > 0 && <div style={styles.prizeText}>+{formatNumber(gameBalance)} GROK!</div>}<button onClick={() => setView('menu')} style={styles.btnNewGame}>🔄 Новая</button></div>}
+  // ============================================================================
+  // 🎮 ИГРОВОЙ ЭКРАН
+  // ============================================================================
+  return (<div style={styles.screen}><header style={styles.header}><span style={styles.headerTitle}>♟️ Chess4Crypto</span><div style={styles.headerRight}>{isConnected && address && <span style={styles.walletBadge}>🔗 {address.slice(0,6)}...{address.slice(-4)}</span>}<button onClick={goToProfile} style={styles.btnSmall}>🏠</button></div></header>
+    {gameOver && winner && <div style={styles.gameOverBanner}><div style={styles.gameOverIcon}>{winner === 'player' ? '🏆' : winner === 'bot' ? '🤖' : '🤝'}</div><div style={styles.gameOverText}>{winner === 'player' && '🎉 ВЫ ПОБЕДИЛИ!'}{winner === 'bot' && '😔 БОТ ПОБЕДИЛ'}{winner === 'draw' && '🤝 НИЧЬЯ'}</div>{winner === 'player' && gameBalance > 0 && <div style={styles.prizeText}>+{formatNumber(gameBalance)} GROK!</div>}<button onClick={() => { setView('profile'); setGameOver(false); setLobbyMode('idle'); }} style={styles.btnNewGame}>🏠 В лобби</button></div>}
     <div style={styles.timers}><div style={{...styles.timerBox, active: timerActive === 'player' && !gameOver}}><span>👤</span><span style={styles.timerText}>{fmtTime(playerTime)}</span></div><div style={{...styles.timerBox, active: timerActive === 'bot' && !gameOver}}><span>🤖</span><span style={styles.timerText}>{fmtTime(botTime)}</span></div></div>
     {gameBalance > 0 && !gameOver && <div style={styles.gameBalance}>💰 {formatNumber(gameBalance)} GROK</div>}
     {!gameOver && message && <div style={styles.statusMsg}>{message}</div>}
@@ -190,13 +309,10 @@ function App() {
     <div style={styles.historyPanel}><div style={styles.historyHeader}><span>📜 Ходы:</span><span style={styles.historyCount}>{movesList.length}</span></div><div style={styles.historyList}>{movesList.map((m, i) => <span key={i} style={{...styles.moveChip, highlight: i === moveIndex - 1}}>{Math.floor(i/2)+1}.{i%2===0?'':'..'} {m.san}</span>)}{movesList.length === 0 && <span style={styles.emptyHist}>Ходов нет...</span>}</div></div>
     <div style={styles.controls}>
       <button onClick={() => { setSelectedSquare(null); setPossibleMoves([]); }} style={styles.btnCtrl}>✖️</button>
-      {/* ✅ ИСПРАВЛЕНО: реальные вызовы функций */}
       <button onClick={handleBack} disabled={moveIndex === 0 || gameOver} style={styles.btnCtrl}>⏪</button>
       <button onClick={handleForward} disabled={moveIndex === history.length - 1 || gameOver} style={styles.btnCtrl}>⏩</button>
-      <button onClick={goToProfile} style={styles.btnProfile}>🎨</button>
-      {isConnected && !gameOver && <button onClick={() => handleDeposit(1000)} style={styles.btnAdd}>+1K</button>}
     </div>
-    <p style={styles.modeInfo}>{isConnected ? '🦊 Кошелёк' : '👤 Гость'} • {timeOptions.find(o=>o.value===timeControl)?.label} • {theme.name}</p>
+    <p style={styles.modeInfo}>{lobbyMode === 'playing' ? '🤖 Режим бота' : '👤 Лобби'} • {timeOptions.find(o=>o.value===timeControl)?.label} • {theme.name}</p>
     {showInstallModal && <div style={styles.modalOverlay} onClick={() => setShowInstallModal(false)}><div style={styles.modal} onClick={e => e.stopPropagation()}><h3 style={styles.modalTitle}>📱 Установка</h3><p style={styles.modalStep}>Нажмите "Поделиться" ⎋ → "На экран «Домой»"</p><button onClick={() => setShowInstallModal(false)} style={styles.modalClose}>✓ Понятно</button></div></div>}
   </div>)
 }
@@ -208,51 +324,28 @@ const styles = {
   btnGrok: { padding: '0.7rem 1.2rem', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#000', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '1rem', marginBottom: '0.4rem', width: '100%', maxWidth: '320px' },
   grokHint: { color: '#94a3b8', fontSize: '0.8rem', textAlign: 'center', marginBottom: '0.8rem', maxWidth: '320px', lineHeight: '1.3' },
   controlGroup: { background: '#1e293b', padding: '0.7rem', borderRadius: '10px', marginBottom: '0.6rem', width: '100%', maxWidth: '320px' },
-  label: { display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem', color: '#cbd5e1' }, select: { width: '100%', padding: '0.45rem', background: '#334155', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '0.95rem' },
+  label: { display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem', color: '#cbd5e1' }, select: { width: '100%', padding: '0.45rem', background: '#334155', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '0.95rem' }, input: { width: '100%', padding: '0.6rem', background: '#334155', color: '#fff', border: '1px solid #475569', borderRadius: '8px', fontSize: '1rem' },
   balanceRow: { display: 'flex', justifyContent: 'space-between', background: '#1e293b', padding: '0.6rem 0.8rem', borderRadius: '8px', marginBottom: '0.6rem', fontSize: '0.9rem', maxWidth: '320px', width: '100%' },
   depositGroup: { background: '#1e293b', padding: '0.7rem', borderRadius: '10px', marginBottom: '0.6rem', width: '100%', maxWidth: '320px' },
-  depositButtons: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem' },
-  btnDeposit: { padding: '0.4rem', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' },
-  btnGroup: { display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%', maxWidth: '320px', marginBottom: '0.6rem' },
-  btnPrimary: { padding: '0.8rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' },
-  btnWallet: { padding: '0.8rem', background: '#f59e0b', color: '#000', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' },
-  langSelect: { marginTop: '0.8rem', padding: '0.35rem', background: '#334155', color: '#fff', border: '1px solid #475569', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem' },
-  gameBalanceBadge: { background: 'linear-gradient(135deg, #059669, #10b981)', color: '#fff', padding: '0.4rem 1rem', borderRadius: '20px', fontSize: '0.9rem', fontWeight: '600', marginBottom: '0.5rem' },
+  depositButtons: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem' }, btnDeposit: { padding: '0.4rem', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' },
+  btnGroup: { display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%', maxWidth: '320px', marginBottom: '0.6rem' }, btnPrimary: { padding: '0.8rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', width: '100%' },
+  btnWallet: { padding: '0.8rem', background: '#f59e0b', color: '#000', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', width: '100%' },
+  langSelect: { marginTop: '0.8rem', padding: '0.35rem', background: '#334155', color: '#fff', border: '1px solid #475569', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem' }, gameBalanceBadge: { background: 'linear-gradient(135deg, #059669, #10b981)', color: '#fff', padding: '0.4rem 1rem', borderRadius: '20px', fontSize: '0.9rem', fontWeight: '600', marginBottom: '0.5rem' },
   header: { width: '100%', maxWidth: '480px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '0.5rem 0.8rem', borderRadius: '10px', marginBottom: '0.6rem' },
   headerTitle: { fontWeight: 'bold', fontSize: '1.1rem' }, headerRight: { display: 'flex', alignItems: 'center', gap: '0.3rem' },
-  walletBadge: { fontSize: '0.7rem', background: '#334155', padding: '0.15rem 0.4rem', borderRadius: '12px' },
-  btnSmall: { padding: '0.25rem 0.5rem', background: '#475569', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' },
-  timers: { display: 'flex', gap: '0.8rem', marginBottom: '0.4rem', width: '100%', maxWidth: '360px', justifyContent: 'space-around' },
-  timerBox: ({ active }) => ({ background: active ? '#059669' : '#1e293b', padding: '0.4rem 0.8rem', borderRadius: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', border: active ? '2px solid #34d399' : '2px solid transparent', transition: 'all 0.2s' }),
-  timerText: { fontSize: '1.3rem', fontWeight: 'bold', fontFamily: 'monospace' },
-  gameBalance: { background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', color: '#fff', padding: '0.35rem 0.9rem', borderRadius: '18px', fontSize: '0.9rem', fontWeight: '600', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center' },
-  statusMsg: { color: '#38bdf8', textAlign: 'center', marginBottom: '0.25rem', minHeight: '1.1rem', fontSize: '0.95rem' },
-  boardWrap: { width: 'min(95vw, 360px)', background: '#1e293b', padding: '0.25rem', borderRadius: '12px', marginBottom: '0.5rem' },
-  historyPanel: { width: '100%', maxWidth: '360px', background: '#1e293b', borderRadius: '10px', padding: '0.4rem', marginBottom: '0.5rem', maxHeight: '110px', overflow: 'hidden' },
-  historyHeader: { display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.25rem', paddingBottom: '0.2rem', borderBottom: '1px solid #334155' },
-  historyCount: { background: '#334155', padding: '0.1rem 0.4rem', borderRadius: '10px', fontSize: '0.75rem' },
-  historyList: { display: 'flex', flexWrap: 'wrap', gap: '0.25rem', overflowY: 'auto', maxHeight: '70px', padding: '0.15rem' },
-  moveChip: ({ highlight }) => ({ background: highlight ? '#3b82f6' : '#475569', padding: '0.15rem 0.4rem', borderRadius: '5px', fontSize: '0.75rem', fontWeight: '500' }),
-  emptyHist: { color: '#64748b', fontSize: '0.75rem' },
-  controls: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '0.4rem' },
-  btnCtrl: { padding: '0.4rem 0.7rem', background: '#475569', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' },
-  btnProfile: { padding: '0.4rem 0.7rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' },
-  btnAdd: { padding: '0.4rem 0.7rem', background: '#f59e0b', color: '#000', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' },
-  modeInfo: { color: '#64748b', fontSize: '0.75rem', textAlign: 'center', marginTop: 'auto' },
-  gameOverBanner: { background: 'linear-gradient(135deg, #1e293b, #7c3aed)', padding: '1rem', borderRadius: '16px', width: '100%', maxWidth: '400px', textAlign: 'center', marginBottom: '0.6rem', border: '2px solid #a78bfa' },
-  gameOverIcon: { fontSize: '2.5rem', marginBottom: '0.3rem' }, gameOverText: { fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '0.3rem', color: '#fbbf24' },
-  prizeText: { color: '#34d399', fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.6rem' }, btnNewGame: { padding: '0.6rem 1.5rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '1rem' },
-  balanceCard: { background: 'linear-gradient(135deg, #1e293b, #334155)', padding: '1rem', borderRadius: '14px', width: '100%', maxWidth: '360px', marginBottom: '0.8rem', textAlign: 'center', border: '2px solid #475569' },
-  balanceLabel: { fontSize: '0.85rem', color: '#94a3b8', marginBottom: '0.2rem' }, balanceValue: { fontSize: '1.8rem', fontWeight: 'bold', color: '#fbbf24', marginBottom: '0.4rem' }, balanceHint: { fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.6rem' },
-  depositQuick: { display: 'flex', gap: '0.3rem', justifyContent: 'center', marginBottom: '0.4rem' }, btnDepositSmall: { padding: '0.3rem 0.6rem', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' },
-  statsCard: { background: '#1e293b', padding: '0.8rem', borderRadius: '12px', width: '100%', maxWidth: '360px', marginBottom: '0.8rem' }, statsTitle: { margin: '0 0 0.6rem 0', fontSize: '1rem', color: '#cbd5e1' }, statRow: { display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0', borderBottom: '1px solid #334155', fontSize: '0.85rem' },
-  themeCard: { background: '#1e293b', padding: '0.8rem', borderRadius: '12px', width: '100%', maxWidth: '360px', marginBottom: '0.8rem' }, themeGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' },
-  themeBtn: { padding: '0.5rem', borderRadius: '10px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', transition: 'all 0.2s', position: 'relative' },
-  themePreview: { display: 'flex', gap: '2px' }, themeSquare: { width: '20px', height: '20px', borderRadius: '3px' }, themeName: { fontSize: '0.75rem', color: '#e2e8f0' }, themeCheck: { position: 'absolute', top: '-5px', right: '-5px', background: '#10b981', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' },
-  modal: { background: '#1e293b', padding: '1.2rem', borderRadius: '16px', maxWidth: '400px', width: '100%', border: '2px solid #475569' },
-  modalTitle: { fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.8rem', color: '#fbbf24', textAlign: 'center' }, modalStep: { paddingLeft: '1.2rem', marginBottom: '0.4rem', color: '#e2e8f0', fontSize: '0.9rem', lineHeight: '1.6' },
-  modalClose: { width: '100%', padding: '0.7rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '1rem' }
+  walletBadge: { fontSize: '0.7rem', background: '#334155', padding: '0.15rem 0.4rem', borderRadius: '12px' }, btnSmall: { padding: '0.5rem 0.8rem', background: '#475569', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }, btnSmallCancel: { padding: '0.5rem 0.8rem', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' },
+  balanceCard: { background: 'linear-gradient(135deg, #1e293b, #334155)', padding: '1rem', borderRadius: '14px', width: '100%', maxWidth: '360px', marginBottom: '0.8rem', textAlign: 'center', border: '2px solid #475569' }, balanceLabel: { fontSize: '0.85rem', color: '#94a3b8', marginBottom: '0.2rem' }, balanceValue: { fontSize: '1.8rem', fontWeight: 'bold', color: '#fbbf24', marginBottom: '0.4rem' },
+  depositQuick: { display: 'flex', gap: '0.3rem', justifyContent: 'center', marginTop: '0.4rem' }, btnDepositSmall: { padding: '0.3rem 0.6rem', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' },
+  
+  // Лобби
+  lobbyCard: { background: '#1e293b', padding: '1rem', borderRadius: '14px', width: '100%', maxWidth: '360px', marginBottom: '0.8rem', textAlign: 'center', border: '2px solid #475569' }, lobbyTitle: { fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.8rem', color: '#fbbf24' }, lobbyGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }, lobbyBtn: { padding: '0.7rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }, lobbyBtnSecondary: { gridColumn: '1 / -1', padding: '0.7rem', background: '#f59e0b', color: '#000', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }, formGroup: { marginBottom: '0.8rem' }, infoText: { color: '#94a3b8', marginBottom: '0.8rem', fontSize: '0.9rem' }, codeBox: { background: '#0f172a', padding: '0.8rem', borderRadius: '8px', wordBreak: 'break-all', fontSize: '0.8rem', marginBottom: '0.8rem', border: '1px dashed #475569' }, waitActions: { display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' },
+  
+  timers: { display: 'flex', gap: '0.8rem', marginBottom: '0.4rem', width: '100%', maxWidth: '360px', justifyContent: 'space-around' }, timerBox: ({ active }) => ({ background: active ? '#059669' : '#1e293b', padding: '0.4rem 0.8rem', borderRadius: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', border: active ? '2px solid #34d399' : '2px solid transparent', transition: 'all 0.2s' }), timerText: { fontSize: '1.3rem', fontWeight: 'bold', fontFamily: 'monospace' },
+  gameBalance: { background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', color: '#fff', padding: '0.35rem 0.9rem', borderRadius: '18px', fontSize: '0.9rem', fontWeight: '600', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center' }, statusMsg: { color: '#38bdf8', textAlign: 'center', marginBottom: '0.25rem', minHeight: '1.1rem', fontSize: '0.95rem' },
+  boardWrap: { width: 'min(95vw, 360px)', background: '#1e293b', padding: '0.25rem', borderRadius: '12px', marginBottom: '0.5rem' }, historyPanel: { width: '100%', maxWidth: '360px', background: '#1e293b', borderRadius: '10px', padding: '0.4rem', marginBottom: '0.5rem', maxHeight: '110px', overflow: 'hidden' }, historyHeader: { display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.25rem', paddingBottom: '0.2rem', borderBottom: '1px solid #334155' }, historyCount: { background: '#334155', padding: '0.1rem 0.4rem', borderRadius: '10px', fontSize: '0.75rem' }, historyList: { display: 'flex', flexWrap: 'wrap', gap: '0.25rem', overflowY: 'auto', maxHeight: '70px', padding: '0.15rem' }, moveChip: ({ highlight }) => ({ background: highlight ? '#3b82f6' : '#475569', padding: '0.15rem 0.4rem', borderRadius: '5px', fontSize: '0.75rem', fontWeight: '500' }), emptyHist: { color: '#64748b', fontSize: '0.75rem' }, controls: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '0.4rem' }, btnCtrl: { padding: '0.4rem 0.7rem', background: '#475569', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }, modeInfo: { color: '#64748b', fontSize: '0.75rem', textAlign: 'center', marginTop: 'auto' },
+  gameOverBanner: { background: 'linear-gradient(135deg, #1e293b, #7c3aed)', padding: '1rem', borderRadius: '16px', width: '100%', maxWidth: '400px', textAlign: 'center', marginBottom: '0.6rem', border: '2px solid #a78bfa' }, gameOverIcon: { fontSize: '2.5rem', marginBottom: '0.3rem' }, gameOverText: { fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '0.3rem', color: '#fbbf24' }, prizeText: { color: '#34d399', fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.6rem' }, btnNewGame: { padding: '0.6rem 1.5rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '1rem' },
+  themeCard: { background: '#1e293b', padding: '0.8rem', borderRadius: '12px', width: '100%', maxWidth: '360px', marginBottom: '0.8rem' }, statsTitle: { margin: '0 0 0.6rem 0', fontSize: '1rem', color: '#cbd5e1' }, themeGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }, themeBtn: { padding: '0.5rem', borderRadius: '10px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem', transition: 'all 0.2s', position: 'relative' }, themePreview: { display: 'flex', gap: '2px' }, themeSquare: { width: '20px', height: '20px', borderRadius: '3px' }, themeName: { fontSize: '0.75rem', color: '#e2e8f0' }, themeCheck: { position: 'absolute', top: '-5px', right: '-5px', background: '#10b981', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }, modal: { background: '#1e293b', padding: '1.2rem', borderRadius: '16px', maxWidth: '400px', width: '100%', border: '2px solid #475569' }, modalTitle: { fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.8rem', color: '#fbbf24', textAlign: 'center' }, modalStep: { paddingLeft: '1.2rem', marginBottom: '0.4rem', color: '#e2e8f0', fontSize: '0.9rem', lineHeight: '1.6' }, modalClose: { width: '100%', padding: '0.7rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '1rem' }
 }
 
 export default App
