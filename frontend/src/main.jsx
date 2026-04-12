@@ -1,6 +1,6 @@
 // ============================================================================
 // CHESS4CRYPTO - Entry Point (frontend/src/main.jsx)
-// ✅ ИСПРАВЛЕНО: meta (с двоеточием) вместо meta {
+// ✅ ИСПРАВЛЕНО: meta: (с двоеточием ПОСЛЕ meta) вместо meta {
 // ✅ Полная поддержка WalletConnect на мобильных + MetaMask на ПК
 // ============================================================================
 
@@ -35,8 +35,8 @@ export const config = createConfig({
     walletConnect({
       projectId,
       showQrModal: true,
-      // ✅ ИСПРАВЛЕНО: meta (с двоеточием), а не meta {
-      meta {
+      // ✅ ИСПРАВЛЕНО: meta: (двоеточие ПОСЛЕ meta), а не meta {
+      meta: {
         name: 'Chess4Crypto',
         description: 'Web3 Chess Platform with GROK Token Betting',
         url: typeof window !== 'undefined' ? window.location.origin : 'https://serwmwser.github.io/chess4crypto',
