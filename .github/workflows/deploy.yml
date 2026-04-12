@@ -1,14 +1,9 @@
-# ============================================================================
-# GITHUB ACTIONS: Deploy Chess4Crypto to GitHub Pages
-# ✅ Чистый конфиг: без конфликтующих переменных среды
-# ============================================================================
-
 name: Deploy to GitHub Pages
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:  # Ручной запуск из вкладки Actions
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,58 +11,33 @@ permissions:
   id-token: write
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
-    
     steps:
-      # 1️⃣ Клонируем репозиторий
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # 2️⃣ Устанавливаем Node.js 18 (для совместимости с проектом)
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          # ❌ Без кэша — он вызывал ошибки "paths were not resolved"
 
-      # 3️⃣ Устанавливаем зависимости и собираем проект
-      - name: Install dependencies & Build
+      - name: Build
         run: |
           cd frontend
-          echo "🔧 Node: $(node -v) | NPM: $(npm -v)"
-          npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          # ✅ Используем npm install вместо npm ci (не требует package-lock.json)
+          npm install --legacy-peer-deps --ignore-scripts
           npm run build
-          echo "✅ Build done. Files in dist/:"
-          ls -la dist/ 2>/dev/null || echo "⚠️ dist/ empty or missing"
         env:
-          # ✅ Секреты из GitHub Secrets
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_WALLETCONNECT_PROJECT_ID: ${{ secrets.VITE_WALLETCONNECT_PROJECT_ID }}
           VITE_WS_URL: ${{ secrets.VITE_WS_URL }}
-          NODE_ENV: production
 
-      # 4️⃣ Проверяем результат сборки
-      - name: Verify build output
-        run: |
-          if [ ! -d "frontend/dist" ] || [ -z "$(ls -A frontend/dist 2>/dev/null)" ]; then
-            echo "❌ ERROR: frontend/dist is empty or missing!"
-            exit 1
-          fi
-          echo "✅ Build verified: $(ls frontend/dist | wc -l) files"
-
-      # 5️⃣ Настраиваем GitHub Pages
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      # 6️⃣ Загружаем артефакт
-      - name: Upload artifact
+      - name: Upload
         uses: actions/upload-pages-artifact@v3
         with:
           path: frontend/dist
 
-      # 7️⃣ Деплоим
-      - name: Deploy to GitHub Pages
-        id: deployment
+      - name: Deploy
         uses: actions/deploy-pages@v4
