@@ -36,7 +36,7 @@ export const config = createConfig({
     walletConnect({
       projectId,
       showQrModal: true, // Показывает QR-код или открывает приложение кошелька
-      metadata: {
+      meta {
         name: 'Chess4Crypto',
         description: 'Web3 Chess Platform with GROK Token Betting',
         url: typeof window !== 'undefined' ? window.location.origin : 'https://serwmwser.github.io/chess4crypto',
