@@ -1,7 +1,7 @@
 // ============================================================================
 // CHESS4CRYPTO - Entry Point (frontend/src/main.jsx)
-// ✅ ИСПРАВЛЕНО: meta: (с двоеточием ПОСЛЕ meta) вместо meta {
-// ✅ Полная поддержка WalletConnect на мобильных + MetaMask на ПК
+// ✅ ИСПРАВЛЕНО: meta: (с двоеточием), правильные импорты, полная поддержка WalletConnect
+// ✅ Готово для GitHub Pages + Mobile + Desktop
 // ============================================================================
 
 import React from 'react'
@@ -11,7 +11,7 @@ import { injected, walletConnect } from 'wagmi/connectors'
 import { bsc, bscTestnet } from 'wagmi/chains'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
-import './i18n'
+import './i18n' // Инициализация переводов до рендера
 
 // 🔍 Логирование окружения
 console.log('🚀 Chess4Crypto starting...')
@@ -21,21 +21,22 @@ console.log('🔍 ENV status:', {
   WS_URL: import.meta.env.VITE_WS_URL ? '✓' : '✗'
 })
 
-// 🔑 Project ID для WalletConnect
+// 🔑 Project ID для WalletConnect (ОБЯЗАТЕЛЕН для мобильных кошельков)
 const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '00000000000000000000000000000000'
 if (projectId === '00000000000000000000000000000000') {
-  console.warn('⚠️ VITE_WALLETCONNECT_PROJECT_ID не задан')
+  console.warn('⚠️ VITE_WALLETCONNECT_PROJECT_ID не задан. Мобильные кошельки могут не подключиться.')
+  console.warn('💡 Получите бесплатный ключ: https://cloud.walletconnect.com')
 }
 
-// ✅ Создаём конфиг Wagmi
+// ✅ Создаём конфигурацию Wagmi
 export const config = createConfig({
   chains: [bsc, bscTestnet],
   connectors: [
-    // 📱 WalletConnect — для мобильных (Trust Wallet, MetaMask Mobile, Rainbow)
+    // 📱 WalletConnect — ОСНОВНОЙ ДЛЯ СМАРТФОНОВ (Trust Wallet, MetaMask Mobile, Rainbow)
     walletConnect({
       projectId,
-      showQrModal: true,
-      // ✅ ИСПРАВЛЕНО: meta: (двоеточие ПОСЛЕ meta), а не meta {
+      showQrModal: true, // Показывает QR-код или открывает приложение кошелька
+      // ✅ КРИТИЧНО: meta: (с двоеточием!), а НЕ meta {
       meta: {
         name: 'Chess4Crypto',
         description: 'Web3 Chess Platform with GROK Token Betting',
@@ -43,17 +44,17 @@ export const config = createConfig({
         icons: [typeof window !== 'undefined' ? `${window.location.origin}/favicon.ico` : '']
       }
     }),
-    // 💻 Injected — для десктопа (MetaMask, Brave, Rabby)
+    // 💻 Injected — ДЛЯ ДЕСКТОПА (MetaMask, Brave Wallet, Rabby)
     injected({ target: 'metaMask' })
   ],
   transports: {
     [bsc.id]: http(),
     [bscTestnet.id]: http(),
   },
-  ssr: typeof window === 'undefined'
+  ssr: typeof window === 'undefined' // Отключаем SSR-ошибки при сборке
 })
 
-// ✅ QueryClient для React Query
+// ✅ QueryClient для React Query (кэширование запросов)
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 },
