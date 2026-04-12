@@ -1,6 +1,6 @@
 // ============================================================================
 // ЗАГЛУШКА ДЛЯ @metamask/sdk
-// Используется чтобы Vite/Netlify успешно собирали проект без реального пакета
+// Минимальный набор экспортов для совместимости с wagmi/connectors
 // ============================================================================
 
 // ✅ EventType — то, что импортирует @wagmi/connectors
@@ -10,115 +10,43 @@ export const EventType = {
   ACCOUNTS_CHANGED: 'accountsChanged',
   CHAIN_CHANGED: 'chainChanged',
   MESSAGE: 'message',
-  ERROR: 'error',
-  PROVIDER_CHANGED: 'provider_changed',
-  SDK_READY: 'sdk_ready'
+  ERROR: 'error'
 }
 
 // ✅ ProviderType
 export const ProviderType = {
   MetaMask: 'metamask',
-  MetaMaskSDK: 'metamask_sdk',
-  Injected: 'injected'
+  MetaMaskSDK: 'metamask_sdk'
 }
 
 // ✅ SDKProvider — заглушка провайдера
 export class SDKProvider {
-  constructor(options = {}) {
-    this.options = options
-    this.chainId = null
-    this.accounts = []
+  constructor() {
     this.isMetaMask = true
   }
-
-  async request({ method, params }) {
-    // Возвращаем безопасные заглушки для популярных RPC-методов
-    switch (method) {
-      case 'eth_chainId':
-        return '0x1' // Mainnet
-      case 'eth_accounts':
-      case 'eth_requestAccounts':
-        return []
-      case 'net_version':
-        return '1'
-      case 'wallet_switchEthereumChain':
-        return null
-      default:
-        return null
-    }
-  }
-
-  on(event, listener) { return this }
-  removeListener(event, listener) { return this }
-  removeAllListeners(event) { return this }
-  emit(event, ...args) { return true }
+  async request() { return null }
+  on() { return this }
+  removeListener() { return this }
 }
 
 // ✅ MetaMaskSDK — главный класс
 export class MetaMaskSDK {
-  constructor(options = {}) {
-    this.options = options
-    this._provider = new SDKProvider(options)
-    this._connected = false
+  constructor() {
+    this._provider = new SDKProvider()
   }
-
-  async init() {
-    return this
-  }
-
-  async connect() {
-    this._connected = true
-    return { provider: this._provider, accounts: [] }
-  }
-
-  async disconnect() {
-    this._connected = false
-    return true
-  }
-
-  getProvider() {
-    return this._provider
-  }
-
-  isConnected() {
-    return this._connected
-  }
-
-  terminate() {
-    return Promise.resolve()
-  }
-
-  updateOptions(options) {
-    this.options = { ...this.options, ...options }
-  }
-
-  // ✅ События — заглушки
-  on(event, handler) { return this }
-  off(event, handler) { return this }
+  async init() { return this }
+  async connect() { return { provider: this._provider } }
+  getProvider() { return this._provider }
+  terminate() { return Promise.resolve() }
+  on() { return this }
+  off() { return this }
 }
 
 // ✅ Экспорт по умолчанию
 export default MetaMaskSDK
 
 // ✅ Дополнительные экспорты для совместимости
-export const createProvider = (options) => new SDKProvider(options)
-export const getSdk = (options) => new MetaMaskSDK(options)
-export const disconnect = () => Promise.resolve(true)
-export const reconnect = () => Promise.resolve(null)
-export const terminate = () => Promise.resolve(true)
-
-// ✅ Пустые функции для любых других импортов
-export const init = () => Promise.resolve(new MetaMaskSDK())
-export const connect = () => Promise.resolve({ provider: new SDKProvider() })
-export const request = () => Promise.resolve(null)
-export const on = () => {}
-export const off = () => {}
-// Заглушка для @metamask/sdk — экспортирует всё, что ожидает wagmi
-export const EventType = { CONNECT: 'connect', DISCONNECT: 'disconnect', ACCOUNTS_CHANGED: 'accountsChanged', CHAIN_CHANGED: 'chainChanged', MESSAGE: 'message', ERROR: 'error' }
-export const ProviderType = { MetaMask: 'metamask', MetaMaskSDK: 'metamask_sdk' }
-export class SDKProvider { constructor() {} async request() { return null } on() { return this } removeListener() { return this } }
-export class MetaMaskSDK { constructor() {} async init() { return this } async connect() { return { provider: new SDKProvider() } } getProvider() { return new SDKProvider() } terminate() { return Promise.resolve() } }
-export default MetaMaskSDK
 export const createProvider = () => new SDKProvider()
 export const getSdk = () => new MetaMaskSDK()
-export const disconnect = () => Promise.resolve()
+export const disconnect = () => Promise.resolve(true)
+export const reconnect = () => Promise.resolve(null)
