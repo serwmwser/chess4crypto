@@ -18,14 +18,15 @@ const getShareUrl = () => typeof window !== 'undefined' ? window.location.origin
 
 function App() {
   const { t, i18n } = useTranslation()
-  const { address, isConnected } = useAccount()
-  const { connect, connectors } = useConnect()
+  // ✅ Используем status из wagmi вместо ручного connectStatus
+  const { address, isConnected, status } = useAccount()
+  const { connect, connectors, error: connectError } = useConnect()
   const { disconnect } = useDisconnect()
   const {  balance: walletBalance } = useBalance({ address })
 
   // 🎮 Состояние
   const gameRef = useRef(new Chess())
-  const [view, setView] = useState('menu') // menu, profile, game
+  const [view, setView] = useState('menu')
   const [fen, setFen] = useState(gameRef.current.fen())
   const [history, setHistory] = useState([gameRef.current.fen()])
   const [moveIndex, setMoveIndex] = useState(0)
@@ -50,23 +51,18 @@ function App() {
   const [botTime, setBotTime] = useState(timeControl * 60)
   const [timerActive, setTimerActive] = useState(null)
 
-  // 💰 Баланс & Подключение
+  // 💰 Баланс & Лобби
   const [gameBalance, setGameBalance] = useState(0)
   const [pendingDeposit, setPendingDeposit] = useState(null)
-  const [connectStatus, setConnectStatus] = useState('idle')
-
-  // 🤝 ЛОББИ / ИГРА С ДРУГОМ
-  const [lobbyMode, setLobbyMode] = useState('idle') // idle, create, join, waiting, playing
+  const [lobbyMode, setLobbyMode] = useState('idle')
   const [gameId, setGameId] = useState(null)
   const [inviteLink, setInviteLink] = useState('')
-  const [stakeAmount, setStakeAmount] = useState(1000)
   const [joinCode, setJoinCode] = useState('')
   const [copied, setCopied] = useState(false)
 
   const fmtTime = (s) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60; return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : `${m}:${String(sec).padStart(2,'0')}` }
   const formatNumber = (n) => n.toLocaleString('ru-RU')
 
-  // 🎨 Подсветка ходов
   const customSquareStyles = useMemo(() => {
     const theme = BOARD_THEMES[boardTheme], styles = {}
     if (selectedSquare) styles[selectedSquare] = { backgroundColor: theme.highlight }
@@ -120,24 +116,34 @@ function App() {
     await new Promise(resolve => setTimeout(resolve, 800)); setGameBalance(prev => prev + amount); setPendingDeposit(null); setMessage(`✅ ${amount} GROK внесено!`)
   }
 
-  // 🔗 Подключение кошелька → открывает ПРОФИЛЬ/ЛОББИ
+  // 🔗 ИСПРАВЛЕННОЕ ПОДКЛЮЧЕНИЕ (ПК + Мобильные)
   const handleConnect = async () => {
-    setConnectStatus('connecting'); setMessage('🔄 Открываю кошелёк...')
+    setMessage('🔄 Открываю кошелёк...')
     try {
-      const connector = isMobile() ? connectors.find(c => c.id === 'walletConnect') : connectors.find(c => c.id === 'injected')
-      if (!connector) throw new Error('Нет доступных кошельков. Установите MetaMask или Trust Wallet.')
-      await connect({ connector }); await new Promise(resolve => setTimeout(resolve, 3000))
-      if (!isConnected) throw new Error('Подключение отменено')
+      // 📱 Мобильные → WalletConnect | 💻 ПК → MetaMask (или первый injected)
+      const connector = isMobile()
+        ? connectors.find(c => c.id === 'walletConnect')
+        : (connectors.find(c => c.id === 'metaMask') || connectors.find(c => c.id === 'injected'))
+        
+      if (!connector) throw new Error('Кошелёк не найден. Установите MetaMask или Trust Wallet.')
+      
+      await connect({ connector })
+      // Wagmi обновляет статус асинхронно. Ждем реакции.
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      if (!isConnected) throw new Error('Подключение отменено пользователем')
     } catch (err) {
-      setConnectStatus('error'); setMessage('⚠️ ' + (err.shortMessage || err.message || 'Не удалось подключиться'))
+      setMessage('⚠️ ' + (err.shortMessage || err.message || 'Не удалось подключиться'))
     }
   }
 
+  // 👁️ АВТОПЕРЕХОД В ПРОФИЛЬ ПРИ УСПЕШНОМ ПОДКЛЮЧЕНИИ
   useEffect(() => {
-    if (isConnected && address && connectStatus === 'connecting') {
-      setConnectStatus('connected'); setMessage('✅ Кошелёк подключён!'); setView('profile'); setConnectStatus('idle')
+    if (status === 'connected' && address && view === 'menu') {
+      setView('profile')
+      setMessage('✅ Кошелёк подключён! Добро пожаловать в лобби.')
     }
-  }, [isConnected, address, connectStatus])
+  }, [status, address, view])
 
   // 🎮 Запуск игры
   const startGame = (mode = 'guest') => {
@@ -148,7 +154,7 @@ function App() {
     setMessage('♟️ Ваш ход!'); setView('game'); setLobbyMode('playing')
   }
 
-  const handleGuestLogin = () => { setConnectStatus('idle'); startGame('guest') }
+  const handleGuestLogin = () => startGame('guest')
   const handleLogout = () => { if (isConnected) disconnect(); setView('menu'); setLobbyMode('idle'); gameRef.current.reset() }
   const goToProfile = () => setView('profile')
   const handleBuyGrok = () => window.open('https://four.meme/token/0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444?code=AHGX96R5GHK9', '_blank')
@@ -161,18 +167,18 @@ function App() {
   useEffect(() => { const h = (e) => { e.preventDefault(); setDeferredPrompt(e) }; window.addEventListener('beforeinstallprompt', h); return () => window.removeEventListener('beforeinstallprompt', h) }, [])
   const handleInstallApp = async () => { if (!deferredPrompt) { setShowInstallModal(true); return }; deferredPrompt.prompt(); await deferredPrompt.userChoice; setDeferredPrompt(null); setMessage('✅ Установлено!') }
 
-  // 🔗 Обработка ссылки-приглашения при загрузке
+  // 🔗 Обработка ссылки-приглашения
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
       const invite = params.get('invite') || params.get('game')
-      if (invite && isConnected) {
+      if (invite && (isConnected || status === 'disconnected')) {
         setJoinCode(invite)
         setView('profile')
         setLobbyMode('join')
       }
     }
-  }, [isConnected])
+  }, [isConnected, status])
 
   // ⏱️ Таймер
   useEffect(() => { if (!timerActive || gameOver || lobbyMode !== 'playing') return; const interval = setInterval(() => { if (timerActive === 'player') { setPlayerTime(prev => { if (prev <= 1) { endGame('bot'); return 0 } return prev - 1 }) } else { setBotTime(prev => { if (prev <= 1) { endGame('player'); return 0 } return prev - 1 }) } }, 1000); return () => clearInterval(interval) }, [timerActive, gameOver, lobbyMode])
@@ -181,37 +187,13 @@ function App() {
   const depositOptions = [1000, 5000, 10000, 50000, 100000, 500000]
   const theme = BOARD_THEMES[boardTheme]
 
-  // 🔗 Логика создания/приглашения
   const handleCreateGame = () => {
     const id = `game_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
-    setGameId(id)
-    const link = `${getShareUrl()}?invite=${id}`
-    setInviteLink(link)
-    setLobbyMode('create')
-    setMessage('🎉 Игра создана! Отправьте ссылку другу.')
+    setGameId(id); setInviteLink(`${getShareUrl()}?invite=${id}`); setLobbyMode('create'); setMessage('🎉 Игра создана! Отправьте ссылку.')
   }
-
-  const handleShareInvite = async () => {
-    if (navigator.share) {
-      try { await navigator.share({ title: 'Chess4Crypto', text: `Присоединяйся к игре в шахматы! Ставка: ${formatNumber(stakeAmount)} GROK`, url: inviteLink }) }
-      catch (e) { copyToClipboard() }
-    } else { copyToClipboard() }
-  }
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(inviteLink || `${getShareUrl()}?invite=${joinCode}`)
-    setCopied(true); setMessage('📋 Ссылка скопирована!')
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const handleJoinGame = () => {
-    if (!joinCode) { setMessage('⚠️ Введите код или ссылку'); return }
-    setGameId(joinCode.replace(/^.*invite=/, ''))
-    setLobbyMode('playing')
-    startGame(isConnected ? 'wallet' : 'guest')
-  }
-
-  const timeOptionsLobby = timeOptions.map(o => ({...o, value: Number(o.value)}))
+  const handleShareInvite = async () => { if (navigator.share) { try { await navigator.share({ title: 'Chess4Crypto', text: `Присоединяйся! Ставка: ${formatNumber(1000)} GROK`, url: inviteLink }) } catch(e){copyToClipboard()} } else copyToClipboard() }
+  const copyToClipboard = () => { navigator.clipboard.writeText(inviteLink || `${getShareUrl()}?invite=${joinCode}`); setCopied(true); setMessage('📋 Скопировано!'); setTimeout(() => setCopied(false), 2000) }
+  const handleJoinGame = () => { if (!joinCode) { setMessage('⚠️ Введите код/ссылку'); return }; setGameId(joinCode.replace(/^.*invite=/, '')); setLobbyMode('playing'); startGame(isConnected ? 'wallet' : 'guest') }
 
   // ============================================================================
   // 🎨 МЕНЮ ВХОДА
@@ -222,11 +204,16 @@ function App() {
       <button onClick={handleInstallApp} style={styles.btnInstall}>📱 Скачать приложение</button>
       <button onClick={handleBuyGrok} style={styles.btnGrok}>💰 Купить GROK</button><p style={styles.grokHint}>Подключи кошелёк в BNB → купи GROK</p>
       <div style={styles.controlGroup}><label style={styles.label}>⏱️ Время:</label><select value={timeControl} onChange={e => setTimeControl(Number(e.target.value))} style={styles.select}>{timeOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
-      {isConnected && <><div style={styles.balanceRow}><span>💼 Баланс:</span><strong style={{color:'#fbbf24'}}>{walletBalance ? parseFloat(walletBalance.formatted).toFixed(2) : '0.00'}</strong></div><div style={styles.depositGroup}><label style={styles.label}>💰 Внести:</label><div style={styles.depositButtons}>{depositOptions.map(amt => <button key={amt} onClick={() => handleDeposit(amt)} disabled={pendingDeposit === amt} style={{...styles.btnDeposit, background: pendingDeposit === amt ? '#64748b' : '#7c3aed'}}>{pendingDeposit === amt ? '⏳' : ''} {formatNumber(amt)}</button>)}</div></div></>}
+      
+      {/* 🔗 КНОПКА ПОДКЛЮЧЕНИЯ (Всегда видна, чёткий статус) */}
       <div style={styles.btnGroup}>
         <button onClick={handleGuestLogin} style={styles.btnPrimary}>👤 {t('app.guestLogin')}</button>
-        <button onClick={handleConnect} style={styles.btnWallet} disabled={connectStatus === 'connecting'}>{connectStatus === 'connecting' ? '⏳' : isMobile() ? '🔗 ' : '🦊 '} {t('app.connectWallet')}</button>
+        <button onClick={handleConnect} style={styles.btnWallet} disabled={status === 'connecting'}>
+          {status === 'connecting' ? '⏳' : isMobile() ? '🔗 ' : '🦊 '} {status === 'connected' ? '✅ Подключено' : t('app.connectWallet')}
+        </button>
       </div>
+
+      {isConnected && address && <div style={styles.balanceRow}><span>💼 Кошелёк:</span><span style={{fontSize:'0.8rem', color:'#94a3b8'}}>{address.slice(0,6)}...{address.slice(-4)}</span></div>}
       {gameBalance > 0 && <div style={styles.gameBalanceBadge}>🎮 Баланс: <strong>{formatNumber(gameBalance)} GROK</strong></div>}
       <select value={i18n.language} onChange={e => i18n.changeLanguage(e.target.value)} style={styles.langSelect}><option value="ru">🇷🇺 RU</option><option value="en">🇬🇧 EN</option></select>
     </div>)
@@ -239,7 +226,6 @@ function App() {
     return (<div style={styles.screen}>
       <header style={styles.header}><span style={styles.headerTitle}>👤 Профиль & Лобби</span><div style={styles.headerRight}><button onClick={handleLogout} style={{...styles.btnSmall, background:'#ef4444'}}>🚪 Выйти</button></div></header>
       
-      {/* Баланс и кошелёк */}
       <div style={styles.balanceCard}>
         <div style={styles.balanceLabel}>🎮 Баланс игры</div>
         <div style={styles.balanceValue}>{formatNumber(gameBalance)} <span style={{fontSize:'1rem'}}>GROK</span></div>
@@ -247,7 +233,6 @@ function App() {
         {isConnected && gameBalance === 0 && <div style={styles.depositQuick}>{depositOptions.slice(0,3).map(amt => <button key={amt} onClick={() => handleDeposit(amt)} style={styles.btnDepositSmall}>+{formatNumber(amt)}</button>)}</div>}
       </div>
 
-      {/* Логика Лобби */}
       {lobbyMode === 'idle' && (
         <div style={styles.lobbyCard}>
           <h3 style={styles.lobbyTitle}>🎯 Что будем делать?</h3>
@@ -263,8 +248,6 @@ function App() {
       {lobbyMode === 'create' && (
         <div style={styles.lobbyCard}>
           <h3 style={styles.lobbyTitle}>➕ Создание игры</h3>
-          <div style={styles.formGroup}><label style={styles.label}>Ставка (GROK)</label><input type="number" value={stakeAmount} onChange={e => setStakeAmount(Number(e.target.value))} style={styles.input} min="1" /></div>
-          <div style={styles.formGroup}><label style={styles.label}>Время на партию</label><select value={timeControl} onChange={e => setTimeControl(Number(e.target.value))} style={styles.select}>{timeOptionsLobby.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
           <button onClick={handleCreateGame} style={styles.btnPrimary}>🎲 Сгенерировать ссылку</button>
           <button onClick={() => setLobbyMode('idle')} style={styles.btnSmall}>↩️ Назад</button>
         </div>
@@ -273,21 +256,20 @@ function App() {
       {lobbyMode === 'join' && (
         <div style={styles.lobbyCard}>
           <h3 style={styles.lobbyTitle}>🔍 Присоединиться к игре</h3>
-          <div style={styles.formGroup}><label style={styles.label}>Код или ссылка приглашения</label><input value={joinCode} onChange={e => setJoinCode(e.target.value)} style={styles.input} placeholder="Вставьте ссылку или код..." /></div>
+          <div style={styles.formGroup}><label style={styles.label}>Код или ссылка</label><input value={joinCode} onChange={e => setJoinCode(e.target.value)} style={styles.input} placeholder="Вставьте ссылку..." /></div>
           <button onClick={handleJoinGame} style={styles.btnPrimary}>🤝 Войти в игру</button>
           <button onClick={() => setLobbyMode('idle')} style={styles.btnSmall}>↩️ Назад</button>
         </div>
       )}
 
-      {lobbyMode === 'waiting' && (
+      {lobbyMode === 'create' && inviteLink && (
         <div style={styles.lobbyCard}>
-          <h3 style={styles.lobbyTitle}>⏳ Ожидание соперника</h3>
-          <p style={styles.infoText}>Ссылка скопирована. Отправьте её другу через мессенджер!</p>
+          <h3 style={styles.lobbyTitle}>⏳ Отправьте ссылку другу</h3>
           <div style={styles.codeBox}>{inviteLink}</div>
           <div style={styles.waitActions}>
             <button onClick={copyToClipboard} style={styles.btnSmall}>{copied ? '✅ Скопировано' : '📋 Копировать'}</button>
             <button onClick={handleShareInvite} style={styles.btnSmall}>📤 Отправить</button>
-            <button onClick={() => { setLobbyMode('idle'); setMessage('Ожидание отменено') }} style={styles.btnSmallCancel}>❌ Отменить</button>
+            <button onClick={() => setLobbyMode('idle')} style={styles.btnSmallCancel}>❌ Назад</button>
           </div>
         </div>
       )}
@@ -336,10 +318,7 @@ const styles = {
   walletBadge: { fontSize: '0.7rem', background: '#334155', padding: '0.15rem 0.4rem', borderRadius: '12px' }, btnSmall: { padding: '0.5rem 0.8rem', background: '#475569', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }, btnSmallCancel: { padding: '0.5rem 0.8rem', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' },
   balanceCard: { background: 'linear-gradient(135deg, #1e293b, #334155)', padding: '1rem', borderRadius: '14px', width: '100%', maxWidth: '360px', marginBottom: '0.8rem', textAlign: 'center', border: '2px solid #475569' }, balanceLabel: { fontSize: '0.85rem', color: '#94a3b8', marginBottom: '0.2rem' }, balanceValue: { fontSize: '1.8rem', fontWeight: 'bold', color: '#fbbf24', marginBottom: '0.4rem' },
   depositQuick: { display: 'flex', gap: '0.3rem', justifyContent: 'center', marginTop: '0.4rem' }, btnDepositSmall: { padding: '0.3rem 0.6rem', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' },
-  
-  // Лобби
   lobbyCard: { background: '#1e293b', padding: '1rem', borderRadius: '14px', width: '100%', maxWidth: '360px', marginBottom: '0.8rem', textAlign: 'center', border: '2px solid #475569' }, lobbyTitle: { fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '0.8rem', color: '#fbbf24' }, lobbyGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }, lobbyBtn: { padding: '0.7rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }, lobbyBtnSecondary: { gridColumn: '1 / -1', padding: '0.7rem', background: '#f59e0b', color: '#000', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }, formGroup: { marginBottom: '0.8rem' }, infoText: { color: '#94a3b8', marginBottom: '0.8rem', fontSize: '0.9rem' }, codeBox: { background: '#0f172a', padding: '0.8rem', borderRadius: '8px', wordBreak: 'break-all', fontSize: '0.8rem', marginBottom: '0.8rem', border: '1px dashed #475569' }, waitActions: { display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' },
-  
   timers: { display: 'flex', gap: '0.8rem', marginBottom: '0.4rem', width: '100%', maxWidth: '360px', justifyContent: 'space-around' }, timerBox: ({ active }) => ({ background: active ? '#059669' : '#1e293b', padding: '0.4rem 0.8rem', borderRadius: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', border: active ? '2px solid #34d399' : '2px solid transparent', transition: 'all 0.2s' }), timerText: { fontSize: '1.3rem', fontWeight: 'bold', fontFamily: 'monospace' },
   gameBalance: { background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', color: '#fff', padding: '0.35rem 0.9rem', borderRadius: '18px', fontSize: '0.9rem', fontWeight: '600', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center' }, statusMsg: { color: '#38bdf8', textAlign: 'center', marginBottom: '0.25rem', minHeight: '1.1rem', fontSize: '0.95rem' },
   boardWrap: { width: 'min(95vw, 360px)', background: '#1e293b', padding: '0.25rem', borderRadius: '12px', marginBottom: '0.5rem' }, historyPanel: { width: '100%', maxWidth: '360px', background: '#1e293b', borderRadius: '10px', padding: '0.4rem', marginBottom: '0.5rem', maxHeight: '110px', overflow: 'hidden' }, historyHeader: { display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.25rem', paddingBottom: '0.2rem', borderBottom: '1px solid #334155' }, historyCount: { background: '#334155', padding: '0.1rem 0.4rem', borderRadius: '10px', fontSize: '0.75rem' }, historyList: { display: 'flex', flexWrap: 'wrap', gap: '0.25rem', overflowY: 'auto', maxHeight: '70px', padding: '0.15rem' }, moveChip: ({ highlight }) => ({ background: highlight ? '#3b82f6' : '#475569', padding: '0.15rem 0.4rem', borderRadius: '5px', fontSize: '0.75rem', fontWeight: '500' }), emptyHist: { color: '#64748b', fontSize: '0.75rem' }, controls: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '0.4rem' }, btnCtrl: { padding: '0.4rem 0.7rem', background: '#475569', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }, modeInfo: { color: '#64748b', fontSize: '0.75rem', textAlign: 'center', marginTop: 'auto' },
