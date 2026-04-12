@@ -1,6 +1,6 @@
 # ============================================================================
 # GITHUB ACTIONS: Deploy Chess4Crypto to GitHub Pages
-# ✅ Полная совместимость с Node.js 24 + надёжная сборка
+# ✅ Чистый конфиг: без конфликтующих переменных среды
 # ============================================================================
 
 name: Deploy to GitHub Pages
@@ -10,11 +10,6 @@ on:
     branches: [ main ]
   workflow_dispatch:  # Ручной запуск из вкладки Actions
 
-# ✅ Принудительное использование Node.js 24 для всех действий
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true  # Временный обход, если нужно
-
 permissions:
   contents: read
   pages: write
@@ -22,63 +17,45 @@ permissions:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-24.04  # ✅ Свежий образ с полной поддержкой Node 24
+    runs-on: ubuntu-latest
     
     steps:
       # 1️⃣ Клонируем репозиторий
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Полная история для корректной работы
 
-      # 2️⃣ Устанавливаем Node.js 18 (для совместимости с вашим проектом)
+      # 2️⃣ Устанавливаем Node.js 18 (для совместимости с проектом)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          registry-url: 'https://registry.npmjs.org'
-          # ❌ Кэш отключён — он вызывал "paths were not resolved"
-          # ✅ Сборка без кэша занимает ~90 секунд — это нормально
+          # ❌ Без кэша — он вызывал ошибки "paths were not resolved"
 
       # 3️⃣ Устанавливаем зависимости и собираем проект
       - name: Install dependencies & Build
         run: |
           cd frontend
-          echo "🔧 Starting build process..."
-          echo "📦 Node version: $(node -v)"
-          echo "📦 NPM version: $(npm -v)"
-          echo "📁 Working directory: $(pwd)"
-          
-          # Очищаем на всякий случай
-          rm -rf node_modules dist package-lock.json 2>/dev/null || true
-          
-          # Устанавливаем зависимости
-          echo "📥 Installing dependencies..."
+          echo "🔧 Node: $(node -v) | NPM: $(npm -v)"
           npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund
-          
-          # Собираем проект
-          echo "🏗️ Building project..."
           npm run build
-          
-          # Проверяем результат
-          echo "✅ Build completed. Checking output..."
-          ls -la dist/ || echo "⚠️ dist/ not found!"
+          echo "✅ Build done. Files in dist/:"
+          ls -la dist/ 2>/dev/null || echo "⚠️ dist/ empty or missing"
         env:
-          # ✅ Секреты подставляются из GitHub Secrets
+          # ✅ Секреты из GitHub Secrets
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_WALLETCONNECT_PROJECT_ID: ${{ secrets.VITE_WALLETCONNECT_PROJECT_ID }}
           VITE_WS_URL: ${{ secrets.VITE_WS_URL }}
           NODE_ENV: production
 
-      # 4️⃣ Проверяем, что сборка создала файлы
+      # 4️⃣ Проверяем результат сборки
       - name: Verify build output
         run: |
           if [ ! -d "frontend/dist" ] || [ -z "$(ls -A frontend/dist 2>/dev/null)" ]; then
             echo "❌ ERROR: frontend/dist is empty or missing!"
             exit 1
           fi
-          echo "✅ Build output verified: $(ls frontend/dist | wc -l) files"
+          echo "✅ Build verified: $(ls frontend/dist | wc -l) files"
 
       # 5️⃣ Настраиваем GitHub Pages
       - name: Setup Pages
