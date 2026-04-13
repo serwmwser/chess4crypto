@@ -4,7 +4,7 @@ import { Chessboard } from 'react-chessboard'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
 import { useTranslation } from 'react-i18next'
 
-// 🎨 Темы
+// 🎨 Темы доски
 const BOARD_THEMES = {
   classic: { name: '🏛️ Классика', light: '#eeeed2', dark: '#769656', pieceFilter: 'none', boardShadow: '0 4px 12px rgba(0,0,0,0.2)' },
   wood3d: { name: '🪵 3D Дерево', light: '#e8c49a', dark: '#8b6f47', pieceFilter: 'drop-shadow(2px 3px 2px rgba(0,0,0,0.4))', boardShadow: '0 10px 30px rgba(0,0,0,0.4)' },
@@ -14,32 +14,27 @@ const BOARD_THEMES = {
   minimal: { name: '⚪ Минимал', light: '#f0f0f0', dark: '#606060', pieceFilter: 'grayscale(0.3) contrast(1.1)', boardShadow: '0 2px 8px rgba(0,0,0,0.15)' }
 }
 
-const COUNTRIES = [
-  { code: 'RU', name: '🇷🇺 Россия' }, { code: 'UA', name: '🇺🇦 Украина' }, { code: 'KZ', name: '🇰🇿 Казахстан' },
-  { code: 'US', name: '🇺🇸 США' }, { code: 'GB', name: '🇬🇧 Великобритания' }, { code: 'DE', name: '🇩🇪 Германия' },
-  { code: 'OTHER', name: '🌍 Другая' }
-]
 const DEPOSIT_OPTIONS = [1000, 5000, 10000, 25000, 50000, 100000]
-const KEY_USER = 'chess4crypto_user'
-const KEY_GAMES = 'chess4crypto_games'
+const KEY_USER = 'chess4crypto_user_v2'
+const KEY_GAMES = 'chess4crypto_games_v2'
 
 const isMobile = () => /Android|webOS|iPhone|iPad/i.test(navigator.userAgent)
 const fmtTime = (s) => { const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60; return h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : `${m}:${String(sec).padStart(2,'0')}` }
 const formatNumber = (n) => n.toLocaleString('ru-RU')
-const getTimeLabel = (m) => { const o = [{v:5,l:'5 мин'},{v:15,l:'15 мин'},{v:30,l:'30 мин'},{v:60,l:'1 ч'},{v:1440,l:'24 ч'}]; return o.find(x=>x.v===m)?.l || `${m} мин` }
 
 function App() {
   const { t, i18n } = useTranslation()
   const { address, isConnected, status } = useAccount()
   const { connect, connectors } = useConnect()
   const { disconnect } = useDisconnect()
-  
+
   const gameRef = useRef(new Chess())
+  
+  // 🎯 Экраны: 'menu' | 'profile' | 'game'
   const [view, setView] = useState('menu')
   const [lobbyTab, setLobbyTab] = useState('lobby') // lobby | my | create | history
-  const [showLinkModal, setShowLinkModal] = useState(null) // { link, gameId }
-
-  // 🎮 Игра
+  
+  // 🎮 Состояние игры
   const [fen, setFen] = useState(gameRef.current.fen())
   const [history, setHistory] = useState([gameRef.current.fen()])
   const [moveIndex, setMoveIndex] = useState(0)
@@ -51,143 +46,190 @@ function App() {
   
   // ⏱️ Таймер
   const [timeControl, setTimeControl] = useState(15)
-  const [playerTime, setPlayerTime] = useState(15*60)
-  const [botTime, setBotTime] = useState(15*60)
+  const [playerTime, setPlayerTime] = useState(15 * 60)
+  const [botTime, setBotTime] = useState(15 * 60)
   const [timerActive, setTimerActive] = useState(null)
   
-  // 🎨 Тема
+  // 🎨 Тема и ходы
   const [boardTheme, setBoardTheme] = useState('classic')
   const [selectedSquare, setSelectedSquare] = useState(null)
   const [possibleMoves, setPossibleMoves] = useState([])
   const [boardWidth, setBoardWidth] = useState(360)
 
-  // 💰 Пользователь
-  const [userData, setUserData] = useState({ balance: 50000, profile: { nickname: '', country: 'RU' }, gameHistory: [] })
-  const [createStake, setCreateStake] = useState(5000)
-  const [pendingJoinGame, setPendingJoinGame] = useState(null)
+  // 💰 Данные пользователя
+  const [userData, setUserData] = useState({ balance: 50000, profile: { nickname: '', country: 'RU' }, history: [] })
   
   // 🌐 Глобальные игры
   const [games, setGames] = useState([])
+  const [createStake, setCreateStake] = useState(5000)
+  const [pendingJoinGame, setPendingJoinGame] = useState(null)
+  const [showLinkModal, setShowLinkModal] = useState(null) // { link, id }
   const [isConnecting, setIsConnecting] = useState(false)
 
-  // 📏 Размер доски
+  // 📏 Адаптивность
   useEffect(() => {
     const u = () => setBoardWidth(Math.min(window.innerWidth * 0.88, 380))
     u(); window.addEventListener('resize', u)
     return () => window.removeEventListener('resize', u)
   }, [])
 
-  // 🗄️ Загрузка данных
+  // 🗄️ Загрузка данных при старте
   useEffect(() => {
-    const u = JSON.parse(localStorage.getItem(KEY_USER) || 'null')
-    if (u?.address === address) setUserData(u.data)
-    else setUserData({ balance: 50000, profile: { nickname: '', country: 'RU' }, gameHistory: [] })
+    // 1. Загрузка профиля
+    const storedUser = JSON.parse(localStorage.getItem(KEY_USER))
+    if (storedUser && (storedUser.address === address || !address)) {
+      setUserData(storedUser.data)
+    } else {
+      // Дефолтный пользователь
+      setUserData({ balance: 50000, profile: { nickname: '', country: 'RU' }, history: [] })
+    }
 
-    const g = JSON.parse(localStorage.getItem(KEY_GAMES) || '[]')
-    setGames(g.filter(x => x.status !== 'finished')) // Только активные
+    // 2. Загрузка игр
+    const storedGames = JSON.parse(localStorage.getItem(KEY_GAMES) || '[]')
+    setGames(storedGames.filter(g => g.status !== 'finished')) // Показываем только активные
   }, [address])
 
-  // 📡 Синхронизация между вкладками
+  // 📡 Слушаем изменения из других вкладок (для симуляции мультиплеера)
   useEffect(() => {
-    const h = (e) => { if(e.key === KEY_GAMES) setGames(JSON.parse(e.newValue || '[]').filter(x => x.status !== 'finished')) }
+    const h = (e) => {
+      if (e.key === KEY_GAMES) {
+        const newGames = JSON.parse(e.newValue || '[]').filter(g => g.status !== 'finished')
+        setGames(newGames)
+      }
+    }
     window.addEventListener('storage', h)
-    const ch = new BroadcastChannel('chess_sync')
-    ch.onmessage = (ev) => setGames(ev.data.filter(x => x.status !== 'finished'))
-    return () => { ch.close(); window.removeEventListener('storage', h) }
+    return () => window.removeEventListener('storage', h)
   }, [])
 
-  // 🔗 Парсинг ссылки-приглашения
+  // 🔗 Обработка ссылки-приглашения (?invite=...)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const p = new URLSearchParams(window.location.search)
       const id = p.get('invite')
       if (id && view !== 'game') {
         const g = games.find(x => x.id === id)
-        if (g?.status === 'waiting') { setPendingJoinGame(g); setView('profile'); setLobbyTab('lobby'); setMessage(`🔗 Найдена игра! Внесите ${formatNumber(g.stake)} GROK`) }
+        if (g && g.status === 'waiting') {
+          setPendingJoinGame(g)
+          setView('profile')
+          setLobbyTab('lobby')
+          setMessage(`🔗 Найдена игра от ${g.creatorName}! Внесите ${formatNumber(g.stake)} GROK для входа.`)
+        }
       }
     }
   }, [games, view])
 
-  // 💾 Сохранение пользователя
-  const saveUser = (d) => { setUserData(d); if(address) localStorage.setItem(KEY_USER, JSON.stringify({ address,  d })) }
-
-  // 💾 Сохранение игр + Broadcast
-  const saveGames = (g) => {
-    const clean = g.filter(x => x.status !== 'finished')
-    setGames(clean)
-    localStorage.setItem(KEY_GAMES, JSON.stringify(clean))
-    new BroadcastChannel('chess_sync').postMessage(clean)
+  // 💾 Сохранение профиля
+  const saveUser = (data) => {
+    setUserData(data)
+    if (address) {
+      localStorage.setItem(KEY_USER, JSON.stringify({ address, data }))
+    }
   }
 
-  // 💰 Пополнение (тест)
+  // 💾 Сохранение игр
+  const saveGames = (newGamesList) => {
+    // Оставляем только активные игры в хранилище
+    const active = newGamesList.filter(g => g.status !== 'finished')
+    setGames(active)
+    localStorage.setItem(KEY_GAMES, JSON.stringify(active))
+  }
+
+  // 💰 Тестовое пополнение
   const handleTopUp = () => saveUser({ ...userData, balance: userData.balance + 100000 })
 
   // 🎲 Создание игры
   const handleCreateGame = () => {
-    if (userData.balance < createStake) return setMessage('⚠️ Недостаточно GROK!')
-    
+    if (userData.balance < createStake) return setMessage('⚠️ Недостаточно GROK на балансе!')
+
     // Списываем ставку
-    saveUser({ ...userData, balance: userData.balance - createStake })
-    
-    // Создаем запись
+    const newBalance = userData.balance - createStake
+    saveUser({ ...userData, balance: newBalance })
+
+    // Создаем объект игры
     const newGame = {
       id: `game_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
       creator: address || 'guest',
-      creatorName: userData.profile.nickname || `${(address||'0x0000').slice(0,6)}...`,
+      creatorName: userData.profile.nickname || (address ? `${address.slice(0,6)}...` : 'Гость'),
       stake: createStake,
       time: timeControl,
-      status: 'waiting',
+      status: 'waiting', // waiting | playing
       created: Date.now()
     }
-    
+
+    // Сохраняем в общий список
     saveGames([...games, newGame])
-    
-    // Показываем ссылку
+
+    // Показываем модальное окно со ссылкой
     const link = `${window.location.origin}${window.location.pathname}?invite=${newGame.id}`
-    navigator.clipboard.writeText(link)
+    navigator.clipboard.writeText(link) // Копируем в буфер
     setShowLinkModal({ link, gameId: newGame.id })
-    setMessage(`🎉 Игра создана! Ссылка скопирована.`)
+    setMessage('🎉 Игра создана! Ссылка скопирована в буфер.')
   }
 
-  // 🤝 Присоединение
-  const confirmJoin = () => {
+  // 🤝 Присоединение к игре
+  const handleJoinConfirm = () => {
     if (!pendingJoinGame) return
     if (userData.balance < pendingJoinGame.stake) return setMessage('⚠️ Недостаточно GROK!')
-    
+
+    // Списываем ставку
     saveUser({ ...userData, balance: userData.balance - pendingJoinGame.stake })
-    
-    const updated = games.map(g => g.id === pendingJoinGame.id ? { ...g, status: 'playing', challenger: address || 'guest' } : g)
-    saveGames(updated)
-    
+
+    // Обновляем статус игры на 'playing'
+    const updatedGames = games.map(g => 
+      g.id === pendingJoinGame.id ? { ...g, status: 'playing', challenger: address || 'guest' } : g
+    )
+    saveGames(updatedGames)
+
+    // Запускаем игру
     setTimeControl(pendingJoinGame.time)
     setPlayerTime(pendingJoinGame.time * 60)
     setBotTime(pendingJoinGame.time * 60)
     startGame()
+    
     setPendingJoinGame(null)
-    setMessage('🚀 Игра началась!')
+    setMessage('🚀 Игра началась! Удачи!')
   }
 
-  // 🏁 Конец игры
+  // 🏁 Завершение игры (Победа/Поражение/Ничья)
   const finishGame = (result) => {
     setTimerActive(null)
-    let msg = '', change = 0
+    let msg = '', reward = 0
+
+    // Логика выплаты
+    const currentGame = games.find(g => g.status === 'playing') // Упрощенный поиск текущей игры
+    const stake = currentGame ? currentGame.stake : 0 // В реальности ID игры должен храниться в стейте
+
     if (result === 'player') {
+      // Победа: забираем банк (ставка соперника + возврат своей)
+      reward = stake * 2 
       msg = '🏆 CHECKMATE! ВЫ ПОБЕДИЛИ!'
-      change = pendingJoinGame?.stake || createStake || 0
-      saveUser({ ...userData, balance: userData.balance + change, gameHistory: [{ date: new Date().toLocaleString(), result: 'WIN', change: `+${change}` }, ...userData.gameHistory] })
+      setWinner('player')
+      saveUser({
+        ...userData,
+        balance: userData.balance + reward,
+        history: [{ date: new Date().toLocaleString(), result: 'WIN', change: `+${reward}` }, ...userData.history]
+      })
     } else if (result === 'bot') {
+      // Поражение: теряем ставку
+      reward = 0
       msg = '😔 Вы проиграли. Ставка ушла сопернику.'
-      change = -(pendingJoinGame?.stake || createStake || 0)
-      saveUser({ ...userData, gameHistory: [{ date: new Date().toLocaleString(), result: 'LOSS', change: `${change}` }, ...userData.gameHistory] })
+      setWinner('bot')
+      saveUser({
+        ...userData,
+        history: [{ date: new Date().toLocaleString(), result: 'LOSS', change: `-${stake}` }, ...userData.history]
+      })
     } else {
+      // Ничья
       msg = '🤝 Ничья! Средства ушли в фонд развития.'
-      saveUser({ ...userData, gameHistory: [{ date: new Date().toLocaleString(), result: 'DRAW', change: 'Фонд' }, ...userData.gameHistory] })
+      setWinner('draw')
+      saveUser({
+        ...userData,
+        history: [{ date: new Date().toLocaleString(), result: 'DRAW', change: 'Фонд' }, ...userData.history]
+      })
     }
-    setWinner(result === 'player' ? 'player' : result === 'bot' ? 'bot' : 'draw')
-    setMessage(msg)
   }
 
-  // 🔄 Старт партии
+  // 🔄 Запуск новой партии
   const startGame = () => {
     gameRef.current.reset()
     const f = gameRef.current.fen()
@@ -197,28 +239,48 @@ function App() {
     setTimerActive('player'); setView('game')
   }
 
-  // 🔗 Кошелек
+  // 🔗 Подключение кошелька
   const handleConnect = async () => {
     if (isConnecting) return
-    setIsConnecting(true); setMessage('🔄 Подключение...')
+    setIsConnecting(true)
+    setMessage('🔄 Подключение...')
     try {
       const c = connectors.find(x => x.id === (isMobile() ? 'walletConnect' : 'metaMask')) || connectors[0]
       if (!c) throw new Error('Кошелек не найден')
       await connect({ connector: c, chainId: c.chains?.[0]?.id })
-      for(let i=0;i<8;i++) { await new Promise(r=>setTimeout(r,300)); if(isConnected) break }
-      if(isConnected) { setMessage('✅ Подключено!'); setView('profile') }
-      else setMessage('') // Тихий отказ при отмене
-    } catch(e) { if(!e.message.includes('rejected') && !e.message.includes('pending')) setMessage('⚠️ Ошибка') }
-    finally { setTimeout(()=>setIsConnecting(false), 400) }
+      // Ждем подключения
+      for(let i=0; i<10; i++) { await new Promise(r=>setTimeout(r, 300)); if(isConnected) break }
+      
+      if (isConnected) {
+        setMessage('✅ Подключено!')
+        setView('profile') // 🔥 ИСПРАВЛЕНО: Сразу открываем профиль
+      } else {
+        setMessage('') // Тихий отказ
+      }
+    } catch(e) {
+      if (!e.message.includes('rejected') && !e.message.includes('pending')) setMessage('⚠️ Ошибка')
+    } finally {
+      setTimeout(() => setIsConnecting(false), 500)
+    }
   }
 
   const handleGuest = () => { setMessage('👤 Гостевой режим'); startGame() }
-  const handleLogout = () => { disconnect(); setView('menu'); setMessage(''); gameRef.current.reset(); setFen(gameRef.current.fen()); setTimerActive(null) }
+  
+  const handleLogout = () => {
+    disconnect()
+    setView('menu')
+    setMessage('')
+    gameRef.current.reset()
+    setFen(gameRef.current.fen())
+    setTimerActive(null)
+  }
 
   // ♟️ Логика ходов
   const getMoves = useCallback((sq) => gameRef.current.moves({ square: sq, verbose: true }).map(m => m.to), [])
+  
   const sqStyles = useMemo(() => {
-    const s = {}; if(selectedSquare) s[selectedSquare] = { backgroundColor: 'rgba(255,255,0,0.4)' }
+    const s = {}
+    if(selectedSquare) s[selectedSquare] = { backgroundColor: 'rgba(255,255,0,0.4)' }
     possibleMoves.forEach(sq => s[sq] = { backgroundColor: 'rgba(20,85,30,0.5)', backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.9) 25%, transparent 25%)', backgroundSize: '14px 14px', backgroundPosition: 'center' })
     return s
   }, [selectedSquare, possibleMoves])
@@ -239,8 +301,10 @@ function App() {
       setHistory(h=>[...h, nf]); setMovesList(m=>[...m, {san, from:src, to:tgt}])
       setFen(nf); setMoveIndex(i=>i+1); setIsPlayerTurn(false); setTimerActive('bot'); setMessage('🤖 Бот думает...')
       setSelectedSquare(null); setPossibleMoves([])
+      
       if(gameRef.current.isCheckmate()) { finishGame('player'); return true }
       if(gameRef.current.isDraw()) { finishGame('draw'); return true }
+      
       setTimeout(makeBotMove, 600)
       return true
     } catch { return false }
@@ -288,23 +352,33 @@ function App() {
   )
 
   // ============================================================================
-  // 👤 ПРОФИЛЬ
+  // 👤 ПРОФИЛЬ (Лобби, Создание, История)
   // ============================================================================
   if(view === 'profile') {
     const disp = userData.profile.nickname || (address ? `${address.slice(0,6)}...` : 'Гость')
     return (
       <div style={{minHeight:'100vh',background:'#0f172a',color:'#f1f5f9',fontFamily:'system-ui',display:'flex',flexDirection:'column',alignItems:'center',padding:'1rem',boxSizing:'border-box'}}>
+        
+        {/* Хедер */}
         <header style={{width:'100%',maxWidth:'500px',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'0.8rem 1rem',background:'#1e293b',borderRadius:'12px',marginBottom:'1rem'}}>
-          <div><div style={{fontWeight:'bold',fontSize:'1.2rem'}}>{disp}</div><div style={{fontSize:'0.8rem',color:'#94a3b8'}}>{COUNTRIES.find(c=>c.code===userData.profile.country)?.name || '🌍'}</div></div>
+          <div style={{display:'flex',alignItems:'center',gap:'0.8rem'}}>
+            <div style={{width:40,height:40,borderRadius:'50%',background:'#334155',display:'flex',alignItems:'center',justifyContent:'center'}}>👤</div>
+            <div>
+              <div style={{fontWeight:'bold',fontSize:'1.1rem'}}>{disp}</div>
+              <div style={{fontSize:'0.8rem',color:'#94a3b8'}}>🇷🇺 Россия</div>
+            </div>
+          </div>
           <div style={{display:'flex',gap:'0.5rem',alignItems:'center'}}>
-            <span style={{background:'#334155',padding:'0.3rem 0.6rem',borderRadius:'8px',color:'#fbbf24',fontSize:'0.9rem'}}>💰 {formatNumber(userData.balance)}</span>
+            <span style={{background:'#334155',padding:'0.3rem 0.6rem',borderRadius:'8px',color:'#fbbf24',fontSize:'0.9rem',fontWeight:'bold'}}>💰 {formatNumber(userData.balance)}</span>
             <button onClick={handleTopUp} style={{padding:'0.3rem 0.6rem',background:'#3b82f6',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer'}}>+ Тест</button>
             <button onClick={handleLogout} style={{padding:'0.4rem 0.8rem',background:'#ef4444',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer'}}>🚪</button>
           </div>
         </header>
 
+        {/* Сообщения */}
         {message && <div style={{width:'100%',maxWidth:'500px',padding:'0.7rem',marginBottom:'0.8rem',background:'rgba(59,130,246,0.2)',borderRadius:'8px',color:'#60a5fa',textAlign:'center',fontSize:'0.9rem'}}>{message}</div>}
 
+        {/* Вкладки */}
         <div style={{display:'flex',gap:'0.4rem',width:'100%',maxWidth:'500px',marginBottom:'1rem'}}>
           {['lobby','my','create','history'].map(k=>(
             <button key={k} onClick={()=>setLobbyTab(k)} style={{flex:1,padding:'0.5rem',background:lobbyTab===k?'#3b82f6':'#1e293b',color:lobbyTab===k?'#fff':'#94a3b8',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:lobbyTab===k?'600':'400'}}>
@@ -314,53 +388,64 @@ function App() {
         </div>
 
         <div style={{width:'100%',maxWidth:'500px'}}>
-          {/* 🌐 Лобби */}
+          {/* 🌐 ЛОББИ (Чужие игры) */}
           {lobbyTab==='lobby' && (
             <div style={{background:'#1e293b',padding:'1rem',borderRadius:'12px',border:'1px solid #334155'}}>
               <h3 style={{fontSize:'1.1rem',fontWeight:'bold',color:'#fbbf24',margin:'0 0 0.8rem 0',textAlign:'center'}}>Доступные игры</h3>
-              {games.filter(g=>g.status==='waiting'&&g.creator!==address).length===0 ? <p style={{color:'#94a3b8',textAlign:'center'}}>Нет игр. Создайте свою!</p> :
-              games.filter(g=>g.status==='waiting'&&g.creator!==address).map(g=>(
-                <div key={g.id} style={{background:'#0f172a',padding:'0.8rem',borderRadius:'8px',marginBottom:'0.6rem',border:'1px solid #334155'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'0.4rem'}}>
-                    <span style={{fontWeight:'bold'}}>👤 {g.creatorName}</span>
-                    <span style={{color:'#fbbf24',fontWeight:'bold'}}>💰 {formatNumber(g.stake)} GROK</span>
-                  </div>
-                  <div style={{fontSize:'0.85rem',color:'#94a3b8',marginBottom:'0.6rem'}}>⏱️ {getTimeLabel(g.time)}</div>
-                  <div style={{display:'flex',gap:'0.4rem'}}>
-                    <button onClick={()=>setPendingJoinGame(g)} style={{flex:1,padding:'0.5rem',background:'#10b981',color:'#fff',border:'none',borderRadius:'6px',cursor:'pointer',fontWeight:'600'}}>🤝 Присоединиться</button>
-                    <button onClick={()=>{navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?invite=${g.id}`);setMessage('📋 Ссылка скопирована!')}} style={{padding:'0.5rem',background:'#3b82f6',color:'#fff',border:'none',borderRadius:'6px',cursor:'pointer'}}>🔗</button>
-                  </div>
+              {games.filter(g=>g.status==='waiting'&&g.creator!==address).length===0 ? 
+                <p style={{color:'#94a3b8',textAlign:'center',padding:'2rem 0'}}>Нет активных игр. Создайте свою или ждите!</p> :
+                <div style={{display:'flex',flexDirection:'column',gap:'0.8rem'}}>
+                  {games.filter(g=>g.status==='waiting'&&g.creator!==address).map(g=>(
+                    <div key={g.id} style={{background:'#0f172a',padding:'0.8rem',borderRadius:'8px',border:'1px solid #334155'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'0.4rem'}}>
+                        <span style={{fontWeight:'bold',color:'#e2e8f0'}}>👤 {g.creatorName}</span>
+                        <span style={{color:'#fbbf24',fontWeight:'bold'}}>💰 {formatNumber(g.stake)} GROK</span>
+                      </div>
+                      <div style={{fontSize:'0.85rem',color:'#94a3b8',marginBottom:'0.6rem'}}>⏱️ {g.time} мин</div>
+                      <button onClick={()=>setPendingJoinGame(g)} style={{width:'100%',padding:'0.6rem',background:'#10b981',color:'#fff',border:'none',borderRadius:'6px',cursor:'pointer',fontWeight:'600'}}>🤝 Присоединиться</button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              }
             </div>
           )}
 
-          {/* 📋 Мои игры */}
+          {/* 📋 МОИ ИГРЫ */}
           {lobbyTab==='my' && (
             <div style={{background:'#1e293b',padding:'1rem',borderRadius:'12px',border:'1px solid #334155'}}>
-              <h3 style={{fontSize:'1.1rem',fontWeight:'bold',color:'#fbbf24',margin:'0 0 0.8rem 0',textAlign:'center'}}>Мои игры</h3>
-              {games.filter(g=>g.creator===address).length===0 ? <p style={{color:'#94a3b8',textAlign:'center'}}>Вы не создавали игр.</p> :
-              games.filter(g=>g.creator===address).map(g=>(
-                <div key={g.id} style={{background:'#0f172a',padding:'0.8rem',borderRadius:'8px',marginBottom:'0.6rem',border:'1px solid #334155'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'0.4rem'}}>
-                    <span style={{fontSize:'0.8rem',color:'#94a3b8'}}>ID: {g.id.slice(-8)}</span>
-                    <span style={{fontSize:'0.75rem',padding:'0.2rem 0.5rem',borderRadius:'4px',background:g.status==='waiting'?'#fbbf24':'#3b82f6',color:g.status==='waiting'?'#000':'#fff'}}>{g.status==='waiting'?'⏳ Ожидание':'🔥 Играет'}</span>
-                  </div>
-                  <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.9rem',marginBottom:'0.6rem'}}>
-                    <span>💰 {formatNumber(g.stake)} GROK</span><span>⏱️ {getTimeLabel(g.time)}</span>
-                  </div>
-                  {g.status==='waiting' && <button onClick={()=>{navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?invite=${g.id}`);setMessage('📋 Ссылка скопирована!')}} style={{width:'100%',padding:'0.5rem',background:'#3b82f6',color:'#fff',border:'none',borderRadius:'6px',cursor:'pointer',fontWeight:'600'}}>📤 Скопировать ссылку</button>}
+              <h3 style={{fontSize:'1.1rem',fontWeight:'bold',color:'#fbbf24',margin:'0 0 0.8rem 0',textAlign:'center'}}>Мои созданные игры</h3>
+              {games.filter(g=>g.creator===address).length===0 ? 
+                <p style={{color:'#94a3b8',textAlign:'center',padding:'2rem 0'}}>Вы ещё не создали игр.</p> :
+                <div style={{display:'flex',flexDirection:'column',gap:'0.8rem'}}>
+                  {games.filter(g=>g.creator===address).map(g=>(
+                    <div key={g.id} style={{background:'#0f172a',padding:'0.8rem',borderRadius:'8px',border:'1px solid #334155'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'0.4rem'}}>
+                        <span style={{fontSize:'0.8rem',color:'#94a3b8'}}>ID: ...{g.id.slice(-6)}</span>
+                        <span style={{fontSize:'0.75rem',padding:'0.2rem 0.5rem',borderRadius:'4px',background:g.status==='waiting'?'#fbbf24':'#3b82f6',color:g.status==='waiting'?'#000':'#fff'}}>{g.status==='waiting'?'⏳ Ожидание':'🔥 Играет'}</span>
+                      </div>
+                      <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.9rem',marginBottom:'0.6rem'}}>
+                        <span>💰 {formatNumber(g.stake)} GROK</span><span>⏱️ {g.time} мин</span>
+                      </div>
+                      {g.status==='waiting' && (
+                        <button onClick={()=>{
+                          const link = `${window.location.origin}${window.location.pathname}?invite=${g.id}`
+                          navigator.clipboard.writeText(link)
+                          setMessage('📋 Ссылка скопирована!')
+                        }} style={{width:'100%',padding:'0.6rem',background:'#3b82f6',color:'#fff',border:'none',borderRadius:'6px',cursor:'pointer',fontWeight:'600'}}>📤 Скопировать ссылку</button>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              }
             </div>
           )}
 
-          {/* ➕ Создать */}
+          {/* ➕ СОЗДАТЬ */}
           {lobbyTab==='create' && (
             <div style={{background:'#1e293b',padding:'1.2rem',borderRadius:'12px',border:'1px solid #334155'}}>
-              <h3 style={{fontSize:'1.1rem',fontWeight:'bold',color:'#fbbf24',margin:'0 0 1rem 0',textAlign:'center'}}>Создать игру</h3>
+              <h3 style={{fontSize:'1.1rem',fontWeight:'bold',color:'#fbbf24',margin:'0 0 1rem 0',textAlign:'center'}}>Создать новую игру</h3>
               <div style={{marginBottom:'1rem'}}>
-                <label style={{display:'block',marginBottom:'0.4rem',color:'#94a3b8'}}>💰 Ставка</label>
+                <label style={{display:'block',marginBottom:'0.4rem',color:'#94a3b8'}}>💰 Ваша ставка</label>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'0.4rem'}}>
                   {DEPOSIT_OPTIONS.map(a=>(
                     <button key={a} onClick={()=>setCreateStake(a)} style={{padding:'0.5rem',background:createStake===a?'#3b82f6':'#0f172a',color:'#fff',border:'1px solid #334155',borderRadius:'6px',cursor:'pointer',fontSize:'0.8rem'}}>{formatNumber(a)}</button>
@@ -368,49 +453,56 @@ function App() {
                 </div>
               </div>
               <div style={{marginBottom:'1rem'}}>
-                <label style={{display:'block',marginBottom:'0.4rem',color:'#94a3b8'}}>⏱️ Время</label>
+                <label style={{display:'block',marginBottom:'0.4rem',color:'#94a3b8'}}>⏱️ Время на партию</label>
                 <select value={timeControl} onChange={e=>setTimeControl(Number(e.target.value))} style={{width:'100%',padding:'0.5rem',background:'#0f172a',color:'#fff',border:'1px solid #334155',borderRadius:'6px'}}>{timeOpts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select>
               </div>
               <div style={{background:'#0f172a',padding:'0.6rem',borderRadius:'6px',marginBottom:'1rem',fontSize:'0.9rem',display:'flex',justifyContent:'space-between'}}>
-                <span>Ваш баланс:</span><span style={{color:userData.balance>=createStake?'#10b981':'#ef4444'}}>{formatNumber(userData.balance)} GROK</span>
+                <span>Баланс:</span><span style={{color:userData.balance>=createStake?'#10b981':'#ef4444'}}>{formatNumber(userData.balance)} GROK</span>
               </div>
               <button onClick={handleCreateGame} disabled={userData.balance<createStake} style={{width:'100%',padding:'0.8rem',background:userData.balance>=createStake?'#10b981':'#334155',color:'#fff',border:'none',borderRadius:'10px',cursor:userData.balance>=createStake?'pointer':'not-allowed',fontWeight:'bold',fontSize:'1rem'}}>🎲 Создать игру</button>
             </div>
           )}
 
-          {/* 🏆 История */}
+          {/* 🏆 ИСТОРИЯ */}
           {lobbyTab==='history' && (
             <div style={{background:'#1e293b',padding:'1rem',borderRadius:'12px',border:'1px solid #334155'}}>
               <h3 style={{fontSize:'1.1rem',fontWeight:'bold',color:'#fbbf24',margin:'0 0 0.8rem 0',textAlign:'center'}}>Хронология игр</h3>
-              {userData.gameHistory.length===0 ? <p style={{color:'#94a3b8',textAlign:'center'}}>История пуста.</p> :
-              userData.gameHistory.map((h,i)=>(
-                <div key={i} style={{background:'#0f172a',padding:'0.6rem',borderRadius:'6px',marginBottom:'0.4rem',display:'flex',justifyContent:'space-between',alignItems:'center',border:'1px solid #334155'}}>
-                  <div>
-                    <div style={{fontWeight:'bold',color:h.result==='WIN'?'#10b981':h.result==='LOSS'?'#ef4444':'#94a3b8'}}>
-                      {h.result==='WIN'?'🏆 Победа':h.result==='LOSS'?'😔 Поражение':'🤝 Ничья'}
+              {userData.history.length===0 ? <p style={{color:'#94a3b8',textAlign:'center',padding:'2rem 0'}}>История пуста.</p> :
+              <div style={{display:'flex',flexDirection:'column',gap:'0.5rem'}}>
+                {userData.history.map((h,i)=>(
+                  <div key={i} style={{background:'#0f172a',padding:'0.6rem',borderRadius:'6px',display:'flex',justifyContent:'space-between',alignItems:'center',border:'1px solid #334155'}}>
+                    <div>
+                      <div style={{fontWeight:'bold',color:h.result==='WIN'?'#10b981':h.result==='LOSS'?'#ef4444':'#94a3b8'}}>
+                        {h.result==='WIN'?'🏆 Победа':h.result==='LOSS'?'😔 Поражение':'🤝 Ничья'}
+                      </div>
+                      <div style={{fontSize:'0.75rem',color:'#94a3b8'}}>{h.date}</div>
                     </div>
-                    <div style={{fontSize:'0.75rem',color:'#94a3b8'}}>{h.date}</div>
+                    <div style={{fontWeight:'bold',color:h.change.startsWith('+')?'#10b981':'#ef4444'}}>{h.change} GROK</div>
                   </div>
-                  <div style={{fontWeight:'bold',color:h.change.startsWith('+')?'#10b981':'#ef4444'}}>{h.change} GROK</div>
-                </div>
-              ))}
+                ))}
+              </div>
+              }
             </div>
           )}
         </div>
 
-        {/* Модальное окно ссылки */}
+        {/* Кнопка быстрой игры */}
+        <div style={{marginTop:'1.2rem',width:'100%',maxWidth:'500px'}}>
+          <button onClick={()=>startGame()} style={{width:'100%',padding:'0.9rem',background:'linear-gradient(135deg,#10b981,#059669)',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontSize:'1rem',fontWeight:'600'}}>🤖 Быстрая игра с ботом</button>
+        </div>
+
+        {/* Модальные окна */}
         {showLinkModal && (
           <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:'1rem'}} onClick={()=>setShowLinkModal(null)}>
             <div style={{background:'#1e293b',padding:'1.5rem',borderRadius:'16px',maxWidth:'400px',width:'100%',textAlign:'center',border:'2px solid #fbbf24'}} onClick={e=>e.stopPropagation()}>
               <h3 style={{color:'#fbbf24',margin:'0 0 1rem 0'}}>🎉 Игра создана!</h3>
               <p style={{color:'#cbd5e1',marginBottom:'0.8rem',fontSize:'0.9rem'}}>Отправьте эту ссылку сопернику:</p>
-              <div style={{background:'#0f172a',padding:'0.6rem',borderRadius:'8px',wordBreak:'break-all',marginBottom:'1rem',border:'1px dashed #475569'}}>{showLinkModal.link}</div>
-              <button onClick={()=>{navigator.clipboard.writeText(showLinkModal.link);setMessage('✅ Скопировано!');setShowLinkModal(null)}} style={{width:'100%',padding:'0.8rem',background:'#3b82f6',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontWeight:'bold'}}>📋 Скопировать и закрыть</button>
+              <div style={{background:'#0f172a',padding:'0.6rem',borderRadius:'8px',wordBreak:'break-all',marginBottom:'1rem',border:'1px dashed #475569',fontSize:'0.8rem'}}>{showLinkModal.link}</div>
+              <button onClick={()=>{navigator.clipboard.writeText(showLinkModal.link);setMessage('✅ Ссылка скопирована!');setShowLinkModal(null)}} style={{width:'100%',padding:'0.8rem',background:'#3b82f6',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontWeight:'bold'}}>📋 Скопировать и закрыть</button>
             </div>
           </div>
         )}
 
-        {/* Модальное окно входа */}
         {pendingJoinGame && !showLinkModal && (
           <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:'1rem'}} onClick={()=>setPendingJoinGame(null)}>
             <div style={{background:'#1e293b',padding:'1.5rem',borderRadius:'16px',maxWidth:'360px',width:'100%',textAlign:'center',border:'2px solid #10b981'}} onClick={e=>e.stopPropagation()}>
@@ -419,22 +511,19 @@ function App() {
               <p style={{color:'#cbd5e1',marginBottom:'1.2rem'}}>Ставка: <strong>{formatNumber(pendingJoinGame.stake)} GROK</strong></p>
               <div style={{display:'flex',gap:'0.6rem'}}>
                 <button onClick={()=>setPendingJoinGame(null)} style={{flex:1,padding:'0.7rem',background:'#64748b',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer'}}>Отмена</button>
-                <button onClick={confirmJoin} style={{flex:1,padding:'0.7rem',background:'#10b981',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:'bold'}}>✅ Внести</button>
+                <button onClick={handleJoinConfirm} style={{flex:1,padding:'0.7rem',background:'#10b981',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:'bold'}}>✅ Внести</button>
               </div>
             </div>
           </div>
         )}
 
-        <div style={{marginTop:'1.2rem',display:'flex',flexDirection:'column',gap:'0.6rem',width:'100%',maxWidth:'500px'}}>
-          <button onClick={()=>startGame()} style={{padding:'0.9rem',background:'linear-gradient(135deg,#10b981,#059669)',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontSize:'1rem',fontWeight:'600'}}>🤖 Быстрая игра с ботом</button>
-        </div>
         <select value={i18n.language} onChange={e=>i18n.changeLanguage(e.target.value)} style={{marginTop:'1.2rem',padding:'0.5rem',background:'#334155',color:'#fff',border:'1px solid #475569',borderRadius:'8px',cursor:'pointer'}}><option value="ru">🇷🇺 RU</option><option value="en">🇬🇧 EN</option></select>
       </div>
     )
   }
 
   // ============================================================================
-  // 🎮 ИГРА
+  // 🎮 ИГРОВАЯ ДОСКА
   // ============================================================================
   return (
     <div style={{minHeight:'100vh',background:'#0f172a',color:'#f1f5f9',fontFamily:'system-ui',display:'flex',flexDirection:'column',alignItems:'center',padding:'0.8rem',boxSizing:'border-box'}}>
