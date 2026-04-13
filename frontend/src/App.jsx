@@ -29,6 +29,10 @@ const fmtTime = (s) => { const h = Math.floor(s/3600), m = Math.floor((s%3600)/6
 const formatNumber = (n) => n.toLocaleString('ru-RU')
 const getTimeLabel = (m) => { const o = [{v:5,l:'5 мин'},{v:15,l:'15 мин'},{v:30,l:'30 мин'},{v:60,l:'1 ч'},{v:1440,l:'24 ч'}]; return o.find(x=>x.v===m)?.l || `${m} мин` }
 
+// 🔗 Ссылка для покупки GROK
+const GROK_BUY_LINK = 'https://four.meme/token/0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444?code=AHGX96R5GHK9'
+const GROK_CONTRACT = '0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444'
+
 function App() {
   const { t, i18n } = useTranslation()
   const { address, isConnected, status } = useAccount()
@@ -73,7 +77,9 @@ function App() {
   const [createStake, setCreateStake] = useState(5000)
   const [pendingJoinGame, setPendingJoinGame] = useState(null)
   const [showLinkModal, setShowLinkModal] = useState(null)
+  const [showGrokModal, setShowGrokModal] = useState(false) // 💰 Модальное окно покупки GROK
   const [isConnecting, setIsConnecting] = useState(false)
+  const [copiedContract, setCopiedContract] = useState(false)
 
   // 📏 Размер доски
   useEffect(() => {
@@ -139,6 +145,19 @@ function App() {
       saveUser({ ...userData, profile: newProf })
     }
     reader.readAsDataURL(file)
+  }
+
+  // 💰 Открыть инструкцию покупки GROK
+  const handleBuyGrok = () => {
+    setShowGrokModal(true)
+  }
+
+  // 📋 Копирование адреса контракта
+  const copyContract = () => {
+    navigator.clipboard.writeText(GROK_CONTRACT)
+    setCopiedContract(true)
+    setTimeout(() => setCopiedContract(false), 2000)
+    setMessage('📋 Адрес контракта скопирован!')
   }
 
   // 💰 Тестовое пополнение
@@ -237,7 +256,6 @@ function App() {
     setMessage(msg)
   }
 
-  // ✅ ИСПРАВЛЕНО: Кнопки Вперед/Назад с правильным синтаксисом
   const handleBack = () => { if (moveIndex > 0 && !gameOver) { const i = moveIndex - 1; setMoveIndex(i); setFen(history[i]); gameRef.current.load(history[i]); setIsPlayerTurn(i % 2 === 0); setTimerActive(null); setMessage('⏪ Ход ' + (i+1)) } }
   const handleForward = () => { if (moveIndex < history.length - 1 && !gameOver) { const i = moveIndex + 1; setMoveIndex(i); setFen(history[i]); gameRef.current.load(history[i]); setIsPlayerTurn(i % 2 === 0); if (i === history.length - 1) { setTimerActive(isPlayerTurn ? 'player' : 'bot'); setMessage(isPlayerTurn ? '♟️ Ваш ход!' : '🤖 Бот думает...') } else setMessage('⏩ Ход ' + (i+1)) } }
 
@@ -307,6 +325,8 @@ function App() {
       <div style={{display:'flex',flexDirection:'column',gap:'1rem',width:'100%',maxWidth:'320px'}}>
         <button onClick={handleGuest} style={{padding:'1rem',background:'linear-gradient(135deg,#3b82f6,#2563eb)',color:'#fff',border:'none',borderRadius:'12px',cursor:'pointer',fontSize:'1.1rem',fontWeight:'600'}}>👤 Гостевой вход</button>
         <button onClick={handleConnect} disabled={isConnecting} style={{padding:'1rem',background:isConnecting?'#64748b':'linear-gradient(135deg,#f59e0b,#d97706)',color:isConnecting?'#94a3b8':'#000',border:'none',borderRadius:'12px',cursor:isConnecting?'not-allowed':'pointer',fontSize:'1.1rem',fontWeight:'600'}}>{isConnecting?'⏳...':(isMobile()?'🔗':'🦊')} Подключить кошелёк</button>
+        {/* 💰 Кнопка покупки GROK */}
+        <button onClick={handleBuyGrok} style={{padding:'1rem',background:'linear-gradient(135deg,#f59e0b,#d97706)',color:'#000',border:'none',borderRadius:'12px',cursor:'pointer',fontSize:'1.1rem',fontWeight:'600',display:'flex',alignItems:'center',justifyContent:'center',gap:'0.5rem'}}>💰 Купить GROK</button>
       </div>
       {message && <div style={{marginTop:'1.5rem',padding:'0.8rem',background:message.includes('✅')?'rgba(16,185,129,0.2)':message.includes('⚠️')?'rgba(239,68,68,0.2)':'rgba(59,130,246,0.2)',borderRadius:'10px',color:message.includes('✅')?'#34d399':message.includes('⚠️')?'#f87171':'#60a5fa'}}>{message}</div>}
       <select value={i18n.language} onChange={e=>i18n.changeLanguage(e.target.value)} style={{marginTop:'2rem',padding:'0.5rem',background:'#334155',color:'#fff',border:'1px solid #475569',borderRadius:'8px',cursor:'pointer'}}><option value="ru">🇷🇺 RU</option><option value="en">🇬🇧 EN</option></select>
@@ -349,6 +369,11 @@ function App() {
           </div>
         )}
 
+        {/* 💰 Кнопка покупки GROK в профиле */}
+        <button onClick={handleBuyGrok} style={{width:'100%',maxWidth:'500px',padding:'0.9rem',background:'linear-gradient(135deg,#f59e0b,#d97706)',color:'#000',border:'none',borderRadius:'12px',cursor:'pointer',fontSize:'1rem',fontWeight:'600',marginBottom:'1rem',display:'flex',alignItems:'center',justifyContent:'center',gap:'0.5rem'}}>
+          💰 Приобрести GROK для игры
+        </button>
+
         <div style={{width:'100%',maxWidth:'500px',background:'#1e293b',padding:'0.8rem',borderRadius:'8px',marginBottom:'1rem',border:'1px solid #475569'}}>
           <h4 style={{margin:'0 0 0.5rem 0',color:'#fbbf24',fontSize:'0.9rem'}}>📜 Правила ставок:</h4>
           <ul style={{margin:0,paddingLeft:'1.2rem',fontSize:'0.8rem',color:'#cbd5e1',lineHeight:'1.4'}}>
@@ -360,7 +385,6 @@ function App() {
         </div>
         
         <div style={{width:'100%',maxWidth:'500px',display:'flex',gap:'0.5rem',marginBottom:'1rem'}}>
-           {/* ✅ ИСПРАВЛЕНО: фигурные скобки {} вместо точки с запятой */}
            <button onClick={()=>{setView('profile'); setLobbyTab('editProfile')}} style={{flex:1,padding:'0.6rem',background:'#3b82f6',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:'bold'}}>✏️ Редактировать профиль</button>
         </div>
 
@@ -478,6 +502,58 @@ function App() {
               <p style={{color:'#cbd5e1',marginBottom:'0.8rem',fontSize:'0.9rem'}}>Отправьте эту ссылку сопернику:</p>
               <div style={{background:'#0f172a',padding:'0.6rem',borderRadius:'8px',wordBreak:'break-all',marginBottom:'1rem',border:'1px dashed #475569',fontSize:'0.8rem'}}>{showLinkModal.link}</div>
               <button onClick={()=>{navigator.clipboard.writeText(showLinkModal.link);setMessage('✅ Ссылка скопирована!');setShowLinkModal(null)}} style={{width:'100%',padding:'0.8rem',background:'#3b82f6',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontWeight:'bold'}}>📋 Скопировать и закрыть</button>
+            </div>
+          </div>
+        )}
+
+        {/* 💰 МОДАЛЬНОЕ ОКНО: ИНСТРУКЦИЯ ПОКУПКИ GROK */}
+        {showGrokModal && (
+          <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.9)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:3000,padding:'1rem'}} onClick={()=>setShowGrokModal(false)}>
+            <div style={{background:'linear-gradient(135deg,#1e293b,#334155)',padding:'1.5rem',borderRadius:'20px',maxWidth:'450px',width:'100%',border:'2px solid #f59e0b'}} onClick={e=>e.stopPropagation()}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}}>
+                <h3 style={{color:'#fbbf24',margin:0,fontSize:'1.3rem'}}>💰 Как купить GROK</h3>
+                <button onClick={()=>setShowGrokModal(false)} style={{background:'none',border:'none',color:'#94a3b8',fontSize:'1.5rem',cursor:'pointer'}}>✕</button>
+              </div>
+              
+              <p style={{color:'#cbd5e1',marginBottom:'1rem',fontSize:'0.95rem',lineHeight:'1.5'}}>
+                Приобрести игровую крипто монету для игры на Chess4Crypto можно так:
+              </p>
+              
+              <div style={{background:'#0f172a',padding:'1rem',borderRadius:'12px',marginBottom:'1rem'}}>
+                <div style={{display:'flex',gap:'0.8rem',marginBottom:'1rem',alignItems:'flex-start'}}>
+                  <span style={{background:'#f59e0b',color:'#000',width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:'bold',flexShrink:0}}>1</span>
+                  <div>
+                    <p style={{margin:'0 0 0.3rem 0',color:'#e2e8f0',fontWeight:'500'}}>Перейди на сайт и подключи кошелёк</p>
+                    <p style={{margin:0,color:'#94a3b8',fontSize:'0.85rem'}}>Сеть: <strong>BNB Smart Chain</strong> (должны быть BNB для комиссии)</p>
+                  </div>
+                </div>
+                <a href={GROK_BUY_LINK} target="_blank" rel="noopener noreferrer" style={{display:'block',background:'#3b82f6',color:'#fff',padding:'0.6rem',borderRadius:'8px',textAlign:'center',textDecoration:'none',fontWeight:'500',marginBottom:'1rem',wordBreak:'break-all'}}>
+                  🔗 Открыть four.meme → GROK
+                </a>
+                
+                <div style={{display:'flex',gap:'0.8rem',marginBottom:'1rem',alignItems:'flex-start'}}>
+                  <span style={{background:'#f59e0b',color:'#000',width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:'bold',flexShrink:0}}>2</span>
+                  <p style={{margin:0,color:'#e2e8f0'}}>Купи монету <strong>GROK</strong> на любую сумму</p>
+                </div>
+                
+                <div style={{display:'flex',gap:'0.8rem',alignItems:'flex-start'}}>
+                  <span style={{background:'#f59e0b',color:'#000',width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:'bold',flexShrink:0}}>3</span>
+                  <div>
+                    <p style={{margin:'0 0 0.3rem 0',color:'#e2e8f0'}}>Добавь GROK в кошелёк для отображения</p>
+                    <p style={{margin:'0 0 0.5rem 0',color:'#94a3b8',fontSize:'0.85rem'}}>Адрес контракта:</p>
+                    <div style={{display:'flex',gap:'0.4rem'}}>
+                      <code style={{background:'#1e293b',padding:'0.4rem 0.6rem',borderRadius:'6px',fontSize:'0.8rem',color:'#60a5fa',wordBreak:'break-all',flex:1}}>{GROK_CONTRACT}</code>
+                      <button onClick={copyContract} style={{padding:'0.4rem 0.8rem',background:copiedContract?'#10b981':'#3b82f6',color:'#fff',border:'none',borderRadius:'6px',cursor:'pointer',fontWeight:'500',fontSize:'0.8rem',whiteSpace:'nowrap'}}>
+                        {copiedContract ? '✅' : '📋'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <button onClick={()=>{window.open(GROK_BUY_LINK,'_blank'); setShowGrokModal(false)}} style={{width:'100%',padding:'0.8rem',background:'linear-gradient(135deg,#f59e0b,#d97706)',color:'#000',border:'none',borderRadius:'10px',cursor:'pointer',fontWeight:'bold',fontSize:'1rem'}}>
+                🚀 Перейти к покупке
+              </button>
             </div>
           </div>
         )}
