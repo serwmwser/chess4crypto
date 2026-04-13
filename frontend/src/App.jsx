@@ -23,7 +23,7 @@ const COUNTRIES = [
   { code: 'BR', name: '🇧🇷 Бразилия' }, { code: 'IN', name: '🇮🇳 Индия' }, { code: 'OTHER', name: '🌍 Другая' }
 ]
 
-const DEPOSIT_OPTIONS = [1000, 5000, 10000, 25000, 50000, 100000]
+const DEPOSIT_OPTIONS = [1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000]
 const isMobile = () => /Android|webOS|iPhone|iPad/i.test(navigator.userAgent)
 const fmtTime = (s) => { const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60; return h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : `${m}:${String(sec).padStart(2,'0')}` }
 const formatNumber = (n) => n.toLocaleString('ru-RU')
@@ -61,19 +61,18 @@ function App() {
   const [possibleMoves, setPossibleMoves] = useState([])
   const [boardWidth, setBoardWidth] = useState(360)
 
-  // 👤 ПРОФИЛЬ ИГРОКА (с аватаром, ником и т.д.)
+  // 👤 ПРОФИЛЬ ИГРОКА
   const [userData, setUserData] = useState({ 
     balance: 50000, 
     profile: { nickname: '', country: 'RU', avatar: '', social: '' },
     history: []
   })
-  const [isEditingProfile, setIsEditingProfile] = useState(false)
-  const [tempProfile, setTempProfile] = useState(userData.profile)
-
+  
   // 🌐 Глобальные игры
   const [games, setGames] = useState([])
   const [createStake, setCreateStake] = useState(5000)
   const [pendingJoinGame, setPendingJoinGame] = useState(null)
+  const [showLinkModal, setShowLinkModal] = useState(null)
   const [isConnecting, setIsConnecting] = useState(false)
 
   // 📏 Размер доски
@@ -89,7 +88,6 @@ function App() {
     const storedUser = JSON.parse(localStorage.getItem('chess4crypto_user') || 'null')
     if (storedUser?.address === address) {
       setUserData(storedUser.data)
-      setTempProfile(storedUser.data.profile)
     }
 
     // 2. Загрузка игр
@@ -138,27 +136,19 @@ function App() {
   const handleAvatarUpload = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 1024 * 1024) return alert('Файл слишком большой (макс 1МБ)')
+    if (file.size > 1024 * 1024) return setMessage('⚠️ Файл > 1МБ')
     const reader = new FileReader()
     reader.onload = (ev) => {
-      const newProf = { ...tempProfile, avatar: ev.target?.result }
-      setTempProfile(newProf)
+      const newProf = { ...userData.profile, avatar: ev.target?.result }
+      saveUser({ ...userData, profile: newProf })
     }
     reader.readAsDataURL(file)
   }
 
-  // 💾 Сохранение профиля
-  const handleSaveProfile = () => {
-    setUserData(prev => ({ ...prev, profile: tempProfile }))
-    saveUser({ ...userData, profile: tempProfile }) // Сохраняем и в state, и в local
-    setIsEditingProfile(false)
-    setMessage('✅ Профиль обновлен!')
-  }
-
-  // 💰 Тестовое пополнение (для демонстрации)
+  // 💰 Тестовое пополнение
   const handleTopUp = () => saveUser({ ...userData, balance: userData.balance + 100000 })
 
-  // 🔗 Подключение кошелька
+  // 🔗 Подключение кошелька (✅ БЕЗ надписи "Отменено" при отказе)
   const handleConnect = async () => {
     if (isConnecting) return
     setIsConnecting(true)
@@ -171,11 +161,12 @@ function App() {
       for(let i=0; i<8; i++) { await new Promise(r=>setTimeout(r,300)); if(isConnected) break }
       if(isConnected) { 
         setMessage('✅ Подключено!')
-        setView('profile') // ✅ Пункт 2: После подключения открывается профиль
+        setView('profile') // ✅ Пункт 2: Открывается профиль
       }
-      else setMessage('')
+      else setMessage('') // Тихий отказ
     } catch(e) {
       if (!e.message.includes('rejected') && !e.message.includes('pending')) setMessage('⚠️ Ошибка')
+      else setMessage('') // Тихий отказ
     }
     finally { setTimeout(()=>setIsConnecting(false), 400) }
   }
@@ -204,16 +195,16 @@ function App() {
     const link = `${window.location.origin}${window.location.pathname}?invite=${newGame.id}&stake=${newGame.stake}&time=${newGame.timeControl}`
     
     // Показываем ссылку в модальном окне
+    setShowLinkModal({ link, gameId: newGame.id })
     navigator.clipboard.writeText(link)
-    setMessage(`🎉 Игра создана! Ссылка скопирована: ${link.slice(0,40)}...`)
+    setMessage(`🎉 Игра создана! Ссылка скопирована.`)
   }
 
-  // 🤝 Подтверждение входа в игру (Пункт 3: Внести и подтвердить)
+  // 🤝 Подтверждение входа в игру (Пункт 3)
   const confirmJoinGame = () => {
     if (!pendingJoinGame) return
     if (userData.balance < pendingJoinGame.stake) return setMessage('⚠️ Недостаточно GROK!')
 
-    // Имитация транзакции через кошелек
     // 1. Списываем баланс
     saveUser({ ...userData, balance: userData.balance - pendingJoinGame.stake })
     
@@ -250,19 +241,24 @@ function App() {
     if (result === 'player') {
       msg = '🏆 CHECKMATE! ВЫ ПОБЕДИЛИ!'
       change = currentStake * 2 // Победитель забирает всё
+      setWinner('player')
       saveUser({ ...userData, balance: userData.balance + change, history: [{ date: new Date().toLocaleString(), result: 'WIN', change: `+${change}` }, ...userData.history] })
     } else if (result === 'bot') {
       msg = '😔 Вы проиграли. Ставка ушла сопернику.'
+      setWinner('bot')
       saveUser({ ...userData, history: [{ date: new Date().toLocaleString(), result: 'LOSS', change: `-${currentStake}` }, ...userData.history] })
     } else {
       msg = '🤝 Ничья! Средства ушли в фонд развития.'
+      setWinner('draw')
       saveUser({ ...userData, history: [{ date: new Date().toLocaleString(), result: 'DRAW', change: 'Фонд' }, ...userData.history] })
     }
-    setWinner(result === 'player' ? 'player' : result === 'bot' ? 'bot' : 'draw')
     setMessage(msg)
   }
 
-  // ♟️ Логика ходов (упрощенная)
+  const handleBack = () => { if (moveIndex > 0 && !gameOver) { const i = moveIndex - 1; setMoveIndex(i); setFen(history[i]); gameRef.current.load(history[i]); setIsPlayerTurn(i % 2 === 0); setTimerActive(null); setMessage('⏪ Ход ' + (i+1)) } }
+  const handleForward = () => { if (moveIndex < history.length - 1 && !gameOver) { const i = moveIndex + 1; setMoveIndex(i); setFen(history[i]); gameRef.current.load(history[i]); setIsPlayerTurn(i % 2 === 0); if (i === history.length - 1) { setTimerActive(isPlayerTurn ? 'player' : 'bot'); setMessage(isPlayerTurn ? '♟️ Ваш ход!' : '🤖 Бот думает...') } else setMessage('⏩ Ход ' + (i+1)) } }
+
+  // ♟️ Логика ходов
   const getMoves = useCallback((sq) => gameRef.current.moves({ square: sq, verbose: true }).map(m => m.to), [])
   const sqStyles = useMemo(() => {
     const s = {}; if(selectedSquare) s[selectedSquare] = { backgroundColor: 'rgba(255,255,0,0.4)' }
@@ -335,64 +331,74 @@ function App() {
   )
 
   // ============================================================================
-  // 👤 ПРОФИЛЬ (Пункт 1 и 3: Настройки и Приглашения)
+  // 👤 ПРОФИЛЬ (Все требования)
   // ============================================================================
   if(view === 'profile') {
     const disp = userData.profile.nickname || (address ? `${address.slice(0,6)}...` : 'Гость')
+    const countryName = COUNTRIES.find(c => c.code === userData.profile.country)?.name || '🌍'
+    const socialIcon = userData.profile.social?.includes('t.me') ? '✈️' : userData.profile.social?.includes('twit') ? '🐦' : '🔗'
     
     return (
       <div style={{minHeight:'100vh',background:'#0f172a',color:'#f1f5f9',fontFamily:'system-ui',display:'flex',flexDirection:'column',alignItems:'center',padding:'1rem',boxSizing:'border-box'}}>
         <header style={{width:'100%',maxWidth:'500px',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'0.8rem 1rem',background:'#1e293b',borderRadius:'12px',marginBottom:'1rem'}}>
           <div style={{display:'flex',alignItems:'center',gap:'0.8rem'}}>
-            {isEditingProfile ? (
-               <label style={{cursor:'pointer'}}>
-                 {tempProfile.avatar ? <img src={tempProfile.avatar} style={{width:50,height:50,borderRadius:'50%',objectFit:'cover'}} alt="Av"/> : <div style={{width:50,height:50,borderRadius:'50%',background:'#475569',display:'flex',alignItems:'center',justifyContent:'center'}}>📷</div>}
-                 <input type="file" accept="image/*" onChange={handleAvatarUpload} style={{display:'none'}} />
-               </label>
-            ) : (
-               <div>
-                 {userData.profile.avatar ? <img src={userData.profile.avatar} style={{width:50,height:50,borderRadius:'50%',objectFit:'cover'}} alt="Av"/> : <div style={{width:50,height:50,borderRadius:'50%',background:'#475569',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.5rem'}}>👤</div>}
-               </div>
-            )}
+            <div style={{position:'relative',cursor:'pointer'}}>
+               {userData.profile.avatar ? <img src={userData.profile.avatar} style={{width:50,height:50,borderRadius:'50%',objectFit:'cover'}} alt="Av"/> : <div style={{width:50,height:50,borderRadius:'50%',background:'#475569',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.5rem'}}>👤</div>}
+               <input type="file" accept="image/*" onChange={handleAvatarUpload} style={{position:'absolute',width:'100%',height:'100%',opacity:0,cursor:'pointer'}} />
+            </div>
             <div>
-              {isEditingProfile ? <input value={tempProfile.nickname} onChange={e=>setTempProfile({...tempProfile, nickname:e.target.value})} placeholder="Никнейм" style={{background:'#0f172a',color:'#fff',border:'1px solid #475569',padding:'0.3rem',borderRadius:'4px',marginBottom:'0.2rem'}} /> : <div style={{fontWeight:'bold',fontSize:'1.1rem'}}>{disp}</div>}
-              {isEditingProfile ? (
-                <select value={tempProfile.country} onChange={e=>setTempProfile({...tempProfile, country:e.target.value})} style={{background:'#0f172a',color:'#fff',border:'1px solid #475569',padding:'0.2rem',borderRadius:'4px'}}>{COUNTRIES.map(c=><option key={c.code} value={c.code}>{c.name}</option>)}</select>
-              ) : <div style={{fontSize:'0.8rem',color:'#94a3b8'}}>{COUNTRIES.find(c=>c.code===userData.profile.country)?.name || '🌍'}</div>}
+              <div style={{fontWeight:'bold',fontSize:'1.1rem'}}>{disp}</div>
+              <div style={{fontSize:'0.8rem',color:'#94a3b8'}}>{countryName}</div>
             </div>
           </div>
           <div style={{display:'flex',gap:'0.5rem',alignItems:'center'}}>
             <span style={{background:'#334155',padding:'0.3rem 0.6rem',borderRadius:'8px',color:'#fbbf24',fontSize:'0.9rem',fontWeight:'bold'}}>💰 {formatNumber(userData.balance)}</span>
+            <button onClick={handleTopUp} style={{padding:'0.3rem 0.6rem',background:'#3b82f6',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer'}}>+ Тест</button>
             <button onClick={handleLogout} style={{padding:'0.4rem 0.8rem',background:'#ef4444',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer'}}>🚪</button>
           </div>
         </header>
 
         {message && <div style={{width:'100%',maxWidth:'500px',padding:'0.7rem',marginBottom:'0.8rem',background:'rgba(59,130,246,0.2)',borderRadius:'8px',color:'#60a5fa',textAlign:'center',fontSize:'0.9rem'}}>{message}</div>}
 
-        {/* Пункт 1: Ссылка на соц.сеть/сайт */}
-        {isEditingProfile ? (
-          <div style={{width:'100%',maxWidth:'500px',background:'#1e293b',padding:'0.8rem',borderRadius:'12px',marginBottom:'1rem',border:'1px solid #475569'}}>
-             <label style={{fontSize:'0.85rem',color:'#94a3b8'}}>Ссылка (сайт/соцсеть)</label>
-             <input value={tempProfile.social} onChange={e=>setTempProfile({...tempProfile, social:e.target.value})} placeholder="https://..." style={{width:'100%',background:'#0f172a',color:'#fff',border:'1px solid #475569',padding:'0.4rem',borderRadius:'6px'}} />
+        {/* Ссылка на соцсеть */}
+        {userData.profile.social && (
+          <div style={{width:'100%',maxWidth:'500px',background:'#1e293b',padding:'0.5rem',borderRadius:'8px',marginBottom:'0.5rem',textAlign:'center'}}>
+             <a href={userData.profile.social.startsWith('http')?userData.profile.social:`https://${userData.profile.social}`} target="_blank" rel="noopener" style={{color:'#60a5fa',textDecoration:'none',fontSize:'0.9rem'}}>{socialIcon} {userData.profile.social}</a>
           </div>
-        ) : (
-           userData.profile.social && (
-             <div style={{width:'100%',maxWidth:'500px',background:'#1e293b',padding:'0.5rem',borderRadius:'8px',marginBottom:'0.5rem',textAlign:'center'}}>
-               <a href={userData.profile.social.startsWith('http')?userData.profile.social:`https://${userData.profile.social}`} target="_blank" rel="noopener" style={{color:'#60a5fa',textDecoration:'none',fontSize:'0.9rem'}}>🔗 {userData.profile.social}</a>
-             </div>
-           )
         )}
+
+        {/* Правила игры (Публикация в профиле) */}
+        <div style={{width:'100%',maxWidth:'500px',background:'#1e293b',padding:'0.8rem',borderRadius:'8px',marginBottom:'1rem',border:'1px solid #475569'}}>
+          <h4 style={{margin:'0 0 0.5rem 0',color:'#fbbf24',fontSize:'0.9rem'}}>📜 Правила ставок:</h4>
+          <ul style={{margin:0,paddingLeft:'1.2rem',fontSize:'0.8rem',color:'#cbd5e1',lineHeight:'1.4'}}>
+            <li>Создание игры требует внесения ставки (депозит).</li>
+            <li>Присоединение требует внесения <strong>равной суммы</strong>.</li>
+            <li>Победитель забирает <strong>весь банк</strong> (Сумма × 2).</li>
+            <li>При ничьей средства переходят в <strong>фонд развития</strong> приложения.</li>
+          </ul>
+        </div>
         
         <div style={{width:'100%',maxWidth:'500px',display:'flex',gap:'0.5rem',marginBottom:'1rem'}}>
-          {isEditingProfile ? (
-            <>
-              <button onClick={handleSaveProfile} style={{flex:1,padding:'0.6rem',background:'#10b981',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:'bold'}}>💾 Сохранить</button>
-              <button onClick={()=>setIsEditingProfile(false)} style={{flex:1,padding:'0.6rem',background:'#64748b',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer'}}>✖️</button>
-            </>
-          ) : (
-            <button onClick={()=>{setIsEditingProfile(true); setTempProfile(userData.profile)}} style={{width:'100%',padding:'0.6rem',background:'#3b82f6',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:'bold'}}>✏️ Редактировать профиль</button>
-          )}
+           <button onClick={()=>setView('profile');setLobbyTab('editProfile')} style={{flex:1,padding:'0.6rem',background:'#3b82f6',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:'bold'}}>✏️ Редактировать профиль</button>
         </div>
+
+        {lobbyTab === 'editProfile' && (
+          <div style={{width:'100%',maxWidth:'500px',background:'#1e293b',padding:'1rem',borderRadius:'12px',marginBottom:'1rem',display:'flex',flexDirection:'column',gap:'0.8rem'}}>
+            <div>
+              <label style={{display:'block',marginBottom:'0.3rem',color:'#94a3b8'}}>Никнейм</label>
+              <input value={userData.profile.nickname} onChange={e=>saveUser({...userData, profile:{...userData.profile, nickname:e.target.value}})} style={{width:'100%',padding:'0.5rem',background:'#0f172a',color:'#fff',border:'1px solid #475569',borderRadius:'6px'}} />
+            </div>
+            <div>
+              <label style={{display:'block',marginBottom:'0.3rem',color:'#94a3b8'}}>Страна</label>
+              <select value={userData.profile.country} onChange={e=>saveUser({...userData, profile:{...userData.profile, country:e.target.value}})} style={{width:'100%',padding:'0.5rem',background:'#0f172a',color:'#fff',border:'1px solid #475569',borderRadius:'6px'}}>{COUNTRIES.map(c=><option key={c.code} value={c.code}>{c.name}</option>)}</select>
+            </div>
+            <div>
+              <label style={{display:'block',marginBottom:'0.3rem',color:'#94a3b8'}}>Ссылка (Сайт/Соцсеть)</label>
+              <input value={userData.profile.social} onChange={e=>saveUser({...userData, profile:{...userData.profile, social:e.target.value}})} placeholder="https://..." style={{width:'100%',padding:'0.5rem',background:'#0f172a',color:'#fff',border:'1px solid #475569',borderRadius:'6px'}} />
+            </div>
+            <button onClick={()=>setLobbyTab('lobby')} style={{width:'100%',padding:'0.6rem',background:'#10b981',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:'bold'}}>💾 Сохранить изменения</button>
+          </div>
+        )}
 
         {/* Пункт 3: Обработка Приглашения (Время + Сумма + Кнопка) */}
         {pendingJoinGame && (
@@ -482,6 +488,18 @@ function App() {
           </div>
         )}
 
+         {/* Модальное окно Ссылки */}
+        {showLinkModal && (
+          <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:'1rem'}} onClick={()=>setShowLinkModal(null)}>
+            <div style={{background:'#1e293b',padding:'1.5rem',borderRadius:'16px',maxWidth:'400px',width:'100%',textAlign:'center',border:'2px solid #fbbf24'}} onClick={e=>e.stopPropagation()}>
+              <h3 style={{color:'#fbbf24',margin:'0 0 1rem 0'}}>🎉 Игра создана!</h3>
+              <p style={{color:'#cbd5e1',marginBottom:'0.8rem',fontSize:'0.9rem'}}>Отправьте эту ссылку сопернику:</p>
+              <div style={{background:'#0f172a',padding:'0.6rem',borderRadius:'8px',wordBreak:'break-all',marginBottom:'1rem',border:'1px dashed #475569',fontSize:'0.8rem'}}>{showLinkModal.link}</div>
+              <button onClick={()=>{navigator.clipboard.writeText(showLinkModal.link);setMessage('✅ Ссылка скопирована!');setShowLinkModal(null)}} style={{width:'100%',padding:'0.8rem',background:'#3b82f6',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontWeight:'bold'}}>📋 Скопировать и закрыть</button>
+            </div>
+          </div>
+        )}
+
         <div style={{marginTop:'1rem',width:'100%',maxWidth:'500px'}}>
            <button onClick={()=>startGame()} style={{width:'100%',padding:'0.9rem',background:'linear-gradient(135deg,#10b981,#059669)',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer',fontSize:'1rem',fontWeight:'600'}}>🤖 Быстрая игра с ботом</button>
         </div>
@@ -491,7 +509,7 @@ function App() {
   }
 
   // ============================================================================
-  // 🎮 ИГРА
+  // 🎮 ИГРА (С кнопками Вперед/Назад)
   // ============================================================================
   return (
     <div style={{minHeight:'100vh',background:'#0f172a',color:'#f1f5f9',fontFamily:'system-ui',display:'flex',flexDirection:'column',alignItems:'center',padding:'0.8rem',boxSizing:'border-box'}}>
@@ -510,6 +528,13 @@ function App() {
       <div style={{width:boardWidth+20,height:boardWidth+20,background:'#1e293b',padding:'10px',borderRadius:'12px',boxShadow:theme.boardShadow,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:'1rem'}}>
         <div style={{width:'100%',height:'100%',filter:theme.pieceFilter}}><Chessboard position={fen} onPieceDrop={onDrop} onSquareClick={onSqClick} customSquareStyles={sqStyles} boardOrientation="white" boardWidth={boardWidth} customDarkSquareStyle={{backgroundColor:theme.dark}} customLightSquareStyle={{backgroundColor:theme.light}} customBoardStyle={{borderRadius:'8px'}}/></div>
       </div>
+      
+      {/* ✅ КНОПКИ ВПЕРЕД И НАЗАД */}
+      <div style={{display:'flex',gap:'0.5rem',marginBottom:'1rem',justifyContent:'center',width:'100%',maxWidth:'400px'}}>
+        <button onClick={handleBack} disabled={moveIndex === 0 || gameOver} style={{padding:'0.6rem 1rem',background:moveIndex===0||gameOver?'#334155':'#3b82f6',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer'}}>⏪ Назад</button>
+        <button onClick={handleForward} disabled={moveIndex >= history.length - 1 || gameOver} style={{padding:'0.6rem 1rem',background:moveIndex>=history.length-1||gameOver?'#334155':'#3b82f6',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer'}}>⏩ Вперед</button>
+      </div>
+
       {gameOver && winner && <div style={{background:'#1e293b',padding:'1rem',borderRadius:'16px',width:'100%',maxWidth:'400px',textAlign:'center',marginBottom:'1rem',border:'2px solid #a78bfa'}}><div style={{fontSize:'2rem',marginBottom:'0.3rem'}}>{winner==='player'?'🏆':winner==='bot'?'🤖':'🤝'}</div><div style={{fontSize:'1.2rem',fontWeight:'bold',color:'#fbbf24',marginBottom:'0.5rem'}}>{winner==='player'?'🎉 CHECKMATE!':winner==='bot'?'😔 Поражение':'🤝 Ничья!'}</div><button onClick={()=>{setView('profile');setGameOver(false);setTimerActive(null);gameRef.current.reset();setFen(gameRef.current.fen());setHistory([gameRef.current.fen()]);setMoveIndex(0);setMovesList([])}} style={{padding:'0.6rem 1.5rem',background:'#10b981',color:'#fff',border:'none',borderRadius:'10px',cursor:'pointer'}}>👤 В профиль</button></div>}
     </div>
   )
