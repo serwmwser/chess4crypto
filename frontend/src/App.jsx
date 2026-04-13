@@ -23,7 +23,7 @@ const COUNTRIES = [
   { code: 'BR', name: '🇧🇷 Бразилия' }, { code: 'IN', name: '🇮🇳 Индия' }, { code: 'OTHER', name: '🌍 Другая' }
 ]
 
-// 💰 Доступные ставки для создания игры
+// 💰 Ставки для создания игры
 const DEPOSIT_OPTIONS = [1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000]
 
 const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
@@ -34,15 +34,21 @@ const isValidUrl = (str) => { try { new URL(str); return true } catch { return f
 const formatSocialLink = (url) => { if (!url) return ''; if (!url.startsWith('http')) return `https://${url}`; return url }
 const generateGameId = () => `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
+// 🗄️ Ключи для LocalStorage (Имитация Базы Данных)
+const KEY_USER = 'chess4crypto_user_data'
+const KEY_GAMES = 'chess4crypto_games_global'
+
 function App() {
   const { t, i18n } = useTranslation()
   const { address, isConnected, status } = useAccount()
   const { connect, connectors } = useConnect()
   const { disconnect } = useDisconnect()
-  const {  balance: walletBalance } = useBalance({ address })
   
   const gameRef = useRef(new Chess())
+  
+  // 🎯 ЭКРАНЫ: menu | profile | game
   const [view, setView] = useState('menu')
+  const [lobbyTab, setLobbyTab] = useState('available') // 'available' | 'my' | 'history'
   
   // 🎮 Состояние игры
   const [fen, setFen] = useState(gameRef.current.fen())
@@ -66,35 +72,21 @@ function App() {
   const [possibleMoves, setPossibleMoves] = useState([])
   const [boardWidth, setBoardWidth] = useState(360)
   
-  // 💰 Баланс и депозиты
-  const [gameBalance, setGameBalance] = useState(0)
-  const [pendingDeposit, setPendingDeposit] = useState(null)
+  // 💰 Баланс и Данные Пользователя
+  const [userData, setUserData] = useState({ 
+    balance: 10000, // Стартовый баланс для теста
+    profile: { nickname: '', country: 'RU', avatar: '', socialLink: '', bio: '' },
+    gameHistory: [] // Хронология игр
+  })
+  
+  // 🌐 Глобальный список игр (Лобби)
+  const [globalGames, setGlobalGames] = useState([])
   const [createStake, setCreateStake] = useState(1000)
-  
-  // 🔗 Приглашения и лобби
-  const [inviteData, setInviteData] = useState(null)
-  const [showDepositConfirm, setShowDepositConfirm] = useState(false)
-  const [selectedGameToJoin, setSelectedGameToJoin] = useState(null)
-  const [lobbyTab, setLobbyTab] = useState('available') // 'available' | 'my'
-  
-  // 🌐 Список игр (локально для демо)
-  const [gamesList, setGamesList] = useState([])
+  const [pendingJoinGame, setPendingJoinGame] = useState(null)
   
   // 🔐 Подключение
   const [isConnecting, setIsConnecting] = useState(false)
   const [connectAttempt, setConnectAttempt] = useState(0)
-  
-  // 👤 ПРОФИЛЬ ИГРОКА
-  const [playerProfile, setPlayerProfile] = useState(() => {
-    if (typeof window !== 'undefined' && address) {
-      const saved = localStorage.getItem(`chess4crypto_profile_${address}`)
-      return saved ? JSON.parse(saved) : { nickname: '', country: 'RU', avatar: '', socialLink: '', bio: '' }
-    }
-    return { nickname: '', country: 'RU', avatar: '', socialLink: '', bio: '' }
-  })
-  const [isEditingProfile, setIsEditingProfile] = useState(false)
-  const [profileForm, setProfileForm] = useState(playerProfile)
-  const [avatarPreview, setAvatarPreview] = useState('')
 
   // 📏 Адаптивный размер
   useEffect(() => {
@@ -104,48 +96,246 @@ function App() {
     return () => window.removeEventListener('resize', updateSize)
   }, [])
 
-  // 👤 Загрузка профиля
+  // 🗄️ Загрузка данных при старте
   useEffect(() => {
-    if (address) {
-      const saved = localStorage.getItem(`chess4crypto_profile_${address}`)
-      if (saved) { const p = JSON.parse(saved); setPlayerProfile(p); setProfileForm(p); if (p.avatar) setAvatarPreview(p.avatar) }
+    // Загрузка профиля и баланса
+    const storedUser = JSON.parse(localStorage.getItem(KEY_USER))
+    if (storedUser && storedUser.address === address) {
+      setUserData(storedUser.data)
     }
+
+    // Загрузка игр из "Глобальной базы" (localStorage)
+    const storedGames = JSON.parse(localStorage.getItem(KEY_GAMES) || '[]')
+    setGlobalGames(storedGames)
   }, [address])
 
-  // 🌐 Загрузка списка игр
+  // 📡 Слушаем изменения в других вкладках (для синхронизации лобби)
   useEffect(() => {
-    if (address) {
-      // Загружаем мои игры из localStorage
-      const myGames = JSON.parse(localStorage.getItem(`chess4crypto_my_games_${address}`) || '[]')
-      // Загружаем доступные игры (все игры минус мои)
-      const allGames = JSON.parse(localStorage.getItem('chess4crypto_all_games') || '[]')
-      const available = allGames.filter(g => g.creator !== address && !g.joined && !g.finished)
-      setGamesList({ my: myGames, available })
+    const handleStorageChange = (e) => {
+      if (e.key === KEY_GAMES) {
+        setGlobalGames(JSON.parse(e.newValue || '[]'))
+      }
     }
-  }, [address])
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
 
-  // 👤 Сохранение профиля
-  const saveProfile = () => {
-    if (!address) return
-    const updated = { ...profileForm, avatar: avatarPreview || profileForm.avatar }
-    setPlayerProfile(updated)
-    localStorage.setItem(`chess4crypto_profile_${address}`, JSON.stringify(updated))
-    setIsEditingProfile(false)
-    setMessage('✅ Профиль сохранён!')
+  // 🔗 Обработка ссылки-приглашения
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const inviteId = params.get('invite')
+      if (inviteId && view !== 'game') {
+        const game = globalGames.find(g => g.id === inviteId)
+        if (game && game.status === 'waiting') {
+          setPendingJoinGame(game)
+          setView('profile')
+          setLobbyTab('available')
+          setMessage(`🔗 Найдена игра! Внесите ${formatNumber(game.stake)} GROK для входа.`)
+        }
+      }
+    }
+  }, [globalGames, view])
+
+  // 💾 Сохранение данных пользователя
+  const saveUserData = (newData) => {
+    setUserData(newData)
+    if (address) {
+      localStorage.setItem(KEY_USER, JSON.stringify({ address, data: newData }))
+    }
   }
 
-  // 🖼️ Загрузка аватара
-  const handleAvatarUpload = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 2 * 1024 * 1024) { setMessage('⚠️ Файл > 2MB'); return }
-    if (!file.type.startsWith('image/')) { setMessage('⚠️ Только изображения'); return }
-    const reader = new FileReader()
-    reader.onload = (event) => { setAvatarPreview(event.target?.result); setProfileForm(prev => ({ ...prev, avatar: event.target?.result })) }
-    reader.readAsDataURL(file)
+  // 💾 Сохранение глобального списка игр
+  const saveGlobalGames = (games) => {
+    setGlobalGames(games)
+    localStorage.setItem(KEY_GAMES, JSON.stringify(games))
   }
 
-  // 🎨 Подсветка ходов
+  // 💰 Пополнение баланса (для теста)
+  const handleDepositFunds = () => {
+    const amount = 50000
+    const newData = { ...userData, balance: userData.balance + amount }
+    saveUserData(newData)
+    setMessage(`✅ Баланс пополнен на +${formatNumber(amount)} GROK`)
+  }
+
+  // 🎮 Создание игры
+  const handleCreateGame = () => {
+    if (userData.balance < createStake) {
+      setMessage('⚠️ Недостаточно GROK на балансе! Пополните баланс.')
+      return
+    }
+
+    // Списываем ставку с баланса
+    const newBalance = userData.balance - createStake
+    const newUserData = { ...userData, balance: newBalance }
+    saveUserData(newUserData)
+
+    // Создаем запись игры
+    const newGame = {
+      id: generateGameId(),
+      creator: address,
+      creatorName: userData.profile.nickname || `${address.slice(0,6)}...`,
+      stake: createStake,
+      timeControl: timeControl,
+      status: 'waiting', // waiting | playing | finished
+      createdAt: Date.now(),
+      winner: null
+    }
+
+    // Сохраняем в глобальный список
+    const updatedGames = [...globalGames, newGame]
+    saveGlobalGames(updatedGames)
+
+    setMessage(`🎉 Игра создана! Ссылка скопирована.`)
+    navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?invite=${newGame.id}`)
+  }
+
+  // 🤝 Присоединение к игре
+  const handleJoinGame = (game) => {
+    if (!game || game.status !== 'waiting') return
+    if (userData.balance < game.stake) {
+      setMessage('⚠️ Недостаточно GROK!')
+      return
+    }
+    setPendingJoinGame(game)
+    setMessage(`💰 Для входа в игру нужно внести ${formatNumber(game.stake)} GROK`)
+  }
+
+  // ✅ Подтверждение депозита и старт игры
+  const confirmJoinAndStart = () => {
+    const game = pendingJoinGame
+    if (!game) return
+
+    // Списываем ставку
+    const newBalance = userData.balance - game.stake
+    const newUserData = { ...userData, balance: newBalance }
+    saveUserData(newUserData)
+
+    // Обновляем статус игры
+    const updatedGames = globalGames.map(g => 
+      g.id === game.id ? { ...g, status: 'playing', challenger: address } : g
+    )
+    saveGlobalGames(updatedGames)
+
+    // Запускаем игру
+    setTimeControl(game.timeControl)
+    setPlayerTime(game.timeControl * 60)
+    setBotTime(game.timeControl * 60)
+    startGame()
+    setPendingJoinGame(null)
+    setMessage(`🚀 Игра началась! Ставка: ${formatNumber(game.stake)} GROK`)
+  }
+
+  // 🏁 Завершение игры (Логика выплаты)
+  const handleGameEnd = (result) => {
+    setTimerActive(null)
+    const currentGame = globalGames.find(g => g.status === 'playing' && g.creator === address) // Упрощенный поиск
+    // В реальном приложении ID игры должен храниться в стейте, здесь берем последнюю активную или симулируем
+    
+    let prizeMessage = ''
+    
+    if (result === 'player') {
+      setWinner('player')
+      const prize = currentGame ? currentGame.stake * 2 : 0 // Победитель забирает банк (в демо симуляция)
+      // В демо начисляем виртуальный выигрыш (т.к. реальный контракт не подключен)
+      const winAmount = currentGame ? currentGame.stake * 2 : 0
+      const newData = { 
+        ...userData, 
+        balance: userData.balance + winAmount,
+        gameHistory: [
+          { date: new Date().toLocaleString(), opponent: 'Bot/Player', result: 'WIN', stake: currentGame?.stake || 0, change: `+${winAmount}` },
+          ...userData.gameHistory
+        ]
+      }
+      saveUserData(newData)
+      setMessage(`🏆 CHECKMATE! ВЫ ПОБЕДИЛИ! +${formatNumber(winAmount)} GROK`)
+    } else if (result === 'bot' || result === 'loss') {
+      setWinner('bot')
+      const newData = {
+        ...userData,
+        gameHistory: [
+          { date: new Date().toLocaleString(), opponent: 'Bot/Player', result: 'LOSS', stake: currentGame?.stake || 0, change: `-${currentGame?.stake || 0}` },
+          ...userData.gameHistory
+        ]
+      }
+      saveUserData(newData)
+      setMessage('😔 Вы проиграли. Ставка ушла победителю.')
+    } else {
+      setWinner('draw')
+      const newData = {
+        ...userData,
+        gameHistory: [
+          { date: new Date().toLocaleString(), opponent: 'Bot/Player', result: 'DRAW', stake: currentGame?.stake || 0, change: `Фонд развития` },
+          ...userData.gameHistory
+        ]
+      }
+      saveUserData(newData)
+      setMessage('🤝 Ничья! Средства перечислены в фонд развития приложения.')
+    }
+
+    // Обновляем статус игры в глобальном списке
+    if (currentGame) {
+      const updatedGames = globalGames.map(g => g.id === currentGame.id ? { ...g, status: 'finished', winner: result === 'player' ? address : (result === 'draw' ? 'draw' : 'opponent') } : g)
+      saveGlobalGames(updatedGames)
+    }
+  }
+
+  // 🔄 Сброс и запуск новой партии
+  const startGame = () => {
+    gameRef.current.reset()
+    setFen(gameRef.current.fen())
+    setHistory([gameRef.current.fen()])
+    setMoveIndex(0)
+    setMovesList([])
+    setIsPlayerTurn(true)
+    setGameOver(false)
+    setWinner(null)
+    setSelectedSquare(null)
+    setPossibleMoves([])
+    setPlayerTime(timeControl * 60)
+    setBotTime(timeControl * 60)
+    setTimerActive('player')
+    setView('game')
+  }
+
+  // 🔗 Подключение кошелька
+  const handleConnect = async () => {
+    if (isConnecting) return
+    setIsConnecting(true)
+    setConnectAttempt(prev => prev + 1)
+    setMessage('🔄 Подключение...')
+    
+    try {
+      const connector = connectors.find(c => c.id === (isMobile() ? 'walletConnect' : 'metaMask')) || connectors.find(c => c.id === 'injected') || connectors[0]
+      if (!connector) throw new Error('Кошелёк не найден')
+      await connect({ connector, chainId: connector.chains?.[0]?.id })
+      for (let i = 0; i < 10; i++) { await new Promise(r => setTimeout(r, 300)); if (isConnected) break }
+      
+      if (isConnected && address) {
+        setMessage('✅ Кошелёк подключён!')
+        setView('profile')
+      } else {
+        // ✅ Исправлено: Если отменили, просто молчим, не пишем ошибку
+        setMessage('') 
+      }
+    } catch (err) {
+      // ✅ Исправлено: Игнорируем ошибку отмены пользователем
+      if (!err?.message?.includes('User rejected') && !err?.message?.includes('already pending')) {
+        setMessage('⚠️ Ошибка подключения')
+      } else {
+        setMessage('')
+      }
+    } finally {
+      setTimeout(() => setIsConnecting(false), 500)
+    }
+  }
+
+  const handleGuestLogin = () => { setMessage('👤 Гостевой режим'); startGame() }
+  const handleLogout = () => { disconnect(); setView('menu'); setMessage(''); gameRef.current.reset(); setFen(gameRef.current.fen()); setTimerActive(null); setPendingJoinGame(null) }
+
+  // ♟️ Логика ходов
+  const getValidMoves = useCallback((square) => gameRef.current.moves({ square, verbose: true }).map(m => m.to), [])
   const customSquareStyles = useMemo(() => {
     const styles = {}
     if (selectedSquare) styles[selectedSquare] = { backgroundColor: 'rgba(255,255,0,0.4)' }
@@ -153,7 +343,6 @@ function App() {
     return styles
   }, [selectedSquare, possibleMoves])
 
-  const getValidMoves = useCallback((square) => gameRef.current.moves({ square, verbose: true }).map(m => m.to), [])
   const onSquareClick = useCallback((square) => {
     if (gameOver) return
     const piece = gameRef.current.get(square)
@@ -163,19 +352,21 @@ function App() {
   }, [gameOver, isPlayerTurn, selectedSquare, possibleMoves, getValidMoves])
 
   const onDrop = useCallback((source, target) => {
-    if (!isPlayerTurn || gameOver || moveIndex !== history.length - 1) return false
+    if (!isPlayerTurn || gameOver) return false
     try {
       const move = gameRef.current.move({ from: source, to: target, promotion: 'q' }); if (!move) return false
       const newFen = gameRef.current.fen(), san = gameRef.current.history({ verbose: true }).pop()?.san || `${source}${target}`
       setHistory(prev => [...prev, newFen]); setMovesList(prev => [...prev, { san, from: source, to: target }])
       setFen(newFen); setMoveIndex(prev => prev + 1); setIsPlayerTurn(false); setTimerActive('bot'); setMessage('🤖 Бот думает...')
       setSelectedSquare(null); setPossibleMoves([])
-      if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner('player'); handleGameEnd('player'); }
-      else if (gameRef.current.isDraw()) { setGameOver(true); setWinner('draw'); handleGameEnd('draw'); }
-      else setTimeout(makeBotMove, 500)
+      
+      if (gameRef.current.isCheckmate()) { handleGameEnd('player'); return true }
+      if (gameRef.current.isDraw()) { handleGameEnd('draw'); return true }
+      
+      setTimeout(makeBotMove, 600)
       return true
     } catch { return false }
-  }, [isPlayerTurn, gameOver, moveIndex, history.length])
+  }, [isPlayerTurn, gameOver])
 
   const makeBotMove = useCallback(() => {
     if (gameOver || gameRef.current.isGameOver()) return
@@ -184,9 +375,10 @@ function App() {
     const newFen = gameRef.current.fen(), san = gameRef.current.history({ verbose: true }).pop()?.san || random
     setHistory(prev => [...prev, newFen]); setMovesList(prev => [...prev, { san, from: random.from, to: random.to }])
     setFen(newFen); setMoveIndex(prev => prev + 1); setIsPlayerTurn(true); setTimerActive('player')
-    if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner('bot'); handleGameEnd('bot'); }
-    else if (gameRef.current.isDraw()) { setGameOver(true); setWinner('draw'); handleGameEnd('draw'); }
-    else setMessage('♟️ Ваш ход!')
+    
+    if (gameRef.current.isCheckmate()) { handleGameEnd('bot'); return }
+    if (gameRef.current.isDraw()) { handleGameEnd('draw'); return }
+    setMessage('♟️ Ваш ход!')
   }, [gameOver])
 
   // ⏱️ Таймер
@@ -194,165 +386,13 @@ function App() {
     if (!timerActive || gameOver) return
     const interval = setInterval(() => {
       if (timerActive === 'player') {
-        setPlayerTime(prev => { if (prev <= 1) { setGameOver(true); setWinner('bot'); handleGameEnd('bot'); return 0 } return prev - 1 })
+        setPlayerTime(prev => { if (prev <= 1) { handleGameEnd('bot'); return 0 } return prev - 1 })
       } else {
-        setBotTime(prev => { if (prev <= 1) { setGameOver(true); setWinner('player'); handleGameEnd('player'); return 0 } return prev - 1 })
+        setBotTime(prev => { if (prev <= 1) { handleGameEnd('player'); return 0 } return prev - 1 })
       }
     }, 1000)
     return () => clearInterval(interval)
   }, [timerActive, gameOver])
-
-  // 🏁 Обработка конца игры (выплата приза)
-  const handleGameEnd = (result) => {
-    setTimerActive(null)
-    if (result === 'player') {
-      setMessage(`🎉 Вы победили! +${formatNumber(gameBalance)} GROK зачислено!`)
-      // 🔹 В ПРОДАКШЕНЕ: вызов смарт-контракта claimPrize()
-      // 🔹 ДЛЯ ДЕМО: симуляция зачисления
-      setTimeout(() => { setMessage('✅ Приз зачислен на ваш баланс!') }, 1500)
-    } else if (result === 'bot') {
-      setMessage('😔 Бот победил. Попробуйте ещё раз!')
-    } else {
-      setMessage('🤝 Ничья! Средства направлены на развитие приложения.')
-      // 🔹 В ПРОДАКШЕНЕ: перевод в фонд развития
-      setTimeout(() => { setGameBalance(0) }, 1000)
-    }
-  }
-
-  // 🔗 Подключение кошелька → Профиль (исправлено сообщение)
-  const handleConnect = async () => {
-    if (isConnecting) return
-    setIsConnecting(true)
-    setConnectAttempt(prev => prev + 1)
-    setMessage('🔄 Открываю кошелёк...')
-    
-    try {
-      const connector = connectors.find(c => c.id === (isMobile() ? 'walletConnect' : 'metaMask')) || connectors.find(c => c.id === 'injected') || connectors[0]
-      if (!connector) throw new Error('Кошелёк не найден')
-      await connect({ connector, chainId: connector.chains?.[0]?.id })
-      for (let i = 0; i < 10; i++) { await new Promise(r => setTimeout(r, 300)); if (isConnected) break }
-      
-      if (isConnected && address) {
-        // ✅ ИСПРАВЛЕНО: не показываем "Подключение отменено" при успехе
-        setMessage('✅ Кошелёк подключён!')
-        setView('profile')
-      }
-      // ✅ ИСПРАВЛЕНО: если отменили — просто очищаем сообщение, не показываем ошибку
-      else if (status === 'disconnected') {
-        setMessage('') // ← Было: '⚠️ Подключение отменено'
-      }
-    } catch (err) {
-      console.error('❌ Connect error:', err)
-      if (!err?.message?.includes('User rejected')) {
-        setMessage('⚠️ Ошибка: ' + (err?.shortMessage || err?.message || 'Неизвестная'))
-      }
-      // Если отменили — не показываем сообщение вообще
-    } finally {
-      setTimeout(() => setIsConnecting(false), 500)
-    }
-  }
-
-  // 👁️ Авто-переход в профиль при подключении
-  useEffect(() => {
-    if (isConnected && address && view === 'menu') { setView('profile'); setMessage('✅ Добро пожаловать!') }
-  }, [isConnected, address, view])
-
-  // 🔗 Обработка приглашения
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      const invite = params.get('invite'), stake = params.get('stake'), time = params.get('time')
-      if (invite) {
-        setInviteData({ gameId: invite, stake: stake ? Number(stake) : 1000, timeControl: time ? Number(time) : 15 })
-        if (isConnected) { setShowDepositConfirm(true); setMessage(`💰 Внесите ${formatNumber(stake?Number(stake):1000)} GROK`) }
-        else { setMessage('🔗 Найдено приглашение! Подключите кошелёк.') }
-      }
-    }
-  }, [isConnected])
-
-  // 💰 Создание игры
-  const handleCreateGame = async () => {
-    if (!isConnected || !address) { setMessage('⚠️ Подключите кошелёк'); return }
-    if (createStake > (walletBalance?.value ? Number(walletBalance.value) / 1e18 : 0)) { setMessage('⚠️ Недостаточно GROK на балансе'); return }
-    
-    const gameId = generateGameId()
-    const newGame = {
-      id: gameId,
-      creator: address,
-      creatorName: playerProfile.nickname || `${address.slice(0,6)}...${address.slice(-4)}`,
-      stake: createStake,
-      timeControl,
-      createdAt: Date.now(),
-      status: 'waiting',
-      joined: false,
-      finished: false
-    }
-    
-    // 🔹 Сохраняем в localStorage (для демо)
-    const myGames = JSON.parse(localStorage.getItem(`chess4crypto_my_games_${address}`) || '[]')
-    const allGames = JSON.parse(localStorage.getItem('chess4crypto_all_games') || '[]')
-    myGames.push(newGame); allGames.push(newGame)
-    localStorage.setItem(`chess4crypto_my_games_${address}`, JSON.stringify(myGames))
-    localStorage.setItem('chess4crypto_all_games', JSON.stringify(allGames))
-    
-    // Обновляем список
-    setGamesList(prev => ({ ...prev, my: [...prev.my, newGame] }))
-    
-    // Генерируем ссылку
-    const link = `${window.location.origin}${window.location.pathname}?invite=${gameId}&stake=${createStake}&time=${timeControl}`
-    setMessage(`🎉 Игра создана! Скопируйте ссылку: ${link}`)
-    
-    // 🔹 В ПРОДАКШЕНЕ: вызов контракта createGame() + депозит
-  }
-
-  // 💰 Присоединение к игре
-  const handleJoinGame = (game) => {
-    if (!isConnected) { setMessage('⚠️ Подключите кошелёк'); return }
-    setSelectedGameToJoin(game)
-    setShowDepositConfirm(true)
-    setMessage(`💰 Внесите ${formatNumber(game.stake)} GROK для входа`)
-  }
-
-  // 💰 Подтверждение депозита
-  const handleConfirmDeposit = async () => {
-    const game = selectedGameToJoin || inviteData
-    if (!game) return
-    setShowDepositConfirm(false); setPendingDeposit(game.stake); setMessage(`🔄 Вносим ${formatNumber(game.stake)} GROK...`)
-    
-    try {
-      // 🔹 ДЛЯ ДЕМО: симуляция
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      setGameBalance(prev => prev + game.stake)
-      setPendingDeposit(null); setMessage(`✅ ${formatNumber(game.stake)} GROK внесено! Игра начинается...`)
-      
-      // Обновляем статус игры
-      if (selectedGameToJoin) {
-        const allGames = JSON.parse(localStorage.getItem('chess4crypto_all_games') || '[]')
-        const updated = allGames.map(g => g.id === game.id ? { ...g, joined: true, status: 'playing', challenger: address } : g)
-        localStorage.setItem('chess4crypto_all_games', JSON.stringify(updated))
-        setGamesList(prev => ({ ...prev, available: prev.available.filter(g => g.id !== game.id) }))
-      }
-      
-      // Запускаем игру
-      setTimeControl(game.timeControl); setPlayerTime(game.timeControl * 60); setBotTime(game.timeControl * 60)
-      startGame(); setSelectedGameToJoin(null); setInviteData(null)
-    } catch (err) {
-      console.error('Deposit error:', err); setMessage('⚠️ Ошибка депозита'); setPendingDeposit(null); setShowDepositConfirm(true)
-    }
-  }
-
-  // 🎮 Запуск игры
-  const startGame = () => {
-    gameRef.current.reset(); const startFen = gameRef.current.fen()
-    setFen(startFen); setHistory([startFen]); setMoveIndex(0); setMovesList([]); setIsPlayerTurn(true); setGameOver(false); setWinner(null)
-    setSelectedSquare(null); setPossibleMoves([]); setPlayerTime(timeControl * 60); setBotTime(timeControl * 60); setTimerActive('player')
-    setMessage('♟️ Ваш ход!'); setView('game')
-  }
-
-  const handleGuestLogin = () => { setMessage('👤 Гостевой режим'); startGame() }
-  const handleLogout = () => { disconnect(); setView('menu'); setMessage(''); gameRef.current.reset(); setFen(gameRef.current.fen()); setTimerActive(null); setInviteData(null); setShowDepositConfirm(false) }
-  const handleBack = () => { if (moveIndex > 0 && !gameOver) { const i = moveIndex - 1; setMoveIndex(i); setFen(history[i]); gameRef.current.load(history[i]); setIsPlayerTurn(i % 2 === 0); setTimerActive(null); setMessage('⏪ Ход ' + (i+1)) } }
-  const handleForward = () => { if (moveIndex < history.length - 1 && !gameOver) { const i = moveIndex + 1; setMoveIndex(i); setFen(history[i]); gameRef.current.load(history[i]); setIsPlayerTurn(i % 2 === 0); if (i === history.length - 1) { setTimerActive(isPlayerTurn ? 'player' : 'bot'); setMessage(isPlayerTurn ? '♟️ Ваш ход!' : '🤖 Бот думает...') } else setMessage('⏩ Ход ' + (i+1)) } }
 
   const theme = BOARD_THEMES[boardTheme]
   const timeOptions = [{v:5,l:'5 мин'}, {v:15,l:'15 мин'}, {v:30,l:'30 мин'}, {v:60,l:'1 час'}, {v:1440,l:'24 часа'}]
@@ -365,222 +405,218 @@ function App() {
       <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f172a, #1e293b)', color: '#f1f5f9', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center' }}>
         <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#fbbf24', margin: '0 0 0.5rem 0' }}>♟️ Chess4Crypto</h1>
         <p style={{ color: '#94a3b8', fontSize: '1.1rem', marginBottom: '2rem' }}>Web3 шахматы с крипто-ставками</p>
+        
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '320px' }}>
           <button onClick={handleGuestLogin} style={{ padding: '1rem', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '1.1rem', fontWeight: '600' }}>👤 {t('app.guestLogin') || 'Гостевой вход'}</button>
           <button onClick={handleConnect} disabled={isConnecting} style={{ padding: '1rem', background: isConnecting ? '#64748b' : 'linear-gradient(135deg, #f59e0b, #d97706)', color: isConnecting ? '#94a3b8' : '#000', border: 'none', borderRadius: '12px', cursor: isConnecting ? 'not-allowed' : 'pointer', fontSize: '1.1rem', fontWeight: '600' }}>{isConnecting ? '⏳...' : (isMobile() ? '🔗' : '🦊')} {t('app.connectWallet') || 'Подключить кошелёк'}</button>
         </div>
+        
         {message && <div style={{ marginTop: '1.5rem', padding: '0.8rem 1.2rem', background: message.includes('✅') ? 'rgba(16,185,129,0.2)' : message.includes('⚠️') ? 'rgba(239,68,68,0.2)' : 'rgba(59,130,246,0.2)', borderRadius: '10px', color: message.includes('✅') ? '#34d399' : message.includes('⚠️') ? '#f87171' : '#60a5fa' }}>{message}</div>}
         <select value={i18n.language} onChange={e => i18n.changeLanguage(e.target.value)} style={{ marginTop: '2rem', padding: '0.5rem 1rem', background: '#334155', color: '#fff', border: '1px solid #475569', borderRadius: '8px', cursor: 'pointer' }}><option value="ru">🇷🇺 Русский</option><option value="en">🇬🇧 English</option></select>
-        <p style={{ marginTop: '2rem', color: '#64748b', fontSize: '0.8rem' }}>© 2024 Chess4Crypto</p>
       </div>
     )
   }
 
   // ============================================================================
-  // 👤 ПРОФИЛЬ ИГРОКА (с лобби, правилами, созданием игр)
+  // 👤 ПРОФИЛЬ ИГРОКА (Лобби, Создание, История)
   // ============================================================================
   if (view === 'profile') {
-    const displayName = playerProfile.nickname || (address ? `${address.slice(0,6)}...${address.slice(-4)}` : 'Гость')
-    const countryName = COUNTRIES.find(c => c.code === playerProfile.country)?.name || '🌍 Не указана'
-    const socialIcon = playerProfile.socialLink?.includes('t.me') ? '✈️' : playerProfile.socialLink?.includes('twitter') ? '🐦' : playerProfile.socialLink?.includes('discord') ? '💬' : playerProfile.socialLink?.includes('github') ? '🐙' : '🔗'
-
+    const displayName = userData.profile.nickname || (address ? `${address.slice(0,6)}...` : 'Гость')
+    const countryName = COUNTRIES.find(c => c.code === userData.profile.country)?.name || '🌍'
+    
     return (
       <div style={{ minHeight: '100vh', background: '#0f172a', color: '#f1f5f9', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1rem', boxSizing: 'border-box' }}>
         
         {/* Хедер */}
-        <header style={{ width: '100%', maxWidth: '480px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem 1rem', background: '#1e293b', borderRadius: '12px', marginBottom: '1rem' }}>
-          <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fbbf24' }}>👤 Профиль</div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {isConnected && address && <span style={{ fontSize: '0.8rem', background: '#334155', padding: '0.3rem 0.6rem', borderRadius: '8px' }}>🔗 {address.slice(0,4)}...{address.slice(-4)}</span>}
-            <button onClick={handleLogout} style={{ padding: '0.4rem 0.8rem', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>🚪</button>
+        <header style={{ width: '100%', maxWidth: '500px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem 1rem', background: '#1e293b', borderRadius: '12px', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+            {userData.profile.avatar ? <img src={userData.profile.avatar} style={{width:40,height:40,borderRadius:'50%',objectFit:'cover'}} alt="Av"/> : <div style={{width:40,height:40,borderRadius:'50%',background:'#334155',display:'flex',alignItems:'center',justifyContent:'center'}}>👤</div>}
+            <div>
+              <div style={{fontWeight:'bold',fontSize:'1.1rem'}}>{displayName}</div>
+              <div style={{fontSize:'0.8rem',color:'#94a3b8'}}>{countryName}</div>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:'0.5rem'}}>
+             <span style={{fontSize:'0.8rem',background:'#334155',padding:'0.3rem 0.6rem',borderRadius:'8px',color:'#fbbf24'}}>💰 {formatNumber(userData.balance)}</span>
+             <button onClick={handleLogout} style={{padding:'0.4rem 0.8rem',background:'#ef4444',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer'}}>🚪</button>
           </div>
         </header>
 
-        {/* 👤 Карточка профиля */}
-        <div style={{ background: 'linear-gradient(135deg, #1e293b, #334155)', padding: '1.2rem', borderRadius: '20px', width: '100%', maxWidth: '480px', marginBottom: '1rem', border: '2px solid #475569' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-            {isEditingProfile ? (
-              <label style={{ cursor: 'pointer', position: 'relative' }}>
-                {avatarPreview ? <img src={avatarPreview} alt="Avatar" style={{ width: '70px', height: '70px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #fbbf24' }} /> : <div style={{ width: '70px', height: '70px', borderRadius: '50%', background: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', border: '3px solid #64748b' }}>👤</div>}
-                <input type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
-                <span style={{ position: 'absolute', bottom: '0', right: '0', background: '#3b82f6', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem' }}>✏️</span>
-              </label>
-            ) : (
-              <div>{playerProfile.avatar ? <img src={playerProfile.avatar} alt="Avatar" style={{ width: '70px', height: '70px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #fbbf24' }} /> : <div style={{ width: '70px', height: '70px', borderRadius: '50%', background: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', border: '3px solid #64748b' }}>👤</div>}</div>
-            )}
-            <div style={{ flex: 1 }}>
-              {isEditingProfile ? (
-                <>
-                  <input value={profileForm.nickname} onChange={e => setProfileForm({...profileForm, nickname: e.target.value.slice(0,20)})} placeholder="Ваш ник" style={{ width: '100%', padding: '0.4rem', background: '#0f172a', color: '#fff', border: '1px solid #475569', borderRadius: '6px', fontSize: '1rem', marginBottom: '0.3rem' }} />
-                  <select value={profileForm.country} onChange={e => setProfileForm({...profileForm, country: e.target.value})} style={{ width: '100%', padding: '0.3rem', background: '#0f172a', color: '#fff', border: '1px solid #475569', borderRadius: '6px', fontSize: '0.85rem' }}>{COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}</select>
-                </>
-              ) : (
-                <>
-                  <h3 style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#fbbf24', margin: '0.1rem 0' }}>{displayName}</h3>
-                  <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: 0 }}>{countryName}</p>
-                </>
+        {/* Сообщение */}
+        {message && <div style={{width:'100%',maxWidth:'500px',padding:'0.8rem',marginBottom:'1rem',background:'rgba(59,130,246,0.2)',borderRadius:'10px',color:'#60a5fa',textAlign:'center',fontSize:'0.95rem'}}>{message}</div>}
+
+        {/* Вкладки */}
+        <div style={{display:'flex',gap:'0.5rem',width:'100%',maxWidth:'500px',marginBottom:'1rem'}}>
+          {[
+            { id: 'available', label: '🌐 Лобби' },
+            { id: 'my', label: '📋 Мои игры' },
+            { id: 'create', label: '➕ Создать' },
+            { id: 'history', label: '🏆 История' }
+          ].map(tab => (
+            <button key={tab.id} onClick={() => setLobbyTab(tab.id)} style={{
+              flex:1, padding:'0.6rem', background: lobbyTab === tab.id ? '#3b82f6' : '#1e293b', 
+              color: lobbyTab === tab.id ? '#fff' : '#94a3b8', border:'none', borderRadius:'10px', cursor:'pointer', fontWeight: lobbyTab === tab.id ? '600' : '400'
+            }}>{tab.label}</button>
+          ))}
+        </div>
+
+        {/* Контент вкладок */}
+        <div style={{ width: '100%', maxWidth: '500px' }}>
+          
+          {/* ➕ Создать игру */}
+          {lobbyTab === 'create' && (
+            <div style={{ background: '#1e293b', padding: '1.2rem', borderRadius: '16px', border: '2px solid #475569', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#fbbf24', marginBottom: '1rem', textAlign: 'center' }}>Создать новую игру</h3>
+              
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#94a3b8' }}>💰 Ставка (GROK)</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
+                  {DEPOSIT_OPTIONS.map(amt => (
+                    <button key={amt} onClick={() => setCreateStake(amt)} style={{
+                      padding: '0.6rem 0.2rem', background: createStake === amt ? '#3b82f6' : '#0f172a',
+                      color: '#fff', border: '1px solid #334155', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem'
+                    }}>{formatNumber(amt)}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#94a3b8' }}>⏱️ Время на партию</label>
+                <select value={timeControl} onChange={e => setTimeControl(Number(e.target.value))} style={{ width: '100%', padding: '0.6rem', background: '#0f172a', color: '#fff', border: '1px solid #334155', borderRadius: '8px' }}>
+                  {timeOptions.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: '1rem', padding: '0.8rem', background: '#0f172a', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '0.3rem' }}>
+                  <span>Ваш баланс:</span>
+                  <span style={{ color: userData.balance >= createStake ? '#10b981' : '#ef4444' }}>{formatNumber(userData.balance)} GROK</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                  <span>Стоимость создания:</span>
+                  <span>-{formatNumber(createStake)} GROK</span>
+                </div>
+              </div>
+
+              <button onClick={handleCreateGame} disabled={userData.balance < createStake} style={{
+                width: '100%', padding: '0.9rem', background: userData.balance >= createStake ? '#10b981' : '#334155',
+                color: '#fff', border: 'none', borderRadius: '12px', cursor: userData.balance >= createStake ? 'pointer' : 'not-allowed',
+                fontWeight: 'bold', fontSize: '1.1rem'
+              }}>🎲 Создать игру</button>
+              
+              {userData.balance < createStake && (
+                <button onClick={handleDepositFunds} style={{ width: '100%', marginTop: '0.8rem', padding: '0.7rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>💰 Пополнить баланс (Test)</button>
               )}
             </div>
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '0.6rem' }}>
-            {isEditingProfile ? (
-              <>
-                <button onClick={saveProfile} style={{ padding: '0.4rem 1rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem' }}>💾 Сохранить</button>
-                <button onClick={() => { setIsEditingProfile(false); setProfileForm(playerProfile); setAvatarPreview(playerProfile.avatar) }} style={{ padding: '0.4rem 0.8rem', background: '#64748b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>✖️</button>
-              </>
-            ) : (
-              <button onClick={() => { setIsEditingProfile(true); setProfileForm(playerProfile) }} style={{ padding: '0.35rem 0.9rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>✏️ Редактировать</button>
-            )}
-          </div>
-          {!isEditingProfile && (playerProfile.socialLink || playerProfile.bio) && (
-            <div style={{ borderTop: '1px solid #334155', paddingTop: '0.6rem' }}>
-              {playerProfile.socialLink && <a href={formatSocialLink(playerProfile.socialLink)} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#60a5fa', fontSize: '0.8rem', textDecoration: 'none', marginBottom: '0.2rem' }}>{socialIcon} {playerProfile.socialLink.replace(/^https?:\/\//, '').slice(0, 30)}{playerProfile.socialLink.length > 30 ? '...' : ''}</a>}
-              {playerProfile.bio && <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0.2rem 0 0 0', lineHeight: '1.3' }}>{playerProfile.bio}</p>}
+          )}
+
+          {/* 🌐 Лобби (Чужие игры) */}
+          {lobbyTab === 'available' && (
+            <div style={{ background: '#1e293b', padding: '1rem', borderRadius: '16px', border: '2px solid #475569' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#fbbf24', marginBottom: '1rem', textAlign: 'center' }}>Доступные игры</h3>
+              {globalGames.filter(g => g.status === 'waiting' && g.creator !== address).length === 0 ? (
+                <p style={{ color: '#94a3b8', textAlign: 'center' }}>Нет активных игр. Создайте свою или ждите!</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                  {globalGames.filter(g => g.status === 'waiting' && g.creator !== address).map(game => (
+                    <div key={game.id} style={{ background: '#0f172a', padding: '0.8rem', borderRadius: '12px', border: '1px solid #334155' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                        <span style={{ fontWeight: 'bold' }}>👤 {game.creatorName}</span>
+                        <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>💰 {formatNumber(game.stake)} GROK</span>
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '0.8rem' }}>⏱️ {getTimeLabel(game.timeControl)}</div>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button onClick={() => handleJoinGame(game)} style={{ flex: 1, padding: '0.6rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>🤝 Присоединиться</button>
+                        <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?invite=${game.id}`); setMessage('📋 Ссылка скопирована!') }} style={{ padding: '0.6rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>🔗</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
-          {isEditingProfile && (
-            <div style={{ borderTop: '1px solid #334155', paddingTop: '0.6rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              <input value={profileForm.socialLink} onChange={e => setProfileForm({...profileForm, socialLink: e.target.value})} placeholder="https://t.me/ник" style={{ width: '100%', padding: '0.5rem', background: '#0f172a', color: '#fff', border: '1px solid #475569', borderRadius: '6px', fontSize: '0.85rem' }} />
-              <textarea value={profileForm.bio} onChange={e => setProfileForm({...profileForm, bio: e.target.value.slice(0,150)})} placeholder="О себе..." style={{ width: '100%', padding: '0.5rem', background: '#0f172a', color: '#fff', border: '1px solid #475569', borderRadius: '6px', fontSize: '0.85rem', minHeight: '40px', resize: 'vertical' }} maxLength={150} />
+
+          {/* 📋 Мои игры */}
+          {lobbyTab === 'my' && (
+            <div style={{ background: '#1e293b', padding: '1rem', borderRadius: '16px', border: '2px solid #475569' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#fbbf24', marginBottom: '1rem', textAlign: 'center' }}>Мои созданные игры</h3>
+              {globalGames.filter(g => g.creator === address).length === 0 ? (
+                <p style={{ color: '#94a3b8', textAlign: 'center' }}>Вы ещё не создали игр.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                  {globalGames.filter(g => g.creator === address).map(game => (
+                    <div key={game.id} style={{ background: '#0f172a', padding: '0.8rem', borderRadius: '12px', border: '1px solid #334155' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                        <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>ID: {game.id.slice(-6)}</span>
+                        <span style={{ 
+                          fontSize: '0.8rem', padding: '0.2rem 0.6rem', borderRadius: '6px',
+                          background: game.status === 'waiting' ? '#fbbf24' : game.status === 'playing' ? '#3b82f6' : '#ef4444',
+                          color: game.status === 'waiting' ? '#000' : '#fff'
+                        }}>{game.status === 'waiting' ? '⏳ Ожидание' : game.status === 'playing' ? '🔥 Играет' : '🏁 Завершена'}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '0.8rem' }}>
+                        <span>💰 {formatNumber(game.stake)} GROK</span>
+                        <span>⏱️ {getTimeLabel(game.timeControl)}</span>
+                      </div>
+                      {game.status === 'waiting' && (
+                        <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?invite=${game.id}`); setMessage('📋 Ссылка скопирована!') }} style={{ width: '100%', padding: '0.6rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>📤 Скопировать ссылку-приглашение</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 🏆 История игр */}
+          {lobbyTab === 'history' && (
+            <div style={{ background: '#1e293b', padding: '1rem', borderRadius: '16px', border: '2px solid #475569' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#fbbf24', marginBottom: '1rem', textAlign: 'center' }}>Хронология игр</h3>
+              {userData.gameHistory.length === 0 ? (
+                <p style={{ color: '#94a3b8', textAlign: 'center' }}>История пуста. Сыграйте первую партию!</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {userData.gameHistory.map((h, idx) => (
+                    <div key={idx} style={{ background: '#0f172a', padding: '0.8rem', borderRadius: '8px', border: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 'bold', color: h.result === 'WIN' ? '#10b981' : h.result === 'LOSS' ? '#ef4444' : '#94a3b8' }}>
+                          {h.result === 'WIN' ? '🏆 Победа' : h.result === 'LOSS' ? '😔 Поражение' : '🤝 Ничья'}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{h.date}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '0.9rem' }}>Ставка: {h.stake}</div>
+                        <div style={{ color: h.change.startsWith('+') ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{h.change} GROK</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
-
-        {/* 💰 Баланс */}
-        <div style={{ background: 'linear-gradient(135deg, #1e293b, #334155)', padding: '0.9rem', borderRadius: '16px', width: '100%', maxWidth: '480px', marginBottom: '1rem', textAlign: 'center', border: '2px solid #475569' }}>
-          <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.2rem' }}>🎮 Баланс игры</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#fbbf24' }}>{formatNumber(gameBalance)} <span style={{fontSize:'0.9rem'}}>GROK</span></div>
-        </div>
-
-        {/* 📜 ПРАВИЛА ИГРЫ (обязательно опубликованы) */}
-        <div style={{ background: '#1e293b', padding: '1rem', borderRadius: '16px', width: '100%', maxWidth: '480px', marginBottom: '1rem', border: '1px solid #475569' }}>
-          <h4 style={{ fontSize: '1rem', fontWeight: 'bold', color: '#fbbf24', margin: '0 0 0.6rem 0', textAlign: 'center' }}>📋 Правила крипто-ставок</h4>
-          <ul style={{ fontSize: '0.85rem', color: '#cbd5e1', margin: 0, paddingLeft: '1.2rem', lineHeight: '1.5' }}>
-            <li>Создайте игру, внеся ставку: 1000–500 000 GROK</li>
-            <li>Игра отображается онлайн для всех игроков</li>
-            <li>Присоединиться может любой, внеся <strong>равную сумму</strong></li>
-            <li>🏆 <strong>Победитель</strong> получает <strong>весь пул</strong> (ставка × 2)</li>
-            <li>🤝 При <strong>ничьей</strong> средства направляются на <strong>развитие приложения</strong></li>
-            <li>Все транзакции защищены смарт-контрактом</li>
-          </ul>
-        </div>
-
-        {/* 🔗 Вкладки лобби */}
-        <div style={{ display: 'flex', gap: '0.4rem', width: '100%', maxWidth: '480px', marginBottom: '0.8rem' }}>
-          <button onClick={() => setLobbyTab('available')} style={{ flex: 1, padding: '0.6rem', background: lobbyTab === 'available' ? '#3b82f6' : '#1e293b', color: lobbyTab === 'available' ? '#fff' : '#e2e8f0', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: lobbyTab === 'available' ? '600' : '400' }}>🌐 Доступные игры</button>
-          <button onClick={() => setLobbyTab('my')} style={{ flex: 1, padding: '0.6rem', background: lobbyTab === 'my' ? '#3b82f6' : '#1e293b', color: lobbyTab === 'my' ? '#fff' : '#e2e8f0', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: lobbyTab === 'my' ? '600' : '400' }}>📋 Мои игры</button>
-        </div>
-
-        {/* 🌐 Доступные игры (созданные другими) */}
-        {lobbyTab === 'available' && (
-          <div style={{ background: '#1e293b', padding: '1rem', borderRadius: '16px', width: '100%', maxWidth: '480px', marginBottom: '1rem', border: '2px solid #475569' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#fbbf24', marginBottom: '0.8rem', textAlign: 'center' }}>🌐 Игры других игроков</h3>
-            {gamesList.available?.length === 0 ? (
-              <p style={{ color: '#94a3b8', fontSize: '0.9rem', textAlign: 'center' }}>Пока нет доступных игр. Создайте свою или подождите!</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem', maxHeight: '250px', overflowY: 'auto' }}>
-                {gamesList.available.map(game => (
-                  <div key={game.id} style={{ background: '#0f172a', padding: '0.8rem', borderRadius: '12px', border: '1px solid #334155' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                      <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#e2e8f0' }}>{game.creatorName || 'Аноним'}</span>
-                      <span style={{ fontSize: '0.85rem', color: '#fbbf24', fontWeight: '600' }}>💰 {formatNumber(game.stake)} GROK</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#94a3b8', marginBottom: '0.5rem' }}>
-                      <span>⏱️ {getTimeLabel(game.timeControl)}</span>
-                      <span>🕐 {new Date(game.createdAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>
-                    </div>
-                    <button onClick={() => handleJoinGame(game)} style={{ width: '100%', padding: '0.5rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem' }}>🤝 Присоединиться</button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* 📋 Мои созданные игры */}
-        {lobbyTab === 'my' && (
-          <div style={{ background: '#1e293b', padding: '1rem', borderRadius: '16px', width: '100%', maxWidth: '480px', marginBottom: '1rem', border: '2px solid #475569' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#fbbf24', marginBottom: '0.8rem', textAlign: 'center' }}>📋 Мои игры</h3>
-            {gamesList.my?.length === 0 ? (
-              <p style={{ color: '#94a3b8', fontSize: '0.9rem', textAlign: 'center' }}>Вы ещё не создали игр. Нажмите "➕ Создать" ниже!</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem', maxHeight: '250px', overflowY: 'auto' }}>
-                {gamesList.my.map(game => (
-                  <div key={game.id} style={{ background: '#0f172a', padding: '0.8rem', borderRadius: '12px', border: '1px solid #334155' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                      <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>🎮 {game.id.slice(-10)}</span>
-                      <span style={{ fontSize: '0.8rem', color: game.status === 'waiting' ? '#fbbf24' : '#34d399' }}>{game.status === 'waiting' ? '⏳ Ожидание' : '🎮 В игре'}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#94a3b8', marginBottom: '0.5rem' }}>
-                      <span>💰 {formatNumber(game.stake)} GROK</span>
-                      <span>⏱️ {getTimeLabel(game.timeControl)}</span>
-                    </div>
-                    {game.status === 'waiting' && (
-                      <button onClick={() => { const link = `${window.location.origin}${window.location.pathname}?invite=${game.id}&stake=${game.stake}&time=${game.timeControl}`; navigator.clipboard.writeText(link); setMessage('📋 Ссылка скопирована!') }} style={{ width: '100%', padding: '0.5rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem' }}>📤 Скопировать ссылку</button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ➕ Создать игру */}
-        <div style={{ background: '#1e293b', padding: '1rem', borderRadius: '16px', width: '100%', maxWidth: '480px', marginBottom: '1rem', border: '2px solid #475569' }}>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#fbbf24', marginBottom: '0.8rem', textAlign: 'center' }}>➕ Создать новую игру</h3>
-          <div style={{ marginBottom: '0.8rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.9rem', color: '#94a3b8' }}>Ставка (GROK)</label>
-            <select value={createStake} onChange={e => setCreateStake(Number(e.target.value))} style={{ width: '100%', padding: '0.5rem', background: '#0f172a', color: '#fff', border: '1px solid #475569', borderRadius: '8px', fontSize: '0.95rem' }}>
-              {DEPOSIT_OPTIONS.map(amt => <option key={amt} value={amt}>{formatNumber(amt)} GROK</option>)}
-            </select>
-          </div>
-          <div style={{ marginBottom: '0.8rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.9rem', color: '#94a3b8' }}>Время на партию</label>
-            <select value={timeControl} onChange={e => setTimeControl(Number(e.target.value))} style={{ width: '100%', padding: '0.5rem', background: '#0f172a', color: '#fff', border: '1px solid #475569', borderRadius: '8px', fontSize: '0.95rem' }}>
-              {timeOptions.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-            </select>
-          </div>
-          <button onClick={handleCreateGame} disabled={!isConnected} style={{ width: '100%', padding: '0.8rem', background: isConnected ? '#3b82f6' : '#475569', color: '#fff', border: 'none', borderRadius: '12px', cursor: isConnected ? 'pointer' : 'not-allowed', fontWeight: '600', fontSize: '1rem' }}>🎲 Создать игру</button>
-          {!isConnected && <p style={{ fontSize: '0.8rem', color: '#94a3b8', textAlign: 'center', marginTop: '0.4rem' }}>Подключите кошелёк для создания игры</p>}
-        </div>
-
-        {/* 🔗 Обработка приглашения */}
-        {inviteData && !showDepositConfirm && (
-          <div style={{ background: '#1e293b', padding: '1rem', borderRadius: '16px', width: '100%', maxWidth: '480px', marginBottom: '1rem', border: '2px solid #475569', textAlign: 'center' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#fbbf24', marginBottom: '0.6rem' }}>🔗 Приглашение в игру</h3>
-            <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '0.6rem' }}>Код: <strong>{inviteData.gameId.slice(0,12)}...</strong></p>
-            <div style={{ background: '#0f172a', padding: '0.8rem', borderRadius: '12px', marginBottom: '0.8rem', textAlign: 'left' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid #334155', fontSize: '0.95rem' }}><span>⏱️ Время:</span><strong>{getTimeLabel(inviteData.timeControl)}</strong></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', fontSize: '0.95rem' }}><span>💰 Ставка:</span><strong>{formatNumber(inviteData.stake)} GROK</strong></div>
-            </div>
-            <button onClick={() => setShowDepositConfirm(true)} disabled={pendingDeposit !== null} style={{ width: '100%', padding: '0.7rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem' }}>{pendingDeposit ? '⏳...' : `💰 Внести ${formatNumber(inviteData.stake)} GROK`}</button>
-          </div>
-        )}
-
-        {/* Модальное окно подтверждения депозита */}
-        {showDepositConfirm && (selectedGameToJoin || inviteData) && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => setShowDepositConfirm(false)}>
-            <div style={{ background: '#1e293b', padding: '1.5rem', borderRadius: '20px', maxWidth: '360px', width: '100%', border: '2px solid #475569', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-              <h3 style={{ fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '1rem', color: '#fbbf24' }}>💰 Подтверждение депозита</h3>
-              <p style={{ color: '#e2e8f0', fontSize: '0.95rem', marginBottom: '0.7rem', lineHeight: '1.5' }}>Вы вносите <strong>{formatNumber((selectedGameToJoin || inviteData).stake)} GROK</strong> в игру</p>
-              <p style={{ color: '#e2e8f0', fontSize: '0.95rem', marginBottom: '0.7rem' }}>Время партии: <strong>{getTimeLabel((selectedGameToJoin || inviteData).timeControl)}</strong></p>
-              <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '1rem' }}>Средства заблокируются в смарт-контракте до конца игры</p>
-              <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'center' }}>
-                <button onClick={() => setShowDepositConfirm(false)} style={{ padding: '0.7rem 1.5rem', background: '#64748b', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>Отмена</button>
-                <button onClick={handleConfirmDeposit} style={{ padding: '0.7rem 1.5rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>✅ Подтвердить</button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Кнопки действий */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem', width: '100%', maxWidth: '480px' }}>
-          <button onClick={() => startGame()} style={{ padding: '0.9rem', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}>🤖 Играть с ботом</button>
-          <button onClick={() => { setView('menu'); setMessage('') }} style={{ padding: '0.9rem', background: '#334155', color: '#fff', border: '1px solid #475569', borderRadius: '12px', cursor: 'pointer', fontSize: '1rem' }}>↩️ В меню</button>
+        <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.8rem', width: '100%', maxWidth: '500px' }}>
+          <button onClick={() => startGame()} style={{ padding: '1rem', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '1.1rem', fontWeight: '600' }}>🤖 Быстрая игра с ботом</button>
         </div>
 
-        {/* Язык */}
-        <select value={i18n.language} onChange={e => i18n.changeLanguage(e.target.value)} style={{ marginTop: '1.2rem', padding: '0.4rem 0.8rem', background: '#334155', color: '#fff', border: '1px solid #475569', borderRadius: '8px', cursor: 'pointer' }}><option value="ru">🇷🇺 RU</option><option value="en">🇬🇧 EN</option></select>
+        {/* Модальное окно подтверждения депозита */}
+        {pendingJoinGame && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => setPendingJoinGame(null)}>
+            <div style={{ background: '#1e293b', padding: '1.5rem', borderRadius: '20px', maxWidth: '360px', width: '100%', border: '2px solid #475569', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+              <h3 style={{ fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '1rem', color: '#fbbf24' }}>💰 Подтверждение входа</h3>
+              <p style={{ color: '#e2e8f0', marginBottom: '0.5rem' }}>Игра: <strong>{pendingJoinGame.creatorName}</strong></p>
+              <p style={{ color: '#e2e8f0', marginBottom: '1rem' }}>Сумма: <strong>{formatNumber(pendingJoinGame.stake)} GROK</strong></p>
+              <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'center' }}>
+                <button onClick={() => setPendingJoinGame(null)} style={{ padding: '0.7rem 1.2rem', background: '#64748b', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>Отмена</button>
+                <button onClick={confirmJoinAndStart} style={{ padding: '0.7rem 1.2rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>✅ Внести и играть</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <select value={i18n.language} onChange={e => i18n.changeLanguage(e.target.value)} style={{ marginTop: '1.5rem', padding: '0.5rem', background: '#334155', color: '#fff', border: '1px solid #475569', borderRadius: '8px', cursor: 'pointer' }}><option value="ru">🇷🇺 RU</option><option value="en">🇬🇧 EN</option></select>
       </div>
     )
   }
@@ -593,30 +629,56 @@ function App() {
       <header style={{ width: '100%', maxWidth: '420px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem 1rem', background: '#1e293b', borderRadius: '12px', marginBottom: '1rem' }}>
         <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fbbf24' }}>♟️ Chess4Crypto</div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          {isConnected && address && <span style={{ fontSize: '0.8rem', background: '#334155', padding: '0.3rem 0.6rem', borderRadius: '8px' }}>🔗 {address.slice(0,4)}...{address.slice(-4)}</span>}
+          {isConnected && address && <span style={{ fontSize: '0.8rem', background: '#334155', padding: '0.3rem 0.6rem', borderRadius: '8px' }}>🔗 {address.slice(0,4)}...</span>}
           <button onClick={() => setView('profile')} style={{ padding: '0.4rem 0.8rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>👤</button>
           <button onClick={handleLogout} style={{ padding: '0.4rem 0.8rem', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>🚪</button>
         </div>
       </header>
+
       <div style={{ display: 'flex', justifyContent: 'space-around', width: '100%', maxWidth: '400px', marginBottom: '0.8rem' }}>
-        <div style={{ background: timerActive === 'player' && !gameOver ? '#059669' : '#1e293b', padding: '0.6rem 1.2rem', borderRadius: '10px', textAlign: 'center', border: timerActive === 'player' && !gameOver ? '2px solid #34d399' : '2px solid transparent' }}><div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>👤 Вы</div><div style={{ fontSize: '1.4rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{fmtTime(playerTime)}</div></div>
-        <div style={{ background: timerActive === 'bot' && !gameOver ? '#059669' : '#1e293b', padding: '0.6rem 1.2rem', borderRadius: '10px', textAlign: 'center', border: timerActive === 'bot' && !gameOver ? '2px solid #34d399' : '2px solid transparent' }}><div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>🤖 Бот</div><div style={{ fontSize: '1.4rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{fmtTime(botTime)}</div></div>
+        <div style={{ background: timerActive === 'player' && !gameOver ? '#059669' : '#1e293b', padding: '0.6rem 1.2rem', borderRadius: '10px', textAlign: 'center', border: timerActive === 'player' && !gameOver ? '2px solid #34d399' : '2px solid transparent' }}>
+          <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>👤 Вы</div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{fmtTime(playerTime)}</div>
+        </div>
+        <div style={{ background: timerActive === 'bot' && !gameOver ? '#059669' : '#1e293b', padding: '0.6rem 1.2rem', borderRadius: '10px', textAlign: 'center', border: timerActive === 'bot' && !gameOver ? '2px solid #34d399' : '2px solid transparent' }}>
+          <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>🤖 Бот</div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{fmtTime(botTime)}</div>
+        </div>
       </div>
+
       {message && <div style={{ color: '#38bdf8', marginBottom: '0.6rem', fontSize: '1rem', textAlign: 'center', minHeight: '1.3rem' }}>{message}</div>}
+
       <div style={{ width: boardWidth + 20, height: boardWidth + 20, background: '#1e293b', padding: '10px', borderRadius: '12px', boxShadow: theme.boardShadow, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem', transition: 'box-shadow 0.3s ease' }}>
         <div style={{ width: '100%', height: '100%', filter: theme.pieceFilter, transition: 'filter 0.3s ease' }}>
           <Chessboard position={fen} onPieceDrop={onDrop} onSquareClick={onSquareClick} customSquareStyles={customSquareStyles} boardOrientation="white" boardWidth={boardWidth} customDarkSquareStyle={{ backgroundColor: theme.dark }} customLightSquareStyle={{ backgroundColor: theme.light }} customBoardStyle={{ borderRadius: '8px' }} />
         </div>
       </div>
+
       <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
         <button onClick={() => { setSelectedSquare(null); setPossibleMoves([]); }} style={{ padding: '0.4rem 0.7rem', background: '#475569', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>✖️</button>
-        <button onClick={handleBack} disabled={moveIndex === 0 || gameOver} style={{ padding: '0.4rem 0.7rem', background: moveIndex === 0 || gameOver ? '#334155' : '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: moveIndex === 0 || gameOver ? 'not-allowed' : 'pointer', fontSize: '0.85rem' }}>⏪</button>
-        <button onClick={handleForward} disabled={moveIndex === history.length - 1 || gameOver} style={{ padding: '0.4rem 0.7rem', background: moveIndex === history.length - 1 || gameOver ? '#334155' : '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: moveIndex === history.length - 1 || gameOver ? 'not-allowed' : 'pointer', fontSize: '0.85rem' }}>⏩</button>
-        {Object.entries(BOARD_THEMES).map(([key, t]) => (<button key={key} onClick={() => setBoardTheme(key)} title={t.name} style={{ padding: '0.4rem 0.6rem', background: boardTheme === key ? '#10b981' : '#334155', color: '#fff', border: boardTheme === key ? '2px solid #fbbf24' : '1px solid #475569', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}><span style={{ display: 'inline-block', width: '14px', height: '14px', borderRadius: '3px', background: `linear-gradient(135deg, ${t.light} 50%, ${t.dark} 50%)`, border: '1px solid #475569' }} />{key === 'classic' && '🏛️'}{key === 'wood3d' && '🪵'}{key === 'neon' && '💜'}{key === 'ocean' && '🌊'}{key === 'sunset' && '🌅'}{key === 'minimal' && '⚪'}</button>))}
-        <select value={timeControl} onChange={e => { const v = Number(e.target.value); setTimeControl(v); if (view === 'game') { setPlayerTime(v*60); setBotTime(v*60) } }} style={{ padding: '0.4rem 0.6rem', background: '#334155', color: '#fff', border: '1px solid #475569', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>{timeOptions.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}</select>
+        {Object.entries(BOARD_THEMES).map(([key, t]) => (
+          <button key={key} onClick={() => setBoardTheme(key)} style={{ padding: '0.4rem 0.6rem', background: boardTheme === key ? '#10b981' : '#334155', color: '#fff', border: boardTheme === key ? '2px solid #fbbf24' : '1px solid #475569', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem' }}>{t.name}</button>
+        ))}
+        <select value={timeControl} onChange={e => { const v = Number(e.target.value); setTimeControl(v); if (view === 'game') { setPlayerTime(v*60); setBotTime(v*60) } }} style={{ padding: '0.4rem 0.6rem', background: '#334155', color: '#fff', border: '1px solid #475569', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
+          {timeOptions.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+        </select>
       </div>
-      {movesList.length > 0 && (<div style={{ background: '#1e293b', padding: '0.6rem 1rem', borderRadius: '10px', width: '100%', maxWidth: '400px', marginBottom: '1rem' }}><div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#94a3b8', marginBottom: '0.4rem' }}><span>📜 Ходы:</span><span style={{ background: '#334155', padding: '0.1rem 0.5rem', borderRadius: '6px' }}>{movesList.length}</span></div><div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', maxHeight: '60px', overflowY: 'auto' }}>{movesList.map((m, i) => <span key={i} style={{ background: i === moveIndex - 1 ? '#3b82f6' : '#334155', padding: '0.2rem 0.5rem', borderRadius: '5px', fontSize: '0.8rem' }}>{Math.floor(i/2)+1}.{i%2===0?'':'..'} {m.san}</span>)}</div></div>)}
-      {gameOver && winner && (<div style={{ background: 'linear-gradient(135deg, #1e293b, #7c3aed)', padding: '1rem', borderRadius: '16px', width: '100%', maxWidth: '400px', textAlign: 'center', marginBottom: '1rem', border: '2px solid #a78bfa' }}><div style={{ fontSize: '2.5rem', marginBottom: '0.3rem' }}>{winner === 'player' ? '🏆' : winner === 'bot' ? '🤖' : '🤝'}</div><div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#fbbf24', marginBottom: '0.5rem' }}>{winner === 'player' ? '🎉 Вы победили!' : winner === 'bot' ? '😔 Бот победил' : '🤝 Ничья!'}</div><button onClick={() => { setView('profile'); setGameOver(false); setTimerActive(null); gameRef.current.reset(); setFen(gameRef.current.fen()); setHistory([gameRef.current.fen()]); setMoveIndex(0); setMovesList([]); setMessage('') }} style={{ padding: '0.6rem 1.5rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>👤 В профиль</button></div>)}
+
+      {movesList.length > 0 && (
+        <div style={{ background: '#1e293b', padding: '0.6rem 1rem', borderRadius: '10px', width: '100%', maxWidth: '400px', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#94a3b8', marginBottom: '0.4rem' }}><span>📜 Ходы:</span><span style={{ background: '#334155', padding: '0.1rem 0.5rem', borderRadius: '6px' }}>{movesList.length}</span></div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', maxHeight: '60px', overflowY: 'auto' }}>{movesList.map((m, i) => <span key={i} style={{ background: i === moveIndex - 1 ? '#3b82f6' : '#334155', padding: '0.2rem 0.5rem', borderRadius: '5px', fontSize: '0.8rem' }}>{Math.floor(i/2)+1}.{i%2===0?'':'..'} {m.san}</span>)}</div>
+        </div>
+      )}
+
+      {gameOver && winner && (
+        <div style={{ background: 'linear-gradient(135deg, #1e293b, #7c3aed)', padding: '1.2rem', borderRadius: '16px', width: '100%', maxWidth: '400px', textAlign: 'center', marginBottom: '1rem', border: '2px solid #a78bfa' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.3rem' }}>{winner === 'player' ? '🏆' : winner === 'bot' ? '🤖' : '🤝'}</div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#fbbf24', marginBottom: '0.5rem' }}>{winner === 'player' ? '🎉 ВЫ ПОБЕДИЛИ!' : winner === 'bot' ? '😔 Бот победил' : '🤝 Ничья!'}</div>
+          <button onClick={() => { setView('profile'); setGameOver(false); setTimerActive(null); gameRef.current.reset(); setFen(gameRef.current.fen()); setHistory([gameRef.current.fen()]); setMoveIndex(0); setMovesList([]); setMessage('') }} style={{ padding: '0.7rem 1.5rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '1.1rem' }}>👤 В профиль</button>
+        </div>
+      )}
+      
       <select value={i18n.language} onChange={e => i18n.changeLanguage(e.target.value)} style={{ padding: '0.4rem 0.8rem', background: '#334155', color: '#fff', border: '1px solid #475569', borderRadius: '8px', cursor: 'pointer' }}><option value="ru">🇷🇺 RU</option><option value="en">🇬🇧 EN</option></select>
     </div>
   )
