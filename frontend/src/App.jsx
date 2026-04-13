@@ -36,8 +36,8 @@ function App() {
   const { disconnect } = useDisconnect()
   
   const gameRef = useRef(new Chess())
-  const [view, setView] = useState('menu') // menu | profile | game
-  const [lobbyTab, setLobbyTab] = useState('lobby') // lobby | my | create | history
+  const [view, setView] = useState('menu')
+  const [lobbyTab, setLobbyTab] = useState('lobby')
   
   // 🎮 Состояние игры
   const [fen, setFen] = useState(gameRef.current.fen())
@@ -84,17 +84,13 @@ function App() {
 
   // 🗄️ Загрузка данных и Проверка Приглашения
   useEffect(() => {
-    // 1. Загрузка профиля
     const storedUser = JSON.parse(localStorage.getItem('chess4crypto_user') || 'null')
     if (storedUser?.address === address) {
       setUserData(storedUser.data)
     }
-
-    // 2. Загрузка игр
     const storedGames = JSON.parse(localStorage.getItem('chess4crypto_games') || '[]')
     setGames(storedGames.filter(g => g.status !== 'finished'))
 
-    // 3. Проверка ссылки-приглашения (?invite=...&stake=...&time=...)
     const p = new URLSearchParams(window.location.search)
     const invId = p.get('invite')
     if (invId) {
@@ -148,7 +144,7 @@ function App() {
   // 💰 Тестовое пополнение
   const handleTopUp = () => saveUser({ ...userData, balance: userData.balance + 100000 })
 
-  // 🔗 Подключение кошелька (✅ БЕЗ надписи "Отменено" при отказе)
+  // 🔗 Подключение кошелька
   const handleConnect = async () => {
     if (isConnecting) return
     setIsConnecting(true)
@@ -157,16 +153,15 @@ function App() {
       const c = connectors.find(x => x.id === (isMobile() ? 'walletConnect' : 'metaMask')) || connectors[0]
       if (!c) throw new Error('Кошелек не найден')
       await connect({ connector: c, chainId: c.chains?.[0]?.id })
-      // Ждем
       for(let i=0; i<8; i++) { await new Promise(r=>setTimeout(r,300)); if(isConnected) break }
       if(isConnected) { 
         setMessage('✅ Подключено!')
-        setView('profile') // ✅ Пункт 2: Открывается профиль
+        setView('profile')
       }
-      else setMessage('') // Тихий отказ
+      else setMessage('')
     } catch(e) {
       if (!e.message.includes('rejected') && !e.message.includes('pending')) setMessage('⚠️ Ошибка')
-      else setMessage('') // Тихий отказ
+      else setMessage('')
     }
     finally { setTimeout(()=>setIsConnecting(false), 400) }
   }
@@ -177,10 +172,7 @@ function App() {
   // 🎲 Создание игры
   const handleCreateGame = () => {
     if (userData.balance < createStake) return setMessage('⚠️ Недостаточно GROK!')
-    
-    // Списываем ставку
     saveUser({ ...userData, balance: userData.balance - createStake })
-    
     const newGame = {
       id: `game_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
       creator: address || 'guest',
@@ -190,29 +182,20 @@ function App() {
       status: 'waiting',
       created: Date.now()
     }
-    
     saveGames([...games, newGame])
     const link = `${window.location.origin}${window.location.pathname}?invite=${newGame.id}&stake=${newGame.stake}&time=${newGame.timeControl}`
-    
-    // Показываем ссылку в модальном окне
     setShowLinkModal({ link, gameId: newGame.id })
     navigator.clipboard.writeText(link)
     setMessage(`🎉 Игра создана! Ссылка скопирована.`)
   }
 
-  // 🤝 Подтверждение входа в игру (Пункт 3)
+  // 🤝 Подтверждение входа в игру
   const confirmJoinGame = () => {
     if (!pendingJoinGame) return
     if (userData.balance < pendingJoinGame.stake) return setMessage('⚠️ Недостаточно GROK!')
-
-    // 1. Списываем баланс
     saveUser({ ...userData, balance: userData.balance - pendingJoinGame.stake })
-    
-    // 2. Обновляем статус игры
     const updated = games.map(g => g.id === pendingJoinGame.id ? { ...g, status: 'playing', challenger: address } : g)
     saveGames(updated)
-
-    // 3. Запускаем игру
     setTimeControl(pendingJoinGame.time)
     setPlayerTime(pendingJoinGame.time * 60)
     setBotTime(pendingJoinGame.time * 60)
@@ -237,10 +220,9 @@ function App() {
     setTimerActive(null)
     let msg = '', change = 0
     const currentStake = pendingJoinGame?.stake || 0
-    
     if (result === 'player') {
       msg = '🏆 CHECKMATE! ВЫ ПОБЕДИЛИ!'
-      change = currentStake * 2 // Победитель забирает всё
+      change = currentStake * 2
       setWinner('player')
       saveUser({ ...userData, balance: userData.balance + change, history: [{ date: new Date().toLocaleString(), result: 'WIN', change: `+${change}` }, ...userData.history] })
     } else if (result === 'bot') {
@@ -255,6 +237,7 @@ function App() {
     setMessage(msg)
   }
 
+  // ✅ ИСПРАВЛЕНО: Кнопки Вперед/Назад с правильным синтаксисом
   const handleBack = () => { if (moveIndex > 0 && !gameOver) { const i = moveIndex - 1; setMoveIndex(i); setFen(history[i]); gameRef.current.load(history[i]); setIsPlayerTurn(i % 2 === 0); setTimerActive(null); setMessage('⏪ Ход ' + (i+1)) } }
   const handleForward = () => { if (moveIndex < history.length - 1 && !gameOver) { const i = moveIndex + 1; setMoveIndex(i); setFen(history[i]); gameRef.current.load(history[i]); setIsPlayerTurn(i % 2 === 0); if (i === history.length - 1) { setTimerActive(isPlayerTurn ? 'player' : 'bot'); setMessage(isPlayerTurn ? '♟️ Ваш ход!' : '🤖 Бот думает...') } else setMessage('⏩ Ход ' + (i+1)) } }
 
@@ -331,7 +314,7 @@ function App() {
   )
 
   // ============================================================================
-  // 👤 ПРОФИЛЬ (Все требования)
+  // 👤 ПРОФИЛЬ
   // ============================================================================
   if(view === 'profile') {
     const disp = userData.profile.nickname || (address ? `${address.slice(0,6)}...` : 'Гость')
@@ -360,14 +343,12 @@ function App() {
 
         {message && <div style={{width:'100%',maxWidth:'500px',padding:'0.7rem',marginBottom:'0.8rem',background:'rgba(59,130,246,0.2)',borderRadius:'8px',color:'#60a5fa',textAlign:'center',fontSize:'0.9rem'}}>{message}</div>}
 
-        {/* Ссылка на соцсеть */}
         {userData.profile.social && (
           <div style={{width:'100%',maxWidth:'500px',background:'#1e293b',padding:'0.5rem',borderRadius:'8px',marginBottom:'0.5rem',textAlign:'center'}}>
              <a href={userData.profile.social.startsWith('http')?userData.profile.social:`https://${userData.profile.social}`} target="_blank" rel="noopener" style={{color:'#60a5fa',textDecoration:'none',fontSize:'0.9rem'}}>{socialIcon} {userData.profile.social}</a>
           </div>
         )}
 
-        {/* Правила игры (Публикация в профиле) */}
         <div style={{width:'100%',maxWidth:'500px',background:'#1e293b',padding:'0.8rem',borderRadius:'8px',marginBottom:'1rem',border:'1px solid #475569'}}>
           <h4 style={{margin:'0 0 0.5rem 0',color:'#fbbf24',fontSize:'0.9rem'}}>📜 Правила ставок:</h4>
           <ul style={{margin:0,paddingLeft:'1.2rem',fontSize:'0.8rem',color:'#cbd5e1',lineHeight:'1.4'}}>
@@ -379,7 +360,8 @@ function App() {
         </div>
         
         <div style={{width:'100%',maxWidth:'500px',display:'flex',gap:'0.5rem',marginBottom:'1rem'}}>
-           <button onClick={()=>setView('profile');setLobbyTab('editProfile')} style={{flex:1,padding:'0.6rem',background:'#3b82f6',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:'bold'}}>✏️ Редактировать профиль</button>
+           {/* ✅ ИСПРАВЛЕНО: фигурные скобки {} вместо точки с запятой */}
+           <button onClick={()=>{setView('profile'); setLobbyTab('editProfile')}} style={{flex:1,padding:'0.6rem',background:'#3b82f6',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:'bold'}}>✏️ Редактировать профиль</button>
         </div>
 
         {lobbyTab === 'editProfile' && (
@@ -400,7 +382,7 @@ function App() {
           </div>
         )}
 
-        {/* Пункт 3: Обработка Приглашения (Время + Сумма + Кнопка) */}
+        {/* Пункт 3: Обработка Приглашения */}
         {pendingJoinGame && (
           <div style={{width:'100%',maxWidth:'500px',background:'#1e293b',padding:'1rem',borderRadius:'12px',marginBottom:'1rem',border:'2px solid #fbbf24'}}>
             <h3 style={{color:'#fbbf24',margin:'0 0 0.8rem 0',textAlign:'center'}}>🔗 Приглашение в игру</h3>
@@ -473,7 +455,7 @@ function App() {
           </div>
         )}
 
-        {/* Модальное окно подтверждения депозита (Пункт 3: Подтверждение внесения) */}
+        {/* Модальное окно подтверждения депозита */}
         {pendingJoinGame === 'confirm' && (
           <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:'1rem'}}>
             <div style={{background:'#1e293b',padding:'1.5rem',borderRadius:'16px',maxWidth:'360px',width:'100%',textAlign:'center',border:'2px solid #10b981'}}>
@@ -509,7 +491,7 @@ function App() {
   }
 
   // ============================================================================
-  // 🎮 ИГРА (С кнопками Вперед/Назад)
+  // 🎮 ИГРА
   // ============================================================================
   return (
     <div style={{minHeight:'100vh',background:'#0f172a',color:'#f1f5f9',fontFamily:'system-ui',display:'flex',flexDirection:'column',alignItems:'center',padding:'0.8rem',boxSizing:'border-box'}}>
