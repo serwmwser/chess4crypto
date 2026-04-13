@@ -672,6 +672,143 @@ const styles = {
   actionCard: { display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.2rem', background: 'linear-gradient(135deg, #1e293b, #334155)', border: '2px solid #475569', borderRadius: '16px', cursor: 'pointer', transition: 'all 0.2s', textAlign: 'left' },
   actionIcon: { fontSize: '2rem' },
   actionText: { display: 'flex', flexDirection: 'column', gap: '0.2rem' },
+  // ✅ ИСПРАВЛЕНО: убраны недопустимые ключи с пробелами
+  // Стили для <strong> и <span> применяются напрямую в JSX
+  quickActions: { display: 'flex', gap: '0.8rem', flexWrap: 'wrap', justifyContent: 'center' },
+  btnGrok: { padding: '0.7rem 1.5rem', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#000', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: '600' },
+  btnInstall: { padding: '0.7rem 1.5rem', background: '#334155', color: '#fff', border: '1px solid #475569', borderRadius: '12px', cursor: 'pointer' },
+  balanceBadge: { background: 'linear-gradient(135deg, #059669, #10b981)', color: '#fff', padding: '0.5rem 1.2rem', borderRadius: '20px', fontWeight: '600' },
+  
+  // 👤 Профиль
+  profileMain: { padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', maxWidth: '500px', margin: '0 auto' },
+  modernProfileCard: { background: 'linear-gradient(135deg, #1e293b, #334155)', padding: '1.5rem', borderRadius: '20px', width: '100%', border: '2px solid #475569' },
+  profileHeader: { display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' },
+  avatarWrapper: { position: 'relative' },
+  avatarImg: { width: '70px', height: '70px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #fbbf24' },
+  avatarPlaceholder: { width: '70px', height: '70px', borderRadius: '50%', background: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', border: '3px solid #64748b' },
+  avatarEdit: { position: 'absolute', bottom: '0', right: '0', background: '#3b82f6', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', cursor: 'pointer' },
+  profileHeaderText: { flex: 1 },
+  displayName: { fontSize: '1.3rem', fontWeight: 'bold', color: '#fbbf24', margin: 0 },
+  countryText: { color: '#94a3b8', fontSize: '0.9rem', margin: '0.2rem 0 0 0' },
+  nicknameInput: { width: '100%', padding: '0.5rem', background: '#0f172a', color: '#fff', border: '1px solid #475569', borderRadius: '8px', fontSize: '1rem' },
+  countrySelect: { width: '100%', padding: '0.4rem', background: '#0f172a', color: '#fff', border: '1px solid #475569', borderRadius: '8px', fontSize: '0.9rem' },
+  profileActions: { display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '0.8rem' },
+  btnSave: { padding: '0.5rem 1.2rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' },
+  btnCancel: { padding: '0.5rem 1rem', background: '#64748b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' },
+  btnEdit: { padding: '0.4rem 1rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' },
+  profileExtras: { borderTop: '1px solid #334155', paddingTop: '0.8rem' },
+  socialLink: { display: 'inline-flex', alignItems: 'center', gap: '0.3rem', color: '#60a5fa', fontSize: '0.85rem', textDecoration: 'none', marginBottom: '0.3rem' },
+  bio: { fontSize: '0.85rem', color: '#94a3b8', margin: '0.3rem 0 0 0', lineHeight: '1.4' },
+  editExtras: { borderTop: '1px solid #334155', paddingTop: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' },
+  input: { width: '100%', padding: '0.6rem', background: '#0f172a', color: '#fff', border: '1px solid #475569', borderRadius: '8px', fontSize: '0.9rem' },
+  
+  // 💰 Баланс
+  modernBalanceCard: { background: 'linear-gradient(135deg, #1e293b, #334155)', padding: '1rem', borderRadius: '16px', width: '100%', textAlign: 'center', border: '2px solid #475569' },
+  balanceLabel: { fontSize: '0.85rem', color: '#94a3b8', marginBottom: '0.3rem' },
+  balanceValue: { fontSize: '1.6rem', fontWeight: 'bold', color: '#fbbf24' },
+  depositQuick: { display: 'flex', gap: '0.4rem', justifyContent: 'center', marginTop: '0.6rem' },
+  btnDepositSmall: { padding: '0.35rem 0.7rem', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem' },
+  
+  // 🌐 Лобби
+  lobbyTabs: { display: 'flex', gap: '0.4rem', width: '100%', maxWidth: '400px' },
+  lobbyTab: ({ active }) => ({ flex: 1, padding: '0.6rem', background: active ? '#3b82f6' : '#1e293b', color: active ? '#fff' : '#e2e8f0', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: active ? '600' : '400', transition: 'all 0.2s' }),
+  modernLobbyCard: { background: '#1e293b', padding: '1.2rem', borderRadius: '16px', width: '100%', maxWidth: '400px', border: '2px solid #475569' },
+  lobbyTitle: { fontSize: '1.1rem', fontWeight: 'bold', color: '#fbbf24', marginBottom: '0.8rem', textAlign: 'center' },
+  gamesList: { display: 'flex', flexDirection: 'column', gap: '0.7rem', maxHeight: '280px', overflowY: 'auto' },
+  modernGameCard: { background: '#0f172a', padding: '0.9rem', borderRadius: '12px', border: '1px solid #334155' },
+  gameHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' },
+  creatorName: { fontSize: '0.95rem', fontWeight: '600', color: '#e2e8f0' },
+  gameStake: { fontSize: '0.9rem', color: '#fbbf24', fontWeight: '600' },
+  gameId: { fontSize: '0.85rem', color: '#94a3b8' },
+  gameStatus: { fontSize: '0.85rem', color: '#34d399' },
+  gameDetails: { display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#94a3b8', marginBottom: '0.7rem' },
+  btnJoin: { width: '100%', padding: '0.6rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem' },
+  btnShare: { width: '100%', padding: '0.6rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem' },
+  emptyText: { color: '#94a3b8', fontSize: '0.95rem', textAlign: 'center' },
+  
+  // 🔗 Приглашение
+  inviteDetails: { background: '#0f172a', padding: '0.9rem', borderRadius: '12px', marginBottom: '1rem' },
+  detailRow: { display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #334155', fontSize: '1rem' },
+  
+  // ➕ Создание
+  createSection: { background: '#1e293b', padding: '1.2rem', borderRadius: '16px', width: '100%', maxWidth: '400px', border: '2px solid #475569' },
+  createForm: { marginBottom: '1rem' },
+  formRow: { marginBottom: '0.7rem' },
+  formRowLabel: { display: 'block', marginBottom: '0.3rem', fontSize: '0.9rem', color: '#94a3b8' },
+  select: { width: '100%', padding: '0.5rem', background: '#0f172a', color: '#fff', border: '1px solid #475569', borderRadius: '8px', fontSize: '0.95rem' },
+  btnPrimary: { width: '100%', padding: '0.8rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: '600', fontSize: '1rem' },
+  btnSmall: { padding: '0.5rem 1rem', background: '#475569', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem' },
+  btnSmallCancel: { padding: '0.5rem 1rem', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem' },
+  
+  // 🎮 Игра
+  gameMain: { padding: '1rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' },
+  gameOverBanner: { background: 'linear-gradient(135deg, #1e293b, #7c3aed)', padding: '1.2rem', borderRadius: '20px', width: '100%', maxWidth: '400px', textAlign: 'center', border: '2px solid #a78bfa' },
+  gameOverIcon: { fontSize: '2.5rem', marginBottom: '0.4rem' },
+  gameOverText: { fontSize: '1.4rem', fontWeight: 'bold', marginBottom: '0.4rem', color: '#fbbf24' },
+  prizeText: { color: '#34d399', fontSize: '1.2rem', fontWeight: '600', marginBottom: '0.8rem' },
+  btnNewGame: { padding: '0.7rem 1.8rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: '600', fontSize: '1rem' },
+  
+  // 🎯 Раскладка игры
+  gameLayout: { display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '1.5rem', alignItems: 'start', maxWidth: '900px', width: '100%' },
+  sidePanel: { display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: '140px' },
+  timerCard: ({ active }) => ({ background: active ? '#059669' : '#1e293b', padding: '0.8rem 1.2rem', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', border: active ? '2px solid #34d399' : '2px solid transparent', transition: 'all 0.2s' }),
+  timerLabel: { fontSize: '0.85rem', color: '#94a3b8', marginBottom: '0.2rem' },
+  timerValue: { fontSize: '1.5rem', fontWeight: 'bold', fontFamily: 'monospace', color: '#e2e8f0' },
+  stakeBadge: { background: 'linear-gradient(135deg, #7c3aed, #a78bfa)', color: '#fff', padding: '0.5rem 1rem', borderRadius: '12px', fontSize: '0.95rem', fontWeight: '600', textAlign: 'center' },
+  statusMsg: { color: '#38bdf8', textAlign: 'center', fontSize: '0.95rem', minHeight: '1.3rem' },
+  
+  // ♟️ Доска
+  boardContainer: { display: 'flex', justifyContent: 'center' },
+  boardWrapper: { background: '#1e293b', padding: '0.5rem', borderRadius: '12px', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' },
+  
+  // 📜 История ходов
+  historyPanel: { background: '#1e293b', borderRadius: '12px', padding: '0.8rem', width: '140px', border: '1px solid #334155' },
+  historyHeader: { display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#94a3b8', marginBottom: '0.5rem', paddingBottom: '0.4rem', borderBottom: '1px solid #334155' },
+  historyCount: { background: '#334155', padding: '0.15rem 0.5rem', borderRadius: '10px', fontSize: '0.8rem' },
+  historyList: { display: 'flex', flexWrap: 'wrap', gap: '0.3rem', maxHeight: '150px', overflowY: 'auto' },
+  moveChip: ({ highlight }) => ({ background: highlight ? '#3b82f6' : '#334155', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '500' }),
+  emptyHist: { color: '#94a3b8', fontSize: '0.85rem' },
+  controls: { display: 'flex', gap: '0.4rem', justifyContent: 'center' },
+  btnCtrl: { padding: '0.5rem 0.8rem', background: '#475569', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem' },
+  
+  // 🎨 Выбор темы
+  themeSelector: { background: '#1e293b', padding: '1rem', borderRadius: '16px', width: '100%', maxWidth: '400px', border: '2px solid #475569' },
+  themeTitle: { fontSize: '1rem', fontWeight: '600', color: '#cbd5e1', marginBottom: '0.8rem', textAlign: 'center' },
+  themeGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' },
+  themeBtn: ({ active, theme }) => ({ 
+    padding: '0.6rem', borderRadius: '12px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', 
+    background: active ? 'rgba(59, 130, 246, 0.2)' : '#0f172a', border: active ? '2px solid #3b82f6' : '2px solid #334155',
+    transition: 'all 0.2s', position: 'relative'
+  }),
+  themePreview: { display: 'flex', gap: '2px' },
+  themeSquare: { width: '22px', height: '22px', borderRadius: '4px' },
+  themeName: { fontSize: '0.7rem', color: '#e2e8f0', textAlign: 'center' },
+  themeCheck: { position: 'absolute', top: '-6px', right: '-6px', background: '#10b981', color: '#fff', borderRadius: '50%', width: '18px', height: '18px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  
+  // 📦 Модальное окно
+  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' },
+  modal: { background: '#1e293b', padding: '1.5rem', borderRadius: '20px', maxWidth: '360px', width: '100%', border: '2px solid #475569', textAlign: 'center' },
+  modalTitle: { fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '1rem', color: '#fbbf24' },
+  modalStep: { color: '#e2e8f0', fontSize: '0.95rem', marginBottom: '0.7rem', lineHeight: '1.5' },
+  modalActions: { display: 'flex', gap: '0.8rem', justifyContent: 'center', marginTop: '1rem' },
+  modalConfirm: { padding: '0.7rem 1.5rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' },
+  modalCancel: { padding: '0.7rem 1.5rem', background: '#64748b', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' },
+  
+  // ℹ️ Доп. стили
+  modeInfo: { color: '#64748b', fontSize: '0.85rem', textAlign: 'center', marginTop: '0.5rem' },
+  infoText: { color: '#94a3b8', fontSize: '0.95rem', marginBottom: '0.8rem', textAlign: 'center' },
+  codeBox: { background: '#0f172a', padding: '0.9rem', borderRadius: '10px', wordBreak: 'break-all', fontSize: '0.85rem', marginBottom: '1rem', border: '1px dashed #475569' },
+  waitActions: { display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }
+}
+  // 🎮 Меню
+  menuMain: { padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', maxWidth: '600px', margin: '0 auto' },
+  heroSection: { textAlign: 'center', marginBottom: '1rem' },
+  heroTitle: { fontSize: '2rem', fontWeight: 'bold', color: '#fbbf24', marginBottom: '0.5rem' },
+  heroSubtitle: { color: '#94a3b8', fontSize: '1.1rem' },
+  actionCards: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', width: '100%' },
+  actionCard: { display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.2rem', background: 'linear-gradient(135deg, #1e293b, #334155)', border: '2px solid #475569', borderRadius: '16px', cursor: 'pointer', transition: 'all 0.2s', textAlign: 'left' },
+  actionIcon: { fontSize: '2rem' },
+  actionText: { display: 'flex', flexDirection: 'column', gap: '0.2rem' },
   actionText strong: { color: '#e2e8f0', fontSize: '1rem' },
   actionText span: { color: '#94a3b8', fontSize: '0.85rem' },
   quickActions: { display: 'flex', gap: '0.8rem', flexWrap: 'wrap', justifyContent: 'center' },
