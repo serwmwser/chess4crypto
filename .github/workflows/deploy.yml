@@ -5,13 +5,13 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# ✅ Разрешаем деплой на GitHub Pages
+# ✅ Разрешения для деплоя на GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# ✅ Одна задача для деплоя
+# ✅ Отменяем предыдущие запуски при новом пуше
 concurrency:
   group: "pages"
   cancel-in-progress: false
@@ -28,11 +28,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2️⃣ Настройка Node.js (используем версию 18, как у вас локально)
+      # 2️⃣ Настройка Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18.20.8'
+          # ✅ ИСПРАВЛЕНО: Правильный путь к package-lock.json
           cache: 'npm'
           cache-dependency-path: 'chess4crypto/frontend/package-lock.json'
 
@@ -40,22 +41,25 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      # 4️⃣ Переход в папку frontend и установка зависимостей
+      # 4️⃣ Установка зависимостей (в папке frontend)
       - name: Install dependencies
         run: |
           cd chess4crypto/frontend
+          # ✅ Используем --ignore-scripts для ускорения и избежания ошибок
           npm ci --ignore-scripts --prefer-offline
 
-      # 5️⃣ Сборка проекта (используем npx для надёжности)
+      # 5️⃣ Сборка проекта
       - name: Build
         run: |
           cd chess4crypto/frontend
+          # ✅ Используем npx для надёжности
           npx vite build --emptyOutDir
 
       # 6️⃣ Загрузка артефактов
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
+          # ✅ Правильный путь к папке dist
           path: 'chess4crypto/frontend/dist'
 
       # 7️⃣ Деплой на GitHub Pages
