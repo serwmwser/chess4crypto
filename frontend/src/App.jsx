@@ -24,12 +24,11 @@ const COUNTRIES = [
 ]
 
 const DEPOSIT_OPTIONS = [1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000]
-const isMobile = () => /Android|webOS|iPhone|iPad/i.test(navigator.userAgent)
+const isMobile = () => { try { return /Android|webOS|iPhone|iPad/i.test(navigator.userAgent) } catch { return false } }
 const fmtTime = (s) => { const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60; return h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : `${m}:${String(sec).padStart(2,'0')}` }
 const formatNumber = (n) => n.toLocaleString('ru-RU')
 const getTimeLabel = (m) => { const o = [{v:5,l:'5 мин'},{v:15,l:'15 мин'},{v:30,l:'30 мин'},{v:60,l:'1 ч'},{v:1440,l:'24 ч'}]; return o.find(x=>x.v===m)?.l || `${m} мин` }
 
-// 🔗 Ссылка для покупки GROK
 const GROK_BUY_LINK = 'https://four.meme/token/0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444?code=AHGX96R5GHK9'
 const GROK_CONTRACT = '0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444'
 
@@ -88,7 +87,27 @@ function App() {
     return () => window.removeEventListener('resize', u)
   }, [])
 
-  // 🗄️ Загрузка данных и Проверка Приглашения
+  // ✅ ИСПРАВЛЕНО: Открываем профиль после подключения кошелька
+  useEffect(() => {
+    // 1. Проверяем isConnected из wagmi
+    if (isConnected && address && view === 'menu') {
+      setView('profile')
+      setMessage('✅ Кошелёк подключён!')
+      return
+    }
+    
+    // 2. Проверяем sessionStorage (для синхронизации между компонентами)
+    try {
+      const connected = sessionStorage.getItem('chess4crypto_wallet_connected')
+      const storedAddress = sessionStorage.getItem('chess4crypto_wallet_address')
+      if (connected === 'true' && storedAddress && view === 'menu') {
+        setView('profile')
+        setMessage('✅ Кошелёк подключён!')
+      }
+    } catch (e) {}
+  }, [isConnected, address, view])
+
+  // 🗄️ Загрузка данных пользователя
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem('chess4crypto_user') || 'null')
     if (storedUser?.address === address) {
@@ -97,6 +116,7 @@ function App() {
     const storedGames = JSON.parse(localStorage.getItem('chess4crypto_games') || '[]')
     setGames(storedGames.filter(g => g.status !== 'finished'))
 
+    // Проверка приглашения
     const p = new URLSearchParams(window.location.search)
     const invId = p.get('invite')
     if (invId) {
@@ -149,8 +169,6 @@ function App() {
 
   // 💰 Открыть инструкцию покупки GROK
   const handleBuyGrok = () => setShowGrokModal(true)
-
-  // 📋 Копирование адреса контракта
   const copyContract = () => {
     navigator.clipboard.writeText(GROK_CONTRACT)
     setCopiedContract(true)
@@ -161,30 +179,62 @@ function App() {
   // 💰 Тестовое пополнение
   const handleTopUp = () => saveUser({ ...userData, balance: userData.balance + 100000 })
 
-  // 🔗 Подключение кошелька
+  // 🔗 Подключение кошелька (ИСПРАВЛЕНО)
   const handleConnect = async () => {
     if (isConnecting) return
     setIsConnecting(true)
     setMessage('🔄 Подключение...')
+    
     try {
       const c = connectors.find(x => x.id === (isMobile() ? 'walletConnect' : 'metaMask')) || connectors[0]
-      if (!c) throw new Error('Кошелек не найден')
+      if (!c) throw new Error('Кошелёк не найден')
+      
       await connect({ connector: c, chainId: c.chains?.[0]?.id })
-      for(let i=0; i<8; i++) { await new Promise(r=>setTimeout(r,300)); if(isConnected) break }
-      if(isConnected) { 
-        setMessage('✅ Подключено!')
-        setView('profile')
+      
+      // Ждём подтверждения подключения (до 10 попыток по 500мс)
+      for(let i = 0; i < 10; i++) {
+        await new Promise(r => setTimeout(r, 500))
+        if (isConnected) break
       }
-      else setMessage('')
+      
+      // ✅ Успешное подключение → открываем профиль
+      if (isConnected && address) {
+        setMessage('✅ Кошелёк подключён!')
+        setView('profile')  // ← КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ
+        // Сохраняем для синхронизации
+        try {
+          sessionStorage.setItem('chess4crypto_wallet_connected', 'true')
+          sessionStorage.setItem('chess4crypto_wallet_address', address)
+        } catch (e) {}
+      } else {
+        // Тихий отказ при отмене
+        setMessage('')
+      }
     } catch(e) {
-      if (!e.message.includes('rejected') && !e.message.includes('pending')) setMessage('⚠️ Ошибка')
-      else setMessage('')
+      // Игнорируем отмену пользователем
+      if (!e.message?.includes('rejected') && !e.message?.includes('pending')) {
+        setMessage('⚠️ Ошибка подключения')
+      } else {
+        setMessage('')
+      }
+    } finally {
+      setTimeout(() => setIsConnecting(false), 500)
     }
-    finally { setTimeout(()=>setIsConnecting(false), 400) }
   }
 
   const handleGuest = () => { setMessage('👤 Гостевой режим'); startGame() }
-  const handleLogout = () => { disconnect(); setView('menu'); setMessage(''); gameRef.current.reset(); setFen(gameRef.current.fen()); setTimerActive(null) }
+  const handleLogout = () => { 
+    disconnect()
+    setView('menu')
+    setMessage('')
+    gameRef.current.reset()
+    setFen(gameRef.current.fen())
+    setTimerActive(null)
+    try {
+      sessionStorage.removeItem('chess4crypto_wallet_connected')
+      sessionStorage.removeItem('chess4crypto_wallet_address')
+    } catch (e) {}
+  }
 
   // 🎲 Создание игры
   const handleCreateGame = () => {
