@@ -27,15 +27,17 @@ jobs:
       # 1️⃣ Checkout кода
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: true  # ✅ Если chess4crypto — подмодуль
 
-      # 2️⃣ Настройка Node.js
+      # 2️⃣ Настройка Node.js (БЕЗ кэша — чтобы избежать ошибки)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18.20.8'
-          # ✅ ИСПРАВЛЕНО: Правильный путь к package-lock.json
-          cache: 'npm'
-          cache-dependency-path: 'chess4crypto/frontend/package-lock.json'
+          # ❌ ВРЕМЕННО ОТКЛЮЧАЕМ КЭШ — чтобы избежать ошибки "paths not resolved"
+          # cache: 'npm'
+          # cache-dependency-path: 'chess4crypto/frontend/package-lock.json'
 
       # 3️⃣ Настройка GitHub Pages
       - name: Setup Pages
@@ -45,8 +47,8 @@ jobs:
       - name: Install dependencies
         run: |
           cd chess4crypto/frontend
-          # ✅ Используем --ignore-scripts для ускорения и избежания ошибок
-          npm ci --ignore-scripts --prefer-offline
+          # ✅ Используем --ignore-scripts для ускорения
+          npm ci --ignore-scripts --prefer-offline || npm install --ignore-scripts
 
       # 5️⃣ Сборка проекта
       - name: Build
