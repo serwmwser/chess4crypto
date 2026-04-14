@@ -1,60 +1,83 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import path from 'path'
-import { fileURLToPath } from 'url'
+import { resolve } from 'path'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-
+// https://vitejs.dev/config/
 export default defineConfig({
-  // 🔑 КРИТИЧНО: имя репозитория в базовом пути
-  base: '/chess4crypto/',
-  
   plugins: [react()],
   
-  resolve: {
-    alias: {
-      '@metamask/sdk': path.resolve(__dirname, './src/stubs/metamask-sdk.js'),
-      '@metamask/utils': path.resolve(__dirname, './src/stubs/metamask-sdk.js'),
-      'buffer': 'buffer/',
-      'process': 'process/browser'
-    }
-  },
+  // ✅ Базовый путь для деплоя на GitHub Pages
+  base: './',
   
-  optimizeDeps: {
-    exclude: ['@metamask/sdk', '@metamask/utils', '@coinbase/wallet-sdk'],
-    include: ['react', 'react-dom', 'wagmi', 'viem', '@tanstack/react-query', '@supabase/supabase-js', 'socket.io-client'],
-    esbuildOptions: { target: 'es2020', define: { global: 'globalThis' } }
-  },
-  
+  // ✅ Настройки сборки
   build: {
     outDir: 'dist',
-    sourcemap: false,
-    minify: 'esbuild',
+    sourcemap: false, // ✅ Отключаем для уменьшения размера
+    
+    // ✅ Целевая среда для мобильных
     target: 'es2020',
-    emptyOutDir: true,
+    
+    // ✅ Минификация
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true, // ✅ Удаляем console.log в продакшене
+        drop_debugger: true,
+      },
+    },
+    
+    // ✅ Оптимизация чанков
     rollupOptions: {
       output: {
         manualChunks: {
-          'vendor': ['react', 'react-dom'],
-          'web3': ['wagmi', 'viem', '@tanstack/react-query'],
-          'ui': ['react-chessboard', 'chess.js', 'i18next', 'react-i18next'],
-          'utils': ['@supabase/supabase-js', 'socket.io-client', 'zustand']
+          'vendor': ['react', 'react-dom', 'react-router-dom'],
+          'wagmi': ['wagmi', '@tanstack/react-query'],
+          'chess': ['chess.js', 'react-chessboard'],
         },
-        entryFileNames: 'assets/[name]-[hash].js',
-        chunkFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]'
-      }
-    }
+      },
+    },
   },
   
-  server: { port: 5173, host: true, open: true, strictPort: true },
-  
-  define: {
-    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
-    'global': 'globalThis',
-    'process.browser': true
+  // ✅ Настройки сервера для разработки
+  server: {
+    host: true,
+    port: 5173,
+    strictPort: true,
+    // ✅ Разрешаем доступ с мобильных в локальной сети
+    allowedHosts: true,
   },
   
-  ssr: { noExternal: ['@metamask/sdk', '@metamask/utils', '@coinbase/wallet-sdk'] }
+  // ✅ Оптимизация зависимостей
+  optimizeDeps: {
+    esbuildOptions: {
+      target: 'es2020',
+      // ✅ Полифиллы для старых браузеров
+      define: {
+        global: 'globalThis',
+      },
+    },
+    include: [
+      'react',
+      'react-dom',
+      'chess.js',
+      'react-chessboard',
+      'wagmi',
+      '@tanstack/react-query',
+    ],
+  },
+  
+  // ✅ Алиасы для импортов
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, './src'),
+    },
+  },
+  
+  // ✅ Обработка предупреждений
+  esbuild: {
+    drop: ['console', 'debugger'], // ✅ Удаляем в продакшене
+  },
+  
+  // ✅ Обработка предупреждений сборки
+  logLevel: 'warn',
 })

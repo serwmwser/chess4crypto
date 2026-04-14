@@ -1,87 +1,81 @@
-// ============================================================================
-// CHESS4CRYPTO - Entry Point (frontend/src/main.jsx)
-// ✅ ИСПРАВЛЕНО: meta: (с двоеточием), правильные импорты, полная поддержка WalletConnect
-// ✅ Готово для GitHub Pages + Mobile + Desktop
-// ============================================================================
-
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { WagmiProvider, createConfig, http } from 'wagmi'
-import { injected, walletConnect } from 'wagmi/connectors'
 import { bsc, bscTestnet } from 'wagmi/chains'
+import { walletConnect, metaMask, injected } from 'wagmi/connectors'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { I18nextProvider } from 'react-i18next'
+import i18n from './i18n'
+
 import App from './App'
-import './i18n' // Инициализация переводов до рендера
+import { ErrorBoundary } from './ErrorBoundary'
 
-// 🔍 Логирование окружения
-console.log('🚀 Chess4Crypto starting...')
-console.log('🔍 ENV status:', {
-  SUPABASE: import.meta.env.VITE_SUPABASE_URL ? '✓' : '✗',
-  WALLETCONNECT: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ? '✓' : '✗',
-  WS_URL: import.meta.env.VITE_WS_URL ? '✓' : '✗'
-})
-
-// 🔑 Project ID для WalletConnect (ОБЯЗАТЕЛЕН для мобильных кошельков)
-const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '00000000000000000000000000000000'
-if (projectId === '00000000000000000000000000000000') {
-  console.warn('⚠️ VITE_WALLETCONNECT_PROJECT_ID не задан. Мобильные кошельки могут не подключиться.')
-  console.warn('💡 Получите бесплатный ключ: https://cloud.walletconnect.com')
+// 📱 Безопасная проверка мобильного устройства
+const isMobile = () => {
+  try {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  } catch {
+    return false
+  }
 }
 
-// ✅ Создаём конфигурацию Wagmi
-export const config = createConfig({
+// 🔗 Project ID для WalletConnect (используйте свой или заглушку)
+const WALLETCONNECT_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'your-project-id'
+
+// 🔗 Конфигурация wagmi с фолбэками для мобильных
+const config = createConfig({
   chains: [bsc, bscTestnet],
   connectors: [
-    // 📱 WalletConnect — ОСНОВНОЙ ДЛЯ СМАРТФОНОВ (Trust Wallet, MetaMask Mobile, Rainbow)
-    walletConnect({
-      projectId,
-      showQrModal: true, // Показывает QR-код или открывает приложение кошелька
-      // ✅ КРИТИЧНО: meta: (с двоеточием!), а НЕ meta {
-      meta: {
-        name: 'Chess4Crypto',
-        description: 'Web3 Chess Platform with GROK Token Betting',
-        url: typeof window !== 'undefined' ? window.location.origin : 'https://serwmwser.github.io/chess4crypto',
-        icons: [typeof window !== 'undefined' ? `${window.location.origin}/favicon.ico` : '']
+    walletConnect({ 
+      projectId: WALLETCONNECT_PROJECT_ID,
+      showQrModal: true,
+      // ✅ Настройки для мобильных
+      qrModalOptions: {
+        themeMode: 'dark',
+        themeVariables: {
+          '--wcm-z-index': '9999'
+        }
       }
     }),
-    // 💻 Injected — ДЛЯ ДЕСКТОПА (MetaMask, Brave Wallet, Rabby)
-    injected({ target: 'metaMask' })
+    metaMask(),
+    // ✅ Фолбэк для мобильных браузеров
+    injected({ target: 'metaMask' }),
   ],
   transports: {
     [bsc.id]: http(),
     [bscTestnet.id]: http(),
   },
-  ssr: typeof window === 'undefined' // Отключаем SSR-ошибки при сборке
+  // ✅ Настройки для стабильности на мобильных
+  ssr: false,
 })
 
-// ✅ QueryClient для React Query (кэширование запросов)
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 },
-    mutations: { retry: false }
-  }
+    queries: {
+      retry: 1, // ✅ Меньше повторных попыток на мобильных
+      staleTime: 1000 * 60 * 5, // 5 минут
+    },
+  },
 })
 
-// ✅ Рендер приложения
-const rootElement = document.getElementById('root')
+// 🎯 Рендер приложения с обработкой ошибок
+const root = document.getElementById('root')
 
-if (!rootElement) {
-  console.error('❌ FATAL: <div id="root"> not found')
-  document.body.innerHTML = '<div style="padding:2rem;color:#fff;background:#000;font-family:sans-serif;text-align:center">⚠️ Ошибка: root элемент не найден</div>'
-} else {
-  try {
-    ReactDOM.createRoot(rootElement).render(
-      <React.StrictMode>
+if (root) {
+  ReactDOM.createRoot(root).render(
+    <React.StrictMode>
+      {/* ✅ Оборачиваем ВСЁ приложение в ErrorBoundary */}
+      <ErrorBoundary>
         <WagmiProvider config={config}>
           <QueryClientProvider client={queryClient}>
-            <App />
+            <I18nextProvider i18n={i18n}>
+              <App />
+            </I18nextProvider>
           </QueryClientProvider>
         </WagmiProvider>
-      </React.StrictMode>
-    )
-    console.log('✅ App rendered successfully')
-  } catch (err) {
-    console.error('❌ Render error:', err)
-    rootElement.innerHTML = `<div style="padding:2rem;color:#fff;background:#000;font-family:sans-serif">⚠️ Ошибка рендера: ${err.message}</div>`
-  }
+      </ErrorBoundary>
+    </React.StrictMode>
+  )
+} else {
+  console.error('🚨 Root element not found!')
 }
