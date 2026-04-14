@@ -1,8 +1,14 @@
-name: Deploy to GitHub Pages
+# ✅ ЭТОТ ФАЙЛ СОБИРАЕТ ТОЛЬКО: chess4crypto/frontend
+# Любые другие папки (contracts, backend и т.д.) ИГНОРИРУЮТСЯ
+
+name: Deploy Chess4Crypto Frontend
 
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'chess4crypto/frontend/**'  # ✅ Запускаем только при изменениях во frontend
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
@@ -15,103 +21,108 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
+  deploy-frontend:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     
     steps:
-      # 1️⃣ Checkout кода (ОБЯЗАТЕЛЬНО с подмодулями!)
-      - name: Checkout
+      # 1️⃣ Checkout с подмодулями
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # ✅ КРИТИЧНО: рекурсивно клонируем подмодули
           submodules: recursive
           fetch-depth: 0
 
-      # 2️⃣ 🔍 ОТЛАДКА: покажем структуру файлов
-      - name: Debug directory structure
+      # 2️⃣ 🔍 ЖЁСТКАЯ ПРОВЕРКА: существует ли нужная папка?
+      - name: Validate frontend directory exists
         run: |
-          echo "=== Current directory ==="
-          pwd
-          echo "=== Root files ==="
-          ls -la
-          echo "=== Checking for chess4crypto ==="
-          if [ -d "chess4crypto" ]; then
-            echo "✅ chess4crypto folder EXISTS"
-            ls -la chess4crypto/
-            if [ -d "chess4crypto/frontend" ]; then
-              echo "✅ chess4crypto/frontend folder EXISTS"
-              ls -la chess4crypto/frontend/
-            else
-              echo "❌ chess4crypto/frontend folder NOT FOUND"
-              echo "Contents of chess4crypto:"
-              ls -la chess4crypto/ 2>/dev/null || echo "chess4crypto is empty or not accessible"
-            fi
-          else
-            echo "❌ chess4crypto folder NOT FOUND"
-            echo "All directories:"
-            find . -maxdepth 2 -type d
+          echo "🔍 Checking for chess4crypto/frontend..."
+          
+          if [ ! -d "chess4crypto/frontend" ]; then
+            echo "❌ FATAL ERROR: chess4crypto/frontend directory NOT FOUND!"
+            echo ""
+            echo "Available directories in chess4crypto:"
+            ls -la chess4crypto/ 2>/dev/null || echo "chess4crypto folder is empty or missing"
+            echo ""
+            echo "Full repository structure:"
+            find . -maxdepth 3 -type d | head -30
+            exit 1
           fi
+          
+          if [ ! -f "chess4crypto/frontend/index.html" ]; then
+            echo "❌ FATAL ERROR: index.html NOT FOUND in chess4crypto/frontend!"
+            echo "Contents of chess4crypto/frontend:"
+            ls -la chess4crypto/frontend/
+            exit 1
+          fi
+          
+          if ! grep -q '"chess4crypto-frontend"' chess4crypto/frontend/package.json; then
+            echo "❌ FATAL ERROR: package.json does not contain 'chess4crypto-frontend'!"
+            echo "First 20 lines of package.json:"
+            head -20 chess4crypto/frontend/package.json
+            exit 1
+          fi
+          
+          echo "✅ All validations passed!"
+          echo "📁 Frontend path: chess4crypto/frontend"
+          echo "📄 index.html: $(ls -la chess4crypto/frontend/index.html)"
 
       # 3️⃣ Настройка Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18.20.8'
-          # ❌ Кэш отключён для надёжности
-          # cache: 'npm'
 
       # 4️⃣ Настройка GitHub Pages
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      # 5️⃣ 🔍 Поиск папки frontend (универсальный подход)
-      - name: Find frontend directory
-        id: find-frontend
-        run: |
-          # Ищем package.json с именем chess4crypto-frontend
-          FRONTEND_PATH=$(find . -name "package.json" -exec grep -l '"chess4crypto-frontend"' {} \; | head -1 | xargs dirname)
-          if [ -z "$FRONTEND_PATH" ]; then
-            # Если не нашли по имени — ищем по наличию vite.config.js
-            FRONTEND_PATH=$(find . -name "vite.config.js" | head -1 | xargs dirname)
-          fi
-          if [ -z "$FRONTEND_PATH" ]; then
-            # Фолбэк: стандартные пути
-            if [ -d "chess4crypto/frontend" ]; then
-              FRONTEND_PATH="chess4crypto/frontend"
-            elif [ -d "frontend" ]; then
-              FRONTEND_PATH="frontend"
-            else
-              echo "❌ Could not find frontend directory!"
-              exit 1
-            fi
-          fi
-          echo "✅ Found frontend at: $FRONTEND_PATH"
-          echo "frontend_path=$FRONTEND_PATH" >> $GITHUB_OUTPUT
-
-      # 6️⃣ Установка зависимостей
+      # 5️⃣ ✅ ЖЁСТКИЙ ПУТЬ: ТОЛЬКО chess4crypto/frontend
       - name: Install dependencies
         run: |
-          cd ${{ steps.find-frontend.outputs.frontend_path }}
-          echo "📦 Installing in: $(pwd)"
-          npm ci --ignore-scripts --prefer-offline || npm install --ignore-scripts
+          echo "📦 Installing dependencies in chess4crypto/frontend..."
+          cd chess4crypto/frontend
+          
+          echo "📍 Current directory: $(pwd)"
+          echo "📋 Files in directory:"
+          ls -la
+          
+          # Устанавливаем зависимости
+          if [ -f "package-lock.json" ]; then
+            echo "🔒 Using package-lock.json"
+            npm ci --ignore-scripts --prefer-offline
+          else
+            echo "📦 package-lock.json not found, using npm install"
+            npm install --ignore-scripts
+          fi
 
-      # 7️⃣ Сборка проекта
-      - name: Build
+      # 6️⃣ Сборка проекта
+      - name: Build frontend
         run: |
-          cd ${{ steps.find-frontend.outputs.frontend_path }}
-          echo "🔨 Building in: $(pwd)"
+          echo "🔨 Building frontend in chess4crypto/frontend..."
+          cd chess4crypto/frontend
+          
+          echo "📍 Current directory: $(pwd)"
+          echo "📄 Checking for index.html:"
+          ls -la index.html
+          
+          # Запускаем сборку
           npx vite build --emptyOutDir
+          
+          echo "✅ Build completed!"
+          echo "📁 Contents of dist/:"
+          ls -la dist/
 
-      # 8️⃣ Загрузка артефактов
+      # 7️⃣ Загрузка артефактов
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '${{ steps.find-frontend.outputs.frontend_path }}/dist'
+          # ✅ ЖЁСТКИЙ ПУТЬ к dist
+          path: 'chess4crypto/frontend/dist'
 
-      # 9️⃣ Деплой на GitHub Pages
+      # 8️⃣ Деплой
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
