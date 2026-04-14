@@ -5,13 +5,11 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# ✅ Разрешения для деплоя на GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# ✅ Отменяем предыдущие запуски при новом пуше
 concurrency:
   group: "pages"
   cancel-in-progress: false
@@ -24,47 +22,96 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      # 1️⃣ Checkout кода
+      # 1️⃣ Checkout кода (ОБЯЗАТЕЛЬНО с подмодулями!)
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: true  # ✅ Если chess4crypto — подмодуль
+          # ✅ КРИТИЧНО: рекурсивно клонируем подмодули
+          submodules: recursive
+          fetch-depth: 0
 
-      # 2️⃣ Настройка Node.js (БЕЗ кэша — чтобы избежать ошибки)
+      # 2️⃣ 🔍 ОТЛАДКА: покажем структуру файлов
+      - name: Debug directory structure
+        run: |
+          echo "=== Current directory ==="
+          pwd
+          echo "=== Root files ==="
+          ls -la
+          echo "=== Checking for chess4crypto ==="
+          if [ -d "chess4crypto" ]; then
+            echo "✅ chess4crypto folder EXISTS"
+            ls -la chess4crypto/
+            if [ -d "chess4crypto/frontend" ]; then
+              echo "✅ chess4crypto/frontend folder EXISTS"
+              ls -la chess4crypto/frontend/
+            else
+              echo "❌ chess4crypto/frontend folder NOT FOUND"
+              echo "Contents of chess4crypto:"
+              ls -la chess4crypto/ 2>/dev/null || echo "chess4crypto is empty or not accessible"
+            fi
+          else
+            echo "❌ chess4crypto folder NOT FOUND"
+            echo "All directories:"
+            find . -maxdepth 2 -type d
+          fi
+
+      # 3️⃣ Настройка Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18.20.8'
-          # ❌ ВРЕМЕННО ОТКЛЮЧАЕМ КЭШ — чтобы избежать ошибки "paths not resolved"
+          # ❌ Кэш отключён для надёжности
           # cache: 'npm'
-          # cache-dependency-path: 'chess4crypto/frontend/package-lock.json'
 
-      # 3️⃣ Настройка GitHub Pages
+      # 4️⃣ Настройка GitHub Pages
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      # 4️⃣ Установка зависимостей (в папке frontend)
+      # 5️⃣ 🔍 Поиск папки frontend (универсальный подход)
+      - name: Find frontend directory
+        id: find-frontend
+        run: |
+          # Ищем package.json с именем chess4crypto-frontend
+          FRONTEND_PATH=$(find . -name "package.json" -exec grep -l '"chess4crypto-frontend"' {} \; | head -1 | xargs dirname)
+          if [ -z "$FRONTEND_PATH" ]; then
+            # Если не нашли по имени — ищем по наличию vite.config.js
+            FRONTEND_PATH=$(find . -name "vite.config.js" | head -1 | xargs dirname)
+          fi
+          if [ -z "$FRONTEND_PATH" ]; then
+            # Фолбэк: стандартные пути
+            if [ -d "chess4crypto/frontend" ]; then
+              FRONTEND_PATH="chess4crypto/frontend"
+            elif [ -d "frontend" ]; then
+              FRONTEND_PATH="frontend"
+            else
+              echo "❌ Could not find frontend directory!"
+              exit 1
+            fi
+          fi
+          echo "✅ Found frontend at: $FRONTEND_PATH"
+          echo "frontend_path=$FRONTEND_PATH" >> $GITHUB_OUTPUT
+
+      # 6️⃣ Установка зависимостей
       - name: Install dependencies
         run: |
-          cd chess4crypto/frontend
-          # ✅ Используем --ignore-scripts для ускорения
+          cd ${{ steps.find-frontend.outputs.frontend_path }}
+          echo "📦 Installing in: $(pwd)"
           npm ci --ignore-scripts --prefer-offline || npm install --ignore-scripts
 
-      # 5️⃣ Сборка проекта
+      # 7️⃣ Сборка проекта
       - name: Build
         run: |
-          cd chess4crypto/frontend
-          # ✅ Используем npx для надёжности
+          cd ${{ steps.find-frontend.outputs.frontend_path }}
+          echo "🔨 Building in: $(pwd)"
           npx vite build --emptyOutDir
 
-      # 6️⃣ Загрузка артефактов
+      # 8️⃣ Загрузка артефактов
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # ✅ Правильный путь к папке dist
-          path: 'chess4crypto/frontend/dist'
+          path: '${{ steps.find-frontend.outputs.frontend_path }}/dist'
 
-      # 7️⃣ Деплой на GitHub Pages
+      # 9️⃣ Деплой на GitHub Pages
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
