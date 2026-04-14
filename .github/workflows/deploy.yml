@@ -1,60 +1,64 @@
-# ============================================================================
-# GITHUB ACTIONS: Deploy Chess4Crypto to GitHub Pages
-# ✅ Использует npm ci + package-lock.json для надёжной сборки
-# ============================================================================
-
 name: Deploy to GitHub Pages
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:  # Ручной запуск из вкладки Actions
+  workflow_dispatch:
 
+# ✅ Разрешаем деплой на GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
+# ✅ Одна задача для деплоя
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
-  deploy:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     
     steps:
-      # 1️⃣ Клонируем репозиторий
+      # 1️⃣ Checkout кода
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2️⃣ Устанавливаем Node.js 18
-      - name: Setup Node
+      # 2️⃣ Настройка Node.js (используем версию 18, как у вас локально)
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: '18.20.8'
+          cache: 'npm'
+          cache-dependency-path: 'chess4crypto/frontend/package-lock.json'
 
-      # 3️⃣ Устанавливаем зависимости и собираем проект
+      # 3️⃣ Настройка GitHub Pages
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      # 4️⃣ Переход в папку frontend и установка зависимостей
+      - name: Install dependencies
+        run: |
+          cd chess4crypto/frontend
+          npm ci --ignore-scripts --prefer-offline
+
+      # 5️⃣ Сборка проекта (используем npx для надёжности)
       - name: Build
         run: |
-          cd frontend
-          # ✅ npm ci требует package-lock.json (который мы только что запушили)
-          npm ci --legacy-peer-deps --ignore-scripts
-          npm run build
-        env:
-          # ✅ Секреты подставляются из GitHub Secrets
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_WALLETCONNECT_PROJECT_ID: ${{ secrets.VITE_WALLETCONNECT_PROJECT_ID }}
-          VITE_WS_URL: ${{ secrets.VITE_WS_URL }}
-          NODE_ENV: production
+          cd chess4crypto/frontend
+          npx vite build --emptyOutDir
 
-      # 4️⃣ Настраиваем GitHub Pages
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      # 5️⃣ Загружаем артефакт
-      - name: Upload
+      # 6️⃣ Загрузка артефактов
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: frontend/dist
+          path: 'chess4crypto/frontend/dist'
 
-      # 6️⃣ Деплоим
-      - name: Deploy
+      # 7️⃣ Деплой на GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4

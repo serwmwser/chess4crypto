@@ -3,12 +3,35 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "description": "Chess4Crypto — Web3 шахматы с крипто-ставками на токене GROK",
+  "author": "Chess4Crypto Team",
+  "license": "MIT",
+  "homepage": "https://serwmwser.github.io/chess4crypto",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/serwmwser/chess4crypto.git",
+    "directory": "chess4crypto/frontend"
+  },
+  "keywords": [
+    "chess",
+    "crypto",
+    "web3",
+    "blockchain",
+    "GROK",
+    "BNB",
+    "P2E",
+    "react",
+    "wagmi"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
+    "dev": "npx vite",
+    "build": "npx vite build --emptyOutDir",
+    "preview": "npx vite preview",
     "lint": "eslint src --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-    "deploy": "npm run build && gh-pages -d dist"
+    "lint:fix": "eslint src --ext js,jsx --fix",
+    "deploy": "npm run build && npx gh-pages -d dist",
+    "clean": "rm -rf dist node_modules/.vite",
+    "check": "npm run lint && npm run build"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.28.4",
@@ -46,21 +69,10 @@
     "not dead",
     "not op_mini all"
   ],
-  "description": "Chess4Crypto — Web3 шахматы с крипто-ставками на токене GROK",
-  "author": "Chess4Crypto Team",
-  "license": "MIT",
-  "homepage": "https://serwmwser.github.io/chess4crypto",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/serwmwser/chess4crypto.git"
-  },
-  "keywords": [
-    "chess",
-    "crypto",
-    "web3",
-    "blockchain",
-    "GROK",
-    "BNB",
-    "P2E"
-  ]
+  "overrides": {
+    "@walletconnect/*": {
+      "@walletconnect/sign-client": "2.11.1",
+      "@walletconnect/universal-provider": "2.11.1"
+    }
+  }
 }

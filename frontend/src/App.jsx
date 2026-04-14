@@ -77,7 +77,7 @@ function App() {
   const [createStake, setCreateStake] = useState(5000)
   const [pendingJoinGame, setPendingJoinGame] = useState(null)
   const [showLinkModal, setShowLinkModal] = useState(null)
-  const [showGrokModal, setShowGrokModal] = useState(false) // 💰 Модальное окно покупки GROK
+  const [showGrokModal, setShowGrokModal] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
   const [copiedContract, setCopiedContract] = useState(false)
 
@@ -148,9 +148,7 @@ function App() {
   }
 
   // 💰 Открыть инструкцию покупки GROK
-  const handleBuyGrok = () => {
-    setShowGrokModal(true)
-  }
+  const handleBuyGrok = () => setShowGrokModal(true)
 
   // 📋 Копирование адреса контракта
   const copyContract = () => {
@@ -325,7 +323,6 @@ function App() {
       <div style={{display:'flex',flexDirection:'column',gap:'1rem',width:'100%',maxWidth:'320px'}}>
         <button onClick={handleGuest} style={{padding:'1rem',background:'linear-gradient(135deg,#3b82f6,#2563eb)',color:'#fff',border:'none',borderRadius:'12px',cursor:'pointer',fontSize:'1.1rem',fontWeight:'600'}}>👤 Гостевой вход</button>
         <button onClick={handleConnect} disabled={isConnecting} style={{padding:'1rem',background:isConnecting?'#64748b':'linear-gradient(135deg,#f59e0b,#d97706)',color:isConnecting?'#94a3b8':'#000',border:'none',borderRadius:'12px',cursor:isConnecting?'not-allowed':'pointer',fontSize:'1.1rem',fontWeight:'600'}}>{isConnecting?'⏳...':(isMobile()?'🔗':'🦊')} Подключить кошелёк</button>
-        {/* 💰 Кнопка покупки GROK */}
         <button onClick={handleBuyGrok} style={{padding:'1rem',background:'linear-gradient(135deg,#f59e0b,#d97706)',color:'#000',border:'none',borderRadius:'12px',cursor:'pointer',fontSize:'1.1rem',fontWeight:'600',display:'flex',alignItems:'center',justifyContent:'center',gap:'0.5rem'}}>💰 Купить GROK</button>
       </div>
       {message && <div style={{marginTop:'1.5rem',padding:'0.8rem',background:message.includes('✅')?'rgba(16,185,129,0.2)':message.includes('⚠️')?'rgba(239,68,68,0.2)':'rgba(59,130,246,0.2)',borderRadius:'10px',color:message.includes('✅')?'#34d399':message.includes('⚠️')?'#f87171':'#60a5fa'}}>{message}</div>}
@@ -369,7 +366,6 @@ function App() {
           </div>
         )}
 
-        {/* 💰 Кнопка покупки GROK в профиле */}
         <button onClick={handleBuyGrok} style={{width:'100%',maxWidth:'500px',padding:'0.9rem',background:'linear-gradient(135deg,#f59e0b,#d97706)',color:'#000',border:'none',borderRadius:'12px',cursor:'pointer',fontSize:'1rem',fontWeight:'600',marginBottom:'1rem',display:'flex',alignItems:'center',justifyContent:'center',gap:'0.5rem'}}>
           💰 Приобрести GROK для игры
         </button>
@@ -406,7 +402,6 @@ function App() {
           </div>
         )}
 
-        {/* Пункт 3: Обработка Приглашения */}
         {pendingJoinGame && (
           <div style={{width:'100%',maxWidth:'500px',background:'#1e293b',padding:'1rem',borderRadius:'12px',marginBottom:'1rem',border:'2px solid #fbbf24'}}>
             <h3 style={{color:'#fbbf24',margin:'0 0 0.8rem 0',textAlign:'center'}}>🔗 Приглашение в игру</h3>
@@ -420,7 +415,6 @@ function App() {
           </div>
         )}
 
-        {/* Вкладки Лобби */}
         {!pendingJoinGame && (
           <div style={{display:'flex',gap:'0.4rem',width:'100%',maxWidth:'500px',marginBottom:'1rem'}}>
             {['lobby','my','create','history'].map(k=>(
@@ -431,7 +425,6 @@ function App() {
           </div>
         )}
 
-        {/* Контент Вкладок */}
         {!pendingJoinGame && (
           <div style={{width:'100%',maxWidth:'500px'}}>
             {lobbyTab==='lobby' && (
@@ -479,7 +472,6 @@ function App() {
           </div>
         )}
 
-        {/* Модальное окно подтверждения депозита */}
         {pendingJoinGame === 'confirm' && (
           <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:'1rem'}}>
             <div style={{background:'#1e293b',padding:'1.5rem',borderRadius:'16px',maxWidth:'360px',width:'100%',textAlign:'center',border:'2px solid #10b981'}}>
@@ -494,7 +486,6 @@ function App() {
           </div>
         )}
 
-         {/* Модальное окно Ссылки */}
         {showLinkModal && (
           <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,padding:'1rem'}} onClick={()=>setShowLinkModal(null)}>
             <div style={{background:'#1e293b',padding:'1.5rem',borderRadius:'16px',maxWidth:'400px',width:'100%',textAlign:'center',border:'2px solid #fbbf24'}} onClick={e=>e.stopPropagation()}>
@@ -506,7 +497,6 @@ function App() {
           </div>
         )}
 
-        {/* 💰 МОДАЛЬНОЕ ОКНО: ИНСТРУКЦИЯ ПОКУПКИ GROK */}
         {showGrokModal && (
           <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.9)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:3000,padding:'1rem'}} onClick={()=>setShowGrokModal(false)}>
             <div style={{background:'linear-gradient(135deg,#1e293b,#334155)',padding:'1.5rem',borderRadius:'20px',maxWidth:'450px',width:'100%',border:'2px solid #f59e0b'}} onClick={e=>e.stopPropagation()}>
@@ -514,11 +504,9 @@ function App() {
                 <h3 style={{color:'#fbbf24',margin:0,fontSize:'1.3rem'}}>💰 Как купить GROK</h3>
                 <button onClick={()=>setShowGrokModal(false)} style={{background:'none',border:'none',color:'#94a3b8',fontSize:'1.5rem',cursor:'pointer'}}>✕</button>
               </div>
-              
               <p style={{color:'#cbd5e1',marginBottom:'1rem',fontSize:'0.95rem',lineHeight:'1.5'}}>
                 Приобрести игровую крипто монету для игры на Chess4Crypto можно так:
               </p>
-              
               <div style={{background:'#0f172a',padding:'1rem',borderRadius:'12px',marginBottom:'1rem'}}>
                 <div style={{display:'flex',gap:'0.8rem',marginBottom:'1rem',alignItems:'flex-start'}}>
                   <span style={{background:'#f59e0b',color:'#000',width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:'bold',flexShrink:0}}>1</span>
@@ -530,12 +518,10 @@ function App() {
                 <a href={GROK_BUY_LINK} target="_blank" rel="noopener noreferrer" style={{display:'block',background:'#3b82f6',color:'#fff',padding:'0.6rem',borderRadius:'8px',textAlign:'center',textDecoration:'none',fontWeight:'500',marginBottom:'1rem',wordBreak:'break-all'}}>
                   🔗 Открыть four.meme → GROK
                 </a>
-                
                 <div style={{display:'flex',gap:'0.8rem',marginBottom:'1rem',alignItems:'flex-start'}}>
                   <span style={{background:'#f59e0b',color:'#000',width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:'bold',flexShrink:0}}>2</span>
                   <p style={{margin:0,color:'#e2e8f0'}}>Купи монету <strong>GROK</strong> на любую сумму</p>
                 </div>
-                
                 <div style={{display:'flex',gap:'0.8rem',alignItems:'flex-start'}}>
                   <span style={{background:'#f59e0b',color:'#000',width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:'bold',flexShrink:0}}>3</span>
                   <div>
@@ -550,7 +536,6 @@ function App() {
                   </div>
                 </div>
               </div>
-              
               <button onClick={()=>{window.open(GROK_BUY_LINK,'_blank'); setShowGrokModal(false)}} style={{width:'100%',padding:'0.8rem',background:'linear-gradient(135deg,#f59e0b,#d97706)',color:'#000',border:'none',borderRadius:'10px',cursor:'pointer',fontWeight:'bold',fontSize:'1rem'}}>
                 🚀 Перейти к покупке
               </button>

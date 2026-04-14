@@ -19,52 +19,46 @@ const isMobile = () => {
   }
 }
 
-// 🔗 Project ID для WalletConnect (используйте свой или заглушку)
+// 🔗 Project ID для WalletConnect
 const WALLETCONNECT_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'your-project-id'
 
-// 🔗 Конфигурация wagmi с фолбэками для мобильных
+// 🔗 Конфигурация wagmi
 const config = createConfig({
   chains: [bsc, bscTestnet],
   connectors: [
     walletConnect({ 
       projectId: WALLETCONNECT_PROJECT_ID,
       showQrModal: true,
-      // ✅ Настройки для мобильных
       qrModalOptions: {
         themeMode: 'dark',
-        themeVariables: {
-          '--wcm-z-index': '9999'
-        }
+        themeVariables: { '--wcm-z-index': '9999' }
       }
     }),
     metaMask(),
-    // ✅ Фолбэк для мобильных браузеров
     injected({ target: 'metaMask' }),
   ],
   transports: {
     [bsc.id]: http(),
     [bscTestnet.id]: http(),
   },
-  // ✅ Настройки для стабильности на мобильных
   ssr: false,
 })
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1, // ✅ Меньше повторных попыток на мобильных
-      staleTime: 1000 * 60 * 5, // 5 минут
+      retry: 1,
+      staleTime: 1000 * 60 * 5,
     },
   },
 })
 
-// 🎯 Рендер приложения с обработкой ошибок
+// 🎯 Рендер приложения
 const root = document.getElementById('root')
 
 if (root) {
   ReactDOM.createRoot(root).render(
     <React.StrictMode>
-      {/* ✅ Оборачиваем ВСЁ приложение в ErrorBoundary */}
       <ErrorBoundary>
         <WagmiProvider config={config}>
           <QueryClientProvider client={queryClient}>
