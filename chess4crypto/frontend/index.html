@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    
+    <!-- ✅ КРИТИЧНО: Правильный viewport для мобильных -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    
+    <!-- ✅ Тема для мобильных браузеров -->
+    <meta name="theme-color" content="#0f172a" />
+    
+    <!-- ✅ Apple Web App -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Chess4Crypto" />
+    
+    <!-- ✅ Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    
+    <!-- ✅ Manifest для PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <title>♟️ Chess4Crypto — Web3 Шахматы с крипто-ставками</title>
+    
+    <!-- ✅ Open Graph -->
+    <meta property="og:title" content="Chess4Crypto" />
+    <meta property="og:description" content="Играй в шахматы на крипто-ставки с токеном GROK" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/og-image.png" />
+    
+    <!-- ✅ Полифилл для старых браузеров -->
+    <script>
+      if (!window.Promise) {
+        document.write('<script src="https://cdn.jsdelivr.net/npm/promise-polyfill@8/dist/polyfill.min.js"><\/script>')
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- ✅ Глобальный обработчик ошибок для мобильных -->
+    <script>
+      window.addEventListener('error', function(e) {
+        console.error('🚨 Global error:', e.message, e.filename, e.lineno)
+        try {
+          localStorage.setItem('chess4crypto_error', JSON.stringify({
+            message: e.message,
+            source: e.filename,
+            line: e.lineno,
+            time: new Date().toISOString(),
+            ua: navigator.userAgent
+          }))
+        } catch(err) {}
+      }, true)
+      
+      window.addEventListener('unhandledrejection', function(e) {
+        console.error('🚨 Unhandled promise:', e.reason)
+      })
+    </script>
+  </body>
+</html>

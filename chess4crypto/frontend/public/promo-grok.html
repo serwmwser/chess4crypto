@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GROK Token — Готовьтесь к 2027</title>
+  <style>
+    :root { --bg: #0b0c10; --card: #151725; --accent: #00d4ff; --text: #e2e8f0; --muted: #94a3b8; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+    .container { max-width: 960px; margin: 0 auto; padding: 2rem; }
+    header { text-align: center; padding: 4rem 1rem 2rem; }
+    h1 { font-size: 2.8rem; background: linear-gradient(90deg, #00d4ff, #7b2cbf); -webkit-background-clip: text; color: transparent; margin-bottom: 0.5rem; }
+    .subtitle { color: var(--muted); font-size: 1.2rem; max-width: 600px; margin: 0 auto 2rem; }
+    .btn { display: inline-block; padding: 0.9rem 2rem; background: var(--accent); color: #000; font-weight: 700; border-radius: 8px; text-decoration: none; transition: 0.3s; }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,212,255,0.3); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin: 3rem 0; }
+    .card { background: var(--card); padding: 1.5rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
+    .card h3 { color: var(--accent); margin-bottom: 0.5rem; }
+    .wallet-box { background: #1a1d2d; padding: 1.5rem; border-radius: 12px; text-align: center; margin: 2rem 0; }
+    .contract { font-family: monospace; background: #0f111a; padding: 0.6rem; border-radius: 6px; word-break: break-all; margin: 1rem 0; display: block; color: #4ade80; }
+    .roadmap { margin: 3rem 0; }
+    .step { display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: flex-start; }
+    .step-num { background: var(--accent); color: #000; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; }
+    .disclaimer { background: #2a1c1c; border-left: 4px solid #ef4444; padding: 1rem; margin-top: 3rem; font-size: 0.9rem; color: #fca5a5; }
+    footer { text-align: center; padding: 2rem; color: var(--muted); font-size: 0.85rem; border-top: 1px solid #222; margin-top: 2rem; }
+    @media (max-width: 600px) { h1 { font-size: 2rem; } .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <h1>🌌 GROK Token</h1>
+    <p class="subtitle">Ранний доступ к экосистеме нового поколения. Цель: листинг на крупных биржах в 2027 году.</p>
+    <a href="#wallet" class="btn">➕ Добавить в кошелёк</a>
+  </div>
+</header>
+<section class="wallet-box">
+  <h2>📊 Токенов в обращении</h2>
+  <div id="token-counter" style="font-size:2rem; font-weight:bold; color:#4ade80; margin:1rem 0;">Загрузка...</div>
+  <p style="color: var(--muted); font-size: 0.9rem;">Обновляется автоматически • Сеть BSC</p>
+</section>
+
+<script>
+  const TOKEN = '0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444';
+  const RPC = 'https://bsc-dataseed.binance.org/';
+  const DECIMALS = 18; // Замените на реальное кол-во десятичных знаков токена
+
+  async function fetchSupply() {
+    try {
+      const res = await fetch(RPC, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_call',
+          params: [{ to: TOKEN, data: '0x18160ddd' }, 'latest'], // totalSupply()
+          id: 1
+        })
+      });
+      const data = await res.json();
+      if (data.result && data.result !== '0x') {
+        const supply = parseInt(data.result, 16) / Math.pow(10, DECIMALS);
+        document.getElementById('token-counter').textContent = supply.toLocaleString('ru-RU', { maximumFractionDigits: 0 }) + ' GROK';
+      }
+    } catch (e) {
+      document.getElementById('token-counter').textContent = 'Недоступно';
+    }
+  }
+
+  fetchSupply();
+  setInterval(fetchSupply, 120000); // Обновление каждые 2 минуты
+</script>
+
+<main class="container">
+  <section class="grid">
+    <div class="card">
+      <h3>🔗 Прозрачность</h3>
+      <p>Открытый исходный код контракта. Все транзакции записываются в публичный блокчейн BNB Smart Chain.</p>
+    </div>
+    <div class="card">
+      <h3>📈 Рост комьюнити</h3>
+      <p>Активное развитие DAO, интеграция с DeFi-протоколами и подготовка к масштабным партнерствам.</p>
+    </div>
+    <div class="card">
+      <h3>🛡️ Безопасность</h3>
+      <p>Защита от rug-pull механизмов, мультиподпись для казначейства и регулярные аудиты смарт-контрактов.</p>
+    </div>
+  </section>
+
+  <section class="roadmap">
+    <h2 style="margin-bottom: 1.5rem;">🗺️ Дорожная карта</h2>
+    <div class="step"><div class="step-num">1</div><div><strong>2024–2025</strong><br>Запуск токена, формирование ядра комьюнити, интеграция первых dApp.</div></div>
+    <div class="step"><div class="step-num">2</div><div><strong>2026</strong><br>Прохождение внешних аудитов, листинг на DEX, запуск стейкинг-программ.</div></div>
+    <div class="step"><div class="step-num">3</div><div><strong>2027 🎯</strong><br>Целевой листинг на крупных CEX-биржах. Масштабирование экосистемы и глобальный маркетинг.</div></div>
+  </section>
+
+  <section id="wallet" class="wallet-box">
+    <h2>💼 Как добавить GROK в кошелёк</h2>
+    <p style="color: var(--muted); margin-top: 0.5rem;">Откройте MetaMask / Trust Wallet / TokenPocket → Импорт токенов → Вставьте адрес контракта:</p>
+    <code class="contract">0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444</code>
+    <p style="font-size: 0.9rem; color: var(--muted);">Сеть: <strong>BNB Smart Chain (BEP-20)</strong> | Десятичные знаки: <strong>18</strong></p>
+  </section>
+
+  <div class="disclaimer">
+    ⚠️ <strong>Важное предупреждение:</strong> Инвестиции в криптовалюты сопряжены с высоким риском полной потери средств. Листинг на биржах в 2027 году является стратегической целью и не может быть гарантирован. Данный токен не верифицирован официальными регуляторами. Проводите собственное исследование (DYOR). Не инвестируйте средства, потерю которых вы не можете себе позволить.
+  </div>
+</main>
+
+<footer>
+  <p>© 2026 GROK Ecosystem. Не является финансовой рекомендацией.</p>
+</footer>
+
+</body>
+</html>

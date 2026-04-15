@@ -1,0 +1,78 @@
+{
+  "name": "chess4crypto-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Chess4Crypto — Web3 шахматы с крипто-ставками на токене GROK",
+  "author": "Chess4Crypto Team",
+  "license": "MIT",
+  "homepage": "https://serwmwser.github.io/chess4crypto",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/serwmwser/chess4crypto.git",
+    "directory": "chess4crypto/frontend"
+  },
+  "keywords": [
+    "chess",
+    "crypto",
+    "web3",
+    "blockchain",
+    "GROK",
+    "BNB",
+    "P2E",
+    "react",
+    "wagmi"
+  ],
+  "scripts": {
+    "dev": "npx vite",
+    "build": "npx vite build --emptyOutDir",
+    "preview": "npx vite preview",
+    "lint": "eslint src --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint src --ext js,jsx --fix",
+    "deploy": "npm run build && npx gh-pages -d dist",
+    "clean": "rm -rf dist node_modules/.vite",
+    "check": "npm run lint && npm run build"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.28.4",
+    "chess.js": "^1.0.0-beta.8",
+    "i18next": "^23.10.1",
+    "react": "^18.2.0",
+    "react-chessboard": "^4.4.0",
+    "react-dom": "^18.2.0",
+    "react-i18next": "^14.1.0",
+    "viem": "^2.8.12",
+    "wagmi": "^2.5.11"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@vitejs/plugin-react": "^4.2.1",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.34.1",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.6",
+    "gh-pages": "^6.1.1",
+    "terser": "^5.29.2",
+    "vite": "^5.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "browserslist": [
+    "defaults",
+    "iOS >= 12",
+    "Android >= 6",
+    "Chrome >= 80",
+    "Safari >= 13",
+    "not dead",
+    "not op_mini all"
+  ],
+  "overrides": {
+    "@walletconnect/*": {
+      "@walletconnect/sign-client": "2.11.1",
+      "@walletconnect/universal-provider": "2.11.1"
+    }
+  }
+}
