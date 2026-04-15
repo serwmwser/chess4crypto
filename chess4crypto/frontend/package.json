@@ -1,5 +1,5 @@
 {
-  "name": "Chess4Crypto",
+  "name": "chess4crypto-frontend",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -68,11 +68,5 @@
     "Safari >= 13",
     "not dead",
     "not op_mini all"
-  ],
-  "overrides": {
-    "@walletconnect/*": {
-      "@walletconnect/sign-client": "2.11.1",
-      "@walletconnect/universal-provider": "2.11.1"
-    }
-  }
+  ]
 }
