@@ -1,0 +1,35 @@
+# ============================================================================
+# BACKEND .gitignore — НЕ КОММИТИТЬ СЕКРЕТЫ!
+# ============================================================================
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.development
+*.env
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+backend/.env
+backend/.env.*

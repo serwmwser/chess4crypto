@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chess4Crypto | Играй. Делай ставки. Зарабатывай GROK.</title>
+  <meta name="description" content="Первая Web3-шахматная платформа с токеном GROK. Играй с AI, вызывай соперников онлайн, делай крипто-ставки. Листинг GROK на топ-биржах в 2027.">
+  <meta property="og:title" content="Chess4Crypto — Шахматы + Web3">
+  <meta property="og:description" content="Играй бесплатно или делай ставки в GROK. PvP онлайн, AI-бот, турниры, стейкинг.">
+  <meta property="og:image" content="https://chess4crypto.vercel.app/og.png">
+  <meta property="og:url" content="https://chess4crypto.vercel.app">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♟️</text></svg>">
+  
+  <style>
+    :root {
+      --bg: #0a0f1c; --bg-card: #111827; --bg-glass: rgba(17, 24, 39, 0.85);
+      --primary: #f59e0b; --secondary: #3b82f6; --success: #10b981; 
+      --text: #e5e7eb; --text-muted: #9ca3af; --border: rgba(255,255,255,0.08);
+      --shadow: 0 8px 32px rgba(0,0,0,0.4); --radius: 12px;
+      --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); line-height: 1.6; overflow-x: hidden; }
+    a { color: inherit; text-decoration: none; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; }
+    
+    /* Header */
+    header { position: fixed; top: 0; width: 100%; background: var(--bg-glass); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); z-index: 100; padding: 0.8rem 0; }
+    .nav { display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-size: 1.3rem; font-weight: 800; background: linear-gradient(90deg, var(--primary), var(--secondary)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .nav-links { display: flex; gap: 1.2rem; align-items: center; }
+    .nav-links a { color: var(--text-muted); transition: 0.2s; font-weight: 500; font-size: 0.95rem; }
+    .nav-links a:hover { color: var(--primary); }
+    
+    .btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.2rem; background: var(--primary); color: #000; font-weight: 600; border-radius: 8px; border: none; cursor: pointer; transition: 0.2s; font-size: 0.95rem; }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* Hero */
+    .hero { padding: 7.5rem 0 4rem; text-align: center; background: radial-gradient(circle at 50% 0%, #1e293b 0%, var(--bg) 60%); }
+    .hero h1 { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 900; margin-bottom: 1rem; line-height: 1.1; }
+    .hero span { color: var(--primary); }
+    .hero p { font-size: 1.15rem; color: var(--text-muted); max-width: 650px; margin: 0 auto 2rem; }
+    .cta-group { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+
+    /* Sections */
+    section { padding: 4rem 0; }
+    .section-title { text-align: center; font-size: 2rem; font-weight: 800; margin-bottom: 2.5rem; }
+    .grid { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; transition: 0.3s; }
+    .card:hover { transform: translateY(-4px); border-color: var(--primary); box-shadow: var(--shadow); }
+    .card h3 { margin-bottom: 0.5rem; font-size: 1.15rem; display: flex; align-items: center; gap: 0.5rem; }
+    .card p { color: var(--text-muted); font-size: 0.95rem; }
+
+    /* Token */
+    .token-box { background: linear-gradient(135deg, #1e3a8a, #312e81); padding: 2rem; border-radius: var(--radius); text-align: center; border: 1px solid var(--primary); max-width: 700px; margin: 0 auto; }
+    .token-box h3 { color: var(--primary); font-size: 1.7rem; margin-bottom: 0.5rem; }
+    .contract { background: rgba(0,0,0,0.3); padding: 0.8rem; border-radius: 8px; font-family: monospace; word-break: break-all; margin: 1rem 0; cursor: pointer; font-size: 0.9rem; }
+    .contract:active { background: rgba(245,158,11,0.2); }
+
+    /* Roadmap */
+    .roadmap { position: relative; padding-left: 1.5rem; border-left: 2px solid var(--border); margin: 0 auto; max-width: 650px; }
+    .step { margin-bottom: 1.8rem; position: relative; padding-left: 1.5rem; }
+    .step::before { content: ''; position: absolute; left: -2.1rem; top: 0.4rem; width: 10px; height: 10px; background: var(--secondary); border-radius: 50%; border: 2px solid var(--bg); }
+    .step h4 { color: var(--primary); margin-bottom: 0.3rem; font-size: 1.05rem; }
+    .step p { color: var(--text-muted); font-size: 0.9rem; }
+
+    /* Footer */
+    footer { background: var(--bg-card); border-top: 1px solid var(--border); padding: 2.5rem 0 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.9rem; }
+    .footer-links { display: flex; gap: 1.5rem; justify-content: center; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .disclaimer { max-width: 800px; margin: 1rem auto 0; font-size: 0.8rem; opacity: 0.7; line-height: 1.5; padding: 0 1rem; }
+
+    /* Animations */
+    .fade { opacity: 0; transform: translateY(20px); transition: 0.6s ease-out; }
+    .fade.show { opacity: 1; transform: translateY(0); }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .hero { padding-top: 6rem; }
+      .section-title { font-size: 1.6rem; }
+      .cta-group { flex-direction: column; align-items: center; }
+      .btn { width: 100%; max-width: 280px; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="container nav">
+      <div class="logo">♟️ Chess4Crypto</div>
+      <nav class="nav-links">
+        <a href="#features">Возможности</a>
+        <a href="#token">Токен GROK</a>
+        <a href="#roadmap">Roadmap v2.0</a>
+        <a href="https://chess4crypto.vercel.app" class="btn" target="_blank">🎮 Играть</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container fade">
+        <h1>Играй. Делай ставки.<br><span>Зарабатывай GROK.</span></h1>
+        <p>Первая Web3-шахматная платформа: играй бесплатно с AI, вызывай соперников онлайн, ставь токены GROK. Умный матчмейкинг, реалтайм-чат, крипто-кошелёк.</p>
+        <div class="cta-group">
+          <a href="https://chess4crypto.vercel.app" class="btn" target="_blank">🎮 Начать играть бесплатно</a>
+          <a href="#token" class="btn btn-outline">💰 Купить GROK</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="container fade">
+        <h2 class="section-title">Почему Chess4Crypto?</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>🤖 Игра с AI (Без кошелька)</h3>
+            <p>Войдите как гость и проверьте тактику против встроенного бота. Никаких регистраций, мгновенный старт.</p>
+          </div>
+          <div class="card">
+            <h3>🌐 PvP Онлайн</h3>
+            <p>Случайный подбор соперника или прямое приглашение по адресу кошелька. Реалтайм-синхронизация ходов и чат.</p>
+          </div>
+          <div class="card">
+            <h3>⏱️ Таймеры & Звуки</h3>
+            <p>Контроль времени (3/5/10/15 мин), аудио-отклик на ходы, взятия и мат. Полное погружение в партию.</p>
+          </div>
+          <div class="card">
+            <h3>💰 Крипто-ставки в GROK</h3>
+            <p>Создавайте вызовы с залогом в токенах. Победитель забирает банк. Всё прозрачно через смарт-контракты BSC.</p>
+          </div>
+          <div class="card">
+            <h3>📱 Адаптивный интерфейс</h3>
+            <p>Работает на ПК, планшете и телефоне. Добавьте на главный экран — как нативное приложение.</p>
+          </div>
+          <div class="card">
+            <h3>🔐 Безопасность</h3>
+            <p>Non-custodial кошельки (MetaMask/WalletConnect). Вы контролируете ключи, мы не храним ваши средства.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="token">
+      <div class="container fade">
+        <h2 class="section-title">Токен GROK: Валюта экосистемы</h2>
+        <div class="token-box">
+          <h3>🚀 Листинг на топ-биржах в 2027 году</h3>
+          <p style="color: #c7d2fe; margin-bottom: 1rem;">Ранние держатели получат бонусы, приоритетный доступ к стейкингу, аирдропы и увеличенные награды в турнирах v2.0</p>
+          <div class="contract" onclick="copyContract(this)" title="Нажмите, чтобы скопировать">
+            0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444
+          </div>
+          <a href="https://four.meme/token/0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444?code=AHGX96R5GHK9" target="_blank" class="btn" style="background: #10b981;">🌐 Купить на four.meme</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="roadmap">
+      <div class="container fade">
+        <h2 class="section-title">🗺️ Roadmap: Путь к v2.0 & 2027</h2>
+        <div class="roadmap">
+          <div class="step">
+            <h4>Q2 2026 — Запуск MVP</h4>
+            <p>Релиз платформы, гостевой режим, базовый PvP, интеграция с BSC, листинг GROK на four.meme.</p>
+          </div>
+          <div class="step">
+            <h4>Q3 2026 — Турниры & Мобайл</h4>
+            <p>Рейтинговая система, ежедневные/еженедельные турниры, оптимизация PWA под мобильные устройства.</p>
+          </div>
+          <div class="step">
+            <h4>Q4 2026 — Стейкинг & NFT</h4>
+            <p>Запуск стейкинга GROK с APR, выпуск коллекции шахматных NFT-фигур, Telegram Mini App.</p>
+          </div>
+          <div class="step">
+            <h4>Q1 2027 — Аудит & DAO</h4>
+            <p>Независимый аудит смарт-контрактов, запуск DAO-управления экосистемой, кросс-чейн мосты.</p>
+          </div>
+          <div class="step">
+            <h4>Q2-Q3 2027 — Глобальный Листинг</h4>
+            <p>Выход на CEX (Binance, Bybit, OKX), маркетинговая кампания, спонсорство международных онлайн-турниров.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="https://chess4crypto.vercel.app" target="_blank">🎮 Играть</a>
+        <a href="https://github.com/serwmwser/chess4crypto" target="_blank">📦 GitHub</a>
+        <a href="https://t.me/chess4crypto" target="_blank">💬 Telegram</a>
+        <a href="https://four.meme/token/0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444?code=AHGX96R5GHK9" target="_blank">🌐 Купить GROK</a>
+      </div>
+      <p>© 2026 Chess4Crypto. Все права защищены.</p>
+      <p class="disclaimer">⚠️ Дисклеймер: Торговля криптовалютами связана с высоким риском. Токен GROK является утилитарным активом внутри экосистемы. Контракт не прошел аудит на текущий момент. Не инвестируйте средства, которые не готовы потерять. Проект не предоставляет финансовых советов.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Копирование контракта
+    function copyContract(el) {
+      navigator.clipboard.writeText(el.innerText.trim()).then(() => {
+        const orig = el.innerText;
+        el.innerText = '✅ Скопировано!';
+        setTimeout(() => el.innerText = orig, 1500);
+      }).catch(() => {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = el.innerText.trim();
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        el.innerText = '✅ Скопировано!';
+        setTimeout(() => el.innerText = orig, 1500);
+      });
+    }
+
+    // Анимация при скролле
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) entry.target.classList.add('show');
+      });
+    }, { threshold: 0.15 });
+    document.querySelectorAll('.fade').forEach(el => observer.observe(el));
+
+    // Плавный скролл для якорей
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        const href = this.getAttribute('href');
+        if (href === '#') return;
+        const target = document.querySelector(href);
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "routes": [
+    { "src": "/(.*)", "dest": "/index.html" }
+  ],
+  "env": {
+    "NPM_FLAGS": "--legacy-peer-deps --ignore-scripts"
+  },
+  "build": {
+    "env": {
+      "NODE_VERSION": "24"
+    }
+  }
+}
