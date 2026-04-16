@@ -1,10 +1,1 @@
-﻿{
-  "name": "chess4crypto",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "dev": "cd frontend && npm run dev",
-    "build": "cd frontend && npm run build",
-    "deploy": "cd frontend && npm run deploy"
-  }
-}
+﻿{"name":"chess4crypto","private":true}

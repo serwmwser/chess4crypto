@@ -1,14 +1,8 @@
-# ✅ ЭТОТ ФАЙЛ СОБИРАЕТ ТОЛЬКО: chess4crypto/frontend
-# Любые другие папки (contracts, backend и т.д.) ИГНОРИРУЮТСЯ
-
-name: Deploy Chess4Crypto Frontend
+name: Simple Deploy
 
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'chess4crypto/frontend/**'  # ✅ Запускаем только при изменениях во frontend
-      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
@@ -16,113 +10,31 @@ permissions:
   pages: write
   id-token: write
 
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
-
 jobs:
-  deploy-frontend:
+  deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    
     steps:
-      # 1️⃣ Checkout с подмодулями
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 0
 
-      # 2️⃣ 🔍 ЖЁСТКАЯ ПРОВЕРКА: существует ли нужная папка?
-      - name: Validate frontend directory exists
-        run: |
-          echo "🔍 Checking for chess4crypto/frontend..."
-          
-          if [ ! -d "chess4crypto/frontend" ]; then
-            echo "❌ FATAL ERROR: chess4crypto/frontend directory NOT FOUND!"
-            echo ""
-            echo "Available directories in chess4crypto:"
-            ls -la chess4crypto/ 2>/dev/null || echo "chess4crypto folder is empty or missing"
-            echo ""
-            echo "Full repository structure:"
-            find . -maxdepth 3 -type d | head -30
-            exit 1
-          fi
-          
-          if [ ! -f "chess4crypto/frontend/index.html" ]; then
-            echo "❌ FATAL ERROR: index.html NOT FOUND in chess4crypto/frontend!"
-            echo "Contents of chess4crypto/frontend:"
-            ls -la chess4crypto/frontend/
-            exit 1
-          fi
-          
-          if ! grep -q '"chess4crypto-frontend"' chess4crypto/frontend/package.json; then
-            echo "❌ FATAL ERROR: package.json does not contain 'chess4crypto-frontend'!"
-            echo "First 20 lines of package.json:"
-            head -20 chess4crypto/frontend/package.json
-            exit 1
-          fi
-          
-          echo "✅ All validations passed!"
-          echo "📁 Frontend path: chess4crypto/frontend"
-          echo "📄 index.html: $(ls -la chess4crypto/frontend/index.html)"
-
-      # 3️⃣ Настройка Node.js
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '18.20.8'
+          node-version: '18'
 
-      # 4️⃣ Настройка GitHub Pages
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      # 5️⃣ ✅ ЖЁСТКИЙ ПУТЬ: ТОЛЬКО chess4crypto/frontend
-      - name: Install dependencies
+      - name: Install & Build
         run: |
-          echo "📦 Installing dependencies in chess4crypto/frontend..."
           cd chess4crypto/frontend
-          
-          echo "📍 Current directory: $(pwd)"
-          echo "📋 Files in directory:"
-          ls -la
-          
-          # Устанавливаем зависимости
-          if [ -f "package-lock.json" ]; then
-            echo "🔒 Using package-lock.json"
-            npm ci --ignore-scripts --prefer-offline
-          else
-            echo "📦 package-lock.json not found, using npm install"
-            npm install --ignore-scripts
-          fi
-
-      # 6️⃣ Сборка проекта
-      - name: Build frontend
-        run: |
-          echo "🔨 Building frontend in chess4crypto/frontend..."
-          cd chess4crypto/frontend
-          
-          echo "📍 Current directory: $(pwd)"
-          echo "📄 Checking for index.html:"
-          ls -la index.html
-          
-          # Запускаем сборку
+          npm ci --legacy-peer-deps || npm install --legacy-peer-deps
           npx vite build --emptyOutDir
-          
-          echo "✅ Build completed!"
-          echo "📁 Contents of dist/:"
-          ls -la dist/
 
-      # 7️⃣ Загрузка артефактов
-      - name: Upload artifact
+      - name: Upload
         uses: actions/upload-pages-artifact@v3
         with:
-          # ✅ ЖЁСТКИЙ ПУТЬ к dist
-          path: 'chess4crypto/frontend/dist'
+          path: chess4crypto/frontend/dist
 
-      # 8️⃣ Деплой
-      - name: Deploy to GitHub Pages
-        id: deployment
+      - name: Deploy
         uses: actions/deploy-pages@v4
