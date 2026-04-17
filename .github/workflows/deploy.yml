@@ -1,4 +1,4 @@
-name: Simple Deploy
+name: Deploy Chess4Crypto
 
 on:
   push:
@@ -10,6 +10,10 @@ permissions:
   pages: write
   id-token: write
 
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
   deploy:
     environment:
@@ -17,24 +21,47 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
+      # 1️⃣ Checkout кода
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      # 2️⃣ Настройка Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'chess4crypto/frontend/package-lock.json'
 
-      - name: Install & Build
+      # 3️⃣ Установка зависимостей + Сборка + Деплой
+      - name: Install, Build & Deploy
         run: |
+          # Переходим в папку фронтенда
           cd chess4crypto/frontend
-          npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+          
+          # 🔧 Установка зависимостей (с фолбэком)
+          echo "📦 Installing dependencies..."
+          if [ -f "package-lock.json" ]; then
+            npm ci --legacy-peer-deps --ignore-scripts
+          else
+            npm install --legacy-peer-deps --ignore-scripts
+          fi
+          
+          # 🔨 Сборка проекта (через npx для надёжности)
+          echo "🔨 Building project..."
           npx vite build --emptyOutDir
+          
+          # ✅ Готово
+          echo "✅ Build completed!"
+          ls -la dist/
 
-      - name: Upload
+      # 4️⃣ Загрузка артефактов
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: chess4crypto/frontend/dist
+          path: 'chess4crypto/frontend/dist'
 
-      - name: Deploy
+      # 5️⃣ Деплой на GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
