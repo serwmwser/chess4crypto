@@ -1,29 +1,11 @@
 {
   "name": "chess4crypto-frontend",
-  "version": "1.0.0",
   "private": true,
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "npx vite",
-    "build": "npx vite build --emptyOutDir",
-    "preview": "npx vite preview",
-    "deploy": "npm run build && npx gh-pages -d dist"
-  },
-  "dependencies": {
-    "@tanstack/react-query": "^5.28.4",
-    "chess.js": "^1.0.0-beta.8",
-    "i18next": "^23.10.1",
-    "react": "^18.2.0",
-    "react-chessboard": "^4.4.0",
-    "react-dom": "^18.2.0",
-    "react-i18next": "^14.1.0",
-    "viem": "^2.8.12",
-    "wagmi": "^2.5.11"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-react": "^4.2.1",
-    "vite": "^5.2.0",
-    "terser": "^5.29.2",
-    "gh-pages": "^6.1.1"
+    "dev": "vite",
+    "build": "vite build --emptyOutDir",
+    "preview": "vite preview"
   }
 }
