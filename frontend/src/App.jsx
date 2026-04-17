@@ -279,41 +279,61 @@ function ChessApp() {
   const makeBotMove = useCallback(() => { if(gameOver || gameRef.current.isGameOver()) return; const mv = gameRef.current.moves(); if(!mv.length) return; const r = mv[Math.floor(Math.random()*mv.length)]; gameRef.current.move(r); const nf = gameRef.current.fen(), san = gameRef.current.history({verbose:true}).pop()?.san || r; setHistory(h=>[...h, nf]); setMovesList(m=>[...m, {san, from:r.from, to:r.to}]); setFen(nf); setMoveIndex(i=>i+1); setIsPlayerTurn(true); setTimerActive('player'); if(gameRef.current.isCheckmate()) { finishGame('bot'); return }; if(gameRef.current.isDraw()) { finishGame('draw'); return }; setMessage('♟️ Ваш ход!') }, [gameOver])
 
   // ✅ ИСПРАВЛЕНО: Таймер с рефами для актуальных значений (работает в гостевом режиме!)
-  useEffect(() => {
-    if(!timerActive || gameOver) return
-    const interval = setInterval(() => {
+  // ⏱️ ТАЙМЕР (гарантированно работает в гостевом режиме)
+const playerTimeRef = useRef(timeControl * 60)
+const botTimeRef = useRef(timeControl * 60)
+const intervalRef = useRef(null)
+
+useEffect(() => {
+  if (timerActive && !gameOver) {
+    intervalRef.current = setInterval(() => {
       if (timerActive === 'player') {
         playerTimeRef.current -= 1
         setPlayerTime(playerTimeRef.current)
-        if (playerTimeRef.current <= 0) { finishGame('bot'); playerTimeRef.current = 0 }
+        if (playerTimeRef.current <= 0) {
+          clearInterval(intervalRef.current)
+          setGameOver(true)
+          setWinner('bot')
+          setMessage('⏰ Время вышло! Бот победил.')
+        }
       } else if (timerActive === 'bot') {
         botTimeRef.current -= 1
         setBotTime(botTimeRef.current)
-        if (botTimeRef.current <= 0) { finishGame('player'); botTimeRef.current = 0 }
+        if (botTimeRef.current <= 0) {
+          clearInterval(intervalRef.current)
+          setGameOver(true)
+          setWinner('player')
+          setMessage('⏰ Время вышло! Вы победили!')
+        }
       }
     }, 1000)
-    return () => clearInterval(interval)
-  }, [timerActive, gameOver]) // ✅ finishGame не в зависимостях — избегаем циклов
+  }
+  return () => clearInterval(intervalRef.current)
+}, [timerActive, gameOver])
 
-  const theme = BOARD_THEMES[boardTheme]
-  const timeOpts = [{v:5,l:'5 мин'},{v:15,l:'15 мин'},{v:30,l:'30 мин'},{v:60,l:'1 ч'},{v:1440,l:'24 ч'}]
+// 🔘 КНОПКИ (прямые обработчики, без зависимостей от wagmi)
+const handleBuyGrok = useCallback(() => {
+  console.log('💰 GROK modal triggered')
+  setShowGrokModal(true)
+}, [])
 
-  // ============================================================================
-  // 🎨 МЕНЮ
-  // ============================================================================
-  if(view === 'menu') return (
-    <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#0f172a,#1e293b)',color:'#f1f5f9',fontFamily:'system-ui',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'2rem',textAlign:'center'}}>
-      <h1 style={{fontSize:'2.5rem',fontWeight:'bold',color:'#fbbf24',margin:'0 0 0.5rem 0'}}>♟️ Chess4Crypto</h1>
-      <p style={{color:'#94a3b8',fontSize:'1.1rem',marginBottom:'2rem'}}>Web3 шахматы с крипто-ставками</p>
-      <div style={{display:'flex',flexDirection:'column',gap:'1rem',width:'100%',maxWidth:'320px'}}>
-        <button onClick={handleGuest} style={{padding:'1rem',background:'linear-gradient(135deg,#3b82f6,#2563eb)',color:'#fff',border:'none',borderRadius:'12px',cursor:'pointer',fontSize:'1.1rem',fontWeight:'600'}}>👤 Гостевой вход</button>
-        <button onClick={handleConnect} disabled={isConnecting} style={{padding:'1rem',background:isConnecting?'#64748b':'linear-gradient(135deg,#f59e0b,#d97706)',color:isConnecting?'#94a3b8':'#000',border:'none',borderRadius:'12px',cursor:isConnecting?'not-allowed':'pointer',fontSize:'1.1rem',fontWeight:'600'}}>{isConnecting?'⏳...':(isMobile()?'🔗':'🦊')} Подключить кошелёк</button>
-        <button onClick={handleBuyGrok} style={{padding:'1rem',background:'linear-gradient(135deg,#f59e0b,#d97706)',color:'#000',border:'none',borderRadius:'12px',cursor:'pointer',fontSize:'1.1rem',fontWeight:'600',display:'flex',alignItems:'center',justifyContent:'center',gap:'0.5rem'}}>💰 Купить GROK</button>
-      </div>
-      {message && <div style={{marginTop:'1.5rem',padding:'0.8rem',background:message.includes('✅')?'rgba(16,185,129,0.2)':message.includes('⚠️')?'rgba(239,68,68,0.2)':'rgba(59,130,246,0.2)',borderRadius:'10px',color:message.includes('✅')?'#34d399':message.includes('⚠️')?'#f87171':'#60a5fa'}}>{message}</div>}
-      <select value={i18n.language} onChange={e=>i18n.changeLanguage(e.target.value)} style={{marginTop:'2rem',padding:'0.5rem',background:'#334155',color:'#fff',border:'1px solid #475569',borderRadius:'8px',cursor:'pointer'}}><option value="ru">🇷🇺 RU</option><option value="en">🇬🇧 EN</option></select>
-    </div>
-  )
+const handleConnect = useCallback(async () => {
+  console.log('🦊 Connect triggered')
+  try {
+    if (window.ethereum) {
+      setIsConnecting(true)
+      await window.ethereum.request({ method: 'eth_requestAccounts' })
+      setMessage('✅ Кошелёк подключён!')
+      setView('profile')
+    } else {
+      setMessage('⚠️ Установите MetaMask или используйте гостевой вход')
+    }
+  } catch (e) {
+    setMessage('❌ Отклонено или ошибка подключения')
+  } finally {
+    setIsConnecting(false)
+  }
+}, [])
 
   // ============================================================================
   // 👤 ПРОФИЛЬ
