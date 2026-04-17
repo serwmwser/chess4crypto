@@ -25,33 +25,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2️⃣ Настройка Node.js
+      # 2️⃣ Настройка Node.js (✅ БЕЗ КЭША — чтобы не кэшировать битые файлы)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: 'chess4crypto/frontend/package-lock.json'
+          # ❌ Кэш отключён намеренно — избегаем проблем с BOM и битыми lock-файлами
 
-      # 3️⃣ Установка зависимостей + Сборка + Деплой
-      - name: Install, Build & Deploy
+      # 3️⃣ Установка зависимостей + Сборка
+      - name: Install & Build
         run: |
-          # Переходим в папку фронтенда
           cd chess4crypto/frontend
           
-          # 🔧 Установка зависимостей (с фолбэком)
+          # 🔧 Установка зависимостей
           echo "📦 Installing dependencies..."
-          if [ -f "package-lock.json" ]; then
-            npm ci --legacy-peer-deps --ignore-scripts
-          else
-            npm install --legacy-peer-deps --ignore-scripts
-          fi
+          npm install --legacy-peer-deps --ignore-scripts
           
-          # 🔨 Сборка проекта (через npx для надёжности)
+          # 🔨 Сборка через npm run build (надёжнее, чем прямой вызов vite)
           echo "🔨 Building project..."
-          npx vite build --emptyOutDir
+          npm run build
           
-          # ✅ Готово
+          # ✅ Проверка результата
           echo "✅ Build completed!"
           ls -la dist/
 
