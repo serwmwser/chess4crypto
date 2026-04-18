@@ -3,6 +3,8 @@ name: Deploy Chess4Crypto
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'chess4crypto/frontend/**'
   workflow_dispatch:
 
 permissions:
@@ -21,41 +23,25 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      # 1️⃣ Checkout кода
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2️⃣ Настройка Node.js (✅ БЕЗ КЭША — чтобы не кэшировать битые файлы)
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          # ❌ Кэш отключён намеренно — избегаем проблем с BOM и битыми lock-файлами
 
-      # 3️⃣ Установка зависимостей + Сборка
       - name: Install & Build
         run: |
           cd chess4crypto/frontend
-          
-          # 🔧 Установка зависимостей
-          echo "📦 Installing dependencies..."
-          npm install --legacy-peer-deps --ignore-scripts
-          
-          # 🔨 Сборка через npm run build (надёжнее, чем прямой вызов vite)
-          echo "🔨 Building project..."
+          npm ci --legacy-peer-deps 2>/dev/null || npm install --legacy-peer-deps
           npm run build
-          
-          # ✅ Проверка результата
-          echo "✅ Build completed!"
-          ls -la dist/
 
-      # 4️⃣ Загрузка артефактов
-      - name: Upload artifact
+      - name: Upload
         uses: actions/upload-pages-artifact@v3
         with:
           path: 'chess4crypto/frontend/dist'
 
-      # 5️⃣ Деплой на GitHub Pages
-      - name: Deploy to GitHub Pages
+      - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
