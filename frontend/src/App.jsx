@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Chess } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
 
-// 🛡️ ГЛОБАЛЬНАЯ ЗАЩИТА: глушит ошибки MetaMask
+// 🛡️ Глобальная защита от ошибок MetaMask
 window.addEventListener('unhandledrejection', event => {
   if (event.reason?.message?.includes('MetaMask') || event.reason?.message?.includes('not found')) {
     event.preventDefault()
@@ -10,7 +10,7 @@ window.addEventListener('unhandledrejection', event => {
   }
 })
 
-// 🌍 СЛОВАРЬ: 7 языков
+// 🌍 СЛОВАРЬ: 7 языков (полный перевод всех ключей)
 const LANG = {
   ru: {
     title: '♟️ Chess4Crypto', sub: 'Web3 шахматы с крипто-ставками',
@@ -27,7 +27,8 @@ const LANG = {
     grokStep2: '2. Купи монету GROK на любую сумму.',
     grokStep3: '3. Добавь GROK в свой кошелёк для отображения. Адрес контракта:',
     lang: '🇷🇺 RU', theme: '🎨 Тема доски',
-    themes: { classic: '🏛️ Классика', wood: '🪵 Дерево', neon: '💜 Неон', ocean: '🌊 Океан', sunset: '🌅 Закат', minimal: '⚪ Минимал' }
+    themes: { classic: '🏛️ Классика', wood: '🪵 Дерево', neon: '💜 Неон', ocean: '🌊 Океан', sunset: '🌅 Закат', minimal: '⚪ Минимал' },
+    you: '👤 Вы', bot: '🤖 Бот'
   },
   en: {
     title: '♟️ Chess4Crypto', sub: 'Web3 Chess with Crypto Stakes',
@@ -44,7 +45,8 @@ const LANG = {
     grokStep2: '2. Buy GROK token for any amount.',
     grokStep3: '3. Add GROK to your wallet to display it. Contract address:',
     lang: '🇬🇧 EN', theme: '🎨 Board Theme',
-    themes: { classic: '🏛️ Classic', wood: '🪵 Wood', neon: '💜 Neon', ocean: '🌊 Ocean', sunset: '🌅 Sunset', minimal: '⚪ Minimal' }
+    themes: { classic: '🏛️ Classic', wood: '🪵 Wood', neon: '💜 Neon', ocean: '🌊 Ocean', sunset: '🌅 Sunset', minimal: '⚪ Minimal' },
+    you: '👤 You', bot: '🤖 Bot'
   },
   de: {
     title: '♟️ Chess4Crypto', sub: 'Web3-Schach mit Krypto-Einsätzen',
@@ -61,7 +63,8 @@ const LANG = {
     grokStep2: '2. Kaufe GROK-Token für einen beliebigen Betrag.',
     grokStep3: '3. Füge GROK zu deiner Wallet hinzu. Vertragsadresse:',
     lang: '🇩🇪 DE', theme: '🎨 Brett-Design',
-    themes: { classic: '🏛️ Klassisch', wood: '🪵 Holz', neon: '💜 Neon', ocean: '🌊 Ozean', sunset: '🌅 Sonnenuntergang', minimal: '⚪ Minimal' }
+    themes: { classic: '🏛️ Klassisch', wood: '🪵 Holz', neon: '💜 Neon', ocean: '🌊 Ozean', sunset: '🌅 Sonnenuntergang', minimal: '⚪ Minimal' },
+    you: '👤 Du', bot: '🤖 Bot'
   },
   fr: {
     title: '♟️ Chess4Crypto', sub: 'Échecs Web3 avec mises crypto',
@@ -78,7 +81,8 @@ const LANG = {
     grokStep2: '2. Achetez le token GROK pour n\'importe quel montant.',
     grokStep3: '3. Ajoutez GROK à votre wallet. Adresse du contrat:',
     lang: '🇫🇷 FR', theme: '🎨 Thème d\'échiquier',
-    themes: { classic: '🏛️ Classique', wood: '🪵 Bois', neon: '💜 Néon', ocean: '🌊 Océan', sunset: '🌅 Coucher de soleil', minimal: '⚪ Minimal' }
+    themes: { classic: '🏛️ Classique', wood: '🪵 Bois', neon: '💜 Néon', ocean: '🌊 Océan', sunset: '🌅 Coucher de soleil', minimal: '⚪ Minimal' },
+    you: '👤 Vous', bot: '🤖 Bot'
   },
   es: {
     title: '♟️ Chess4Crypto', sub: 'Ajedrez Web3 con apuestas cripto',
@@ -95,7 +99,8 @@ const LANG = {
     grokStep2: '2. Compra el token GROK por cualquier cantidad.',
     grokStep3: '3. Añade GROK a tu wallet. Dirección del contrato:',
     lang: '🇪🇸 ES', theme: '🎨 Tema del tablero',
-    themes: { classic: '🏛️ Clásico', wood: '🪵 Madera', neon: '💜 Neón', ocean: '🌊 Océano', sunset: '🌅 Atardecer', minimal: '⚪ Minimal' }
+    themes: { classic: '🏛️ Clásico', wood: '🪵 Madera', neon: '💜 Neón', ocean: '🌊 Océano', sunset: '🌅 Atardecer', minimal: '⚪ Minimal' },
+    you: '👤 Tú', bot: '🤖 Bot'
   },
   zh: {
     title: '♟️ Chess4Crypto', sub: 'Web3国际象棋与加密货币投注',
@@ -112,7 +117,8 @@ const LANG = {
     grokStep2: '2. 购买任意数量的GROK代币。',
     grokStep3: '3. 将GROK添加到钱包以显示。合约地址:',
     lang: '🇨🇳 中文', theme: '🎨 棋盘主题',
-    themes: { classic: '🏛️ 经典', wood: '🪵 木质', neon: '💜 霓虹', ocean: '🌊 海洋', sunset: '🌅 日落', minimal: '⚪ 简约' }
+    themes: { classic: '🏛️ 经典', wood: '🪵 木质', neon: '💜 霓虹', ocean: '🌊 海洋', sunset: '🌅 日落', minimal: '⚪ 简约' },
+    you: '👤 你', bot: '🤖 机器人'
   },
   hi: {
     title: '♟️ Chess4Crypto', sub: 'Web3 शतरंज क्रिप्टो दांव के साथ',
@@ -129,11 +135,12 @@ const LANG = {
     grokStep2: '2. किसी भी राशि के लिए GROK टोकन खरीदें।',
     grokStep3: '3. GROK को अपने वॉलेट में जोड़ें। कॉन्ट्रैक्ट एड्रेस:',
     lang: '🇮🇳 हिंदी', theme: '🎨 बोर्ड थीम',
-    themes: { classic: '🏛️ क्लासिक', wood: '🪵 लकड़ी', neon: '💜 नियॉन', ocean: '🌊 महासागर', sunset: '🌅 सूर्यास्त', minimal: '⚪ मिनिमल' }
+    themes: { classic: '🏛️ क्लासिक', wood: '🪵 लकड़ी', neon: '💜 नियॉन', ocean: '🌊 महासागर', sunset: '🌅 सूर्यास्त', minimal: '⚪ मिनिमल' },
+    you: '👤 आप', bot: '🤖 बॉट'
   }
 }
 
-// 🎨 6+ тем доски
+// 🎨 6 тем доски
 const THEMES = {
   classic: { light: '#eeeed2', dark: '#769656', name: '🏛️' },
   wood: { light: '#e8c49a', dark: '#8b6f47', name: '🪵' },
@@ -148,8 +155,10 @@ const GROK_LINK = 'https://four.meme/token/0x62a3e247e28cad2d2902cd2dc2e6aea7cdd
 const GROK_CONTRACT = '0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444'
 
 export default function App() {
+  // 🌐 Язык — ключевое: используй useCallback для t()
   const [lang, setLang] = useState('ru')
-  const t = useCallback((k) => LANG[lang][k] || k, [lang])
+  const t = useCallback((key) => LANG[lang][key] || key, [lang])
+
   const [view, setView] = useState('menu')
   const [msg, setMsg] = useState('')
   const [isConnecting, setIsConnecting] = useState(false)
@@ -223,7 +232,16 @@ export default function App() {
   }, [isConnecting, t])
 
   const handleGrok = useCallback(() => setShowGrok(true), [])
-  const toggleLang = useCallback(() => setLang(l => l === 'ru' ? 'en' : l === 'en' ? 'de' : l === 'de' ? 'fr' : l === 'fr' ? 'es' : l === 'es' ? 'zh' : l === 'zh' ? 'hi' : 'ru'), [])
+  
+  // ✅ Язык: цикл через 7 языков
+  const toggleLang = useCallback(() => {
+    setLang(prev => {
+      const order = ['ru','en','de','fr','es','zh','hi']
+      const idx = order.indexOf(prev)
+      return order[(idx + 1) % order.length]
+    })
+  }, [])
+  
   const copyContract = useCallback(() => {
     navigator.clipboard.writeText(GROK_CONTRACT)
     setCopied(true)
@@ -277,7 +295,7 @@ export default function App() {
     } catch { return false }
   }, [isPlayerTurn, gameOver, makeBotMove, t])
 
-  // 🎨 UI
+  // 🎨 UI Компоненты
   const Btn = ({children, onClick, bg, disabled, style={}}) => (
     <button type="button" onClick={onClick} disabled={disabled} style={{
       padding:'0.8rem 1.2rem', background:bg||'#3b82f6', color:'#fff', border:'none', borderRadius:'10px',
@@ -322,8 +340,8 @@ export default function App() {
   return (
     <div style={{minHeight:'100vh', background:'#0f172a', color:'#f1f5f9', fontFamily:'system-ui', display:'flex', flexDirection:'column', alignItems:'center', paddingTop:'1rem', gap:'1rem', padding:'0 1rem'}}>
       <div style={{display:'flex', justifyContent:'space-around', width:'100%', maxWidth:'420px', marginBottom:'0.5rem'}}>
-        <TimerBox label="👤" time={pTime} active={timerActive==='player'} />
-        <TimerBox label="🤖" time={bTime} active={timerActive==='bot'} />
+        <TimerBox label={t('you')} time={pTime} active={timerActive==='player'} />
+        <TimerBox label={t('bot')} time={bTime} active={timerActive==='bot'} />
       </div>
       {msg && <div style={{color:'#38bdf8', textAlign:'center', minHeight:'20px'}}>{msg}</div>}
       
