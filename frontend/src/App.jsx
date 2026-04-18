@@ -2,12 +2,20 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Chess } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
 
-// 🌍 Встроенный словарь переводов (нулевые внешние зависимости)
+// 🛡️ ГЛОБАЛЬНАЯ ЗАЩИТА: глушит ошибки расширения MetaMask, если оно не установлено
+window.addEventListener('unhandledrejection', event => {
+  if (event.reason?.message?.includes('MetaMask') || event.reason?.message?.includes('not found')) {
+    event.preventDefault()
+    console.warn('🛡️ Wallet extension not found. Connection skipped safely.')
+  }
+})
+
+// 🌍 Встроенный словарь (нулевые зависимости)
 const TRANSLATIONS = {
   ru: {
     title: '♟️ Chess4Crypto', subtitle: 'Web3 шахматы с крипто-ставками',
     guest: '👤 Гостевой вход', connect: '🦊 Подключить кошелёк', buyGrok: '💰 Купить GROK',
-    profile: '👤 Профиль', logout: '🚪 Выйти', save: '💾 Сохранить', cancel: '❌ Отмена',
+    profile: '👤 Профиль', logout: '🚪 Выйти', save: '💾 Сохранить',
     rules: '📜 Правила: 1. Внесите ставку. 2. Присоединяйтесь с равной суммой. 3. Победитель забирает ×2. 4. Ничья → фонд.',
     lobby: '🌐 Лобби', myGames: '📋 Мои', create: '➕ Создать', history: '🏆 История',
     back: '⏪ Назад', forward: '⏩ Вперед', yourTurn: '♟️ Ваш ход!', botThinking: '🤖 Бот думает...',
@@ -22,7 +30,7 @@ const TRANSLATIONS = {
   en: {
     title: '♟️ Chess4Crypto', subtitle: 'Web3 Chess with Crypto Stakes',
     guest: '👤 Guest Mode', connect: '🦊 Connect Wallet', buyGrok: '💰 Buy GROK',
-    profile: '👤 Profile', logout: '🚪 Logout', save: '💾 Save', cancel: '❌ Cancel',
+    profile: '👤 Profile', logout: '🚪 Logout', save: '💾 Save',
     rules: '📜 Rules: 1. Deposit stake. 2. Join with equal amount. 3. Winner takes ×2. 4. Draw → fund.',
     lobby: '🌐 Lobby', myGames: '📋 My Games', create: '➕ Create', history: '🏆 History',
     back: '⏪ Back', forward: '⏩ Forward', yourTurn: '♟️ Your turn!', botThinking: '🤖 Bot thinking...',
@@ -46,11 +54,9 @@ const fmtTime = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`
 const GROK_LINK = 'https://four.meme/token/0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444?code=AHGX96R5GHK9'
 
 export default function App() {
-  // 🌐 Язык
   const [lang, setLang] = useState('ru')
   const t = useCallback((key) => TRANSLATIONS[lang][key] || key, [lang])
 
-  // 🎮 Состояние интерфейса
   const [view, setView] = useState('menu')
   const [msg, setMsg] = useState('')
   const [isConnecting, setIsConnecting] = useState(false)
@@ -59,7 +65,6 @@ export default function App() {
   const [nickname, setNickname] = useState('Гость')
   const [boardTheme, setBoardTheme] = useState('classic')
 
-  // ♟️ Шахматы
   const gameRef = useRef(new Chess())
   const [fen, setFen] = useState(gameRef.current.fen())
   const [history, setHistory] = useState([gameRef.current.fen()])
@@ -69,14 +74,12 @@ export default function App() {
   const [winner, setWinner] = useState(null)
   const [boardSize, setBoardSize] = useState(Math.min(window.innerWidth * 0.9, 400))
 
-  // ⏱️ Таймеры
   const [timeCtrl] = useState(15)
   const [pTime, setPTime] = useState(timeCtrl * 60)
   const [bTime, setBTime] = useState(timeCtrl * 60)
-  const [timerActive, setTimerActive] = useState(null) // 'player' | 'bot' | null
+  const [timerActive, setTimerActive] = useState(null)
   const timerRef = useRef(null)
 
-  // 📏 Ресайз
   useEffect(() => {
     const u = () => setBoardSize(Math.min(window.innerWidth * 0.9, 400))
     window.addEventListener('resize', u)
@@ -101,11 +104,10 @@ export default function App() {
         })
       }
     }, 1000)
-
     return () => clearInterval(timerRef.current)
   }, [timerActive, gameOver, t])
 
-  // 🔘 КНОПКИ (Безопасные, без авто-подключений)
+  // 🔘 КНОПКИ (Без async/await -> нет Unhandled Promise)
   const handleGuest = useCallback(() => {
     setMsg(t('guestMode'))
     setGameOver(false); setWinner(null); setMsg('')
@@ -113,21 +115,22 @@ export default function App() {
     startGame()
   }, [timeCtrl, t])
 
-  const handleConnect = useCallback(async () => {
+  const handleConnect = useCallback(() => {
     if (isConnecting) return
     setIsConnecting(true)
-    try {
-      if (typeof window !== 'undefined' && window.ethereum) {
-        await window.ethereum.request({ method: 'eth_requestAccounts' })
-        setMsg(t('connected'))
-        setView('profile')
-      } else {
-        throw new Error('no_wallet')
-      }
-    } catch (e) {
-      console.warn('Wallet connect skipped:', e.message)
+    if (typeof window !== 'undefined' && window.ethereum) {
+      window.ethereum.request({ method: 'eth_requestAccounts' })
+        .then(() => {
+          setMsg(t('connected'))
+          setView('profile')
+        })
+        .catch(err => {
+          console.warn('Wallet skipped:', err.message || err)
+          setMsg(t('noWallet'))
+        })
+        .finally(() => setIsConnecting(false))
+    } else {
       setMsg(t('noWallet'))
-    } finally {
       setIsConnecting(false)
     }
   }, [isConnecting, t])
@@ -135,7 +138,6 @@ export default function App() {
   const handleGrok = useCallback(() => setShowGrok(true), [])
   const toggleLang = useCallback(() => setLang(l => l === 'ru' ? 'en' : 'ru'), [])
 
-  // 🎲 Игровая логика
   const startGame = useCallback(() => {
     gameRef.current.reset()
     setFen(gameRef.current.fen())
@@ -146,7 +148,7 @@ export default function App() {
     setWinner(null)
     setPTime(timeCtrl * 60)
     setBTime(timeCtrl * 60)
-    setTimerActive('player') // ✅ Запуск таймера игрока
+    setTimerActive('player')
     setView('game')
   }, [timeCtrl])
 
@@ -160,7 +162,7 @@ export default function App() {
     setHistory(h => [...h, gameRef.current.fen()])
     setMoveIdx(i => i + 1)
     setIsPlayerTurn(true)
-    setTimerActive('player') // ✅ Переключение на игрока
+    setTimerActive('player')
     if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner('bot'); setMsg(t('lose')) }
     else if (gameRef.current.isDraw()) { setGameOver(true); setWinner(null); setMsg(t('draw')) }
     else setMsg(t('yourTurn'))
@@ -175,7 +177,7 @@ export default function App() {
       setHistory(h => [...h, gameRef.current.fen()])
       setMoveIdx(i => i + 1)
       setIsPlayerTurn(false)
-      setTimerActive('bot') // ✅ Переключение на бота
+      setTimerActive('bot')
       if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner('player'); setMsg(t('win')) }
       else if (gameRef.current.isDraw()) { setGameOver(true); setWinner(null); setMsg(t('draw')) }
       else { setMsg(t('botThinking')); setTimeout(makeBotMove, 600) }
@@ -183,7 +185,6 @@ export default function App() {
     } catch { return false }
   }, [isPlayerTurn, gameOver, makeBotMove, t])
 
-  // 🎨 UI Компоненты
   const Btn = ({children, onClick, bg, disabled, style={}}) => (
     <button type="button" onClick={onClick} disabled={disabled} style={{
       padding:'0.8rem 1.2rem', background:bg||'#3b82f6', color:'#fff', border:'none', borderRadius:'10px',
@@ -199,9 +200,6 @@ export default function App() {
     </div>
   )
 
-  // ============================================================================
-  // 🖥️ РЕНДЕР
-  // ============================================================================
   if (view === 'menu') return (
     <div style={{minHeight:'100vh', background:'linear-gradient(135deg,#0f172a,#1e293b)', color:'#f1f5f9', fontFamily:'system-ui', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'2rem', textAlign:'center', gap:'1.2rem'}}>
       <h1 style={{fontSize:'2.5rem', color:'#fbbf24', margin:0}}>{t('title')}</h1>
@@ -248,28 +246,23 @@ export default function App() {
         <TimerBox label={t('guest').replace('👤 ','')} time={pTime} active={timerActive==='player'} />
         <TimerBox label={t('bot').replace('🤖 ','')} time={bTime} active={timerActive==='bot'} />
       </div>
-      
       {msg && <div style={{color:'#38bdf8', textAlign:'center', minHeight:'20px'}}>{msg}</div>}
-
       <div style={{background:'#1e293b', padding:'10px', borderRadius:'12px', boxShadow:'0 4px 16px rgba(0,0,0,0.4)'}}>
         <Chessboard position={fen} onPieceDrop={onDrop} boardWidth={boardSize} 
           customDarkSquareStyle={{backgroundColor:BOARD_THEMES[boardTheme].dark}} 
           customLightSquareStyle={{backgroundColor:BOARD_THEMES[boardTheme].light}} />
       </div>
-
       <div style={{display:'flex', gap:'0.5rem', flexWrap:'wrap', justifyContent:'center'}}>
         <Btn onClick={()=>setView('profile')} bg="#3b82f6">{t('profile')}</Btn>
         <Btn onClick={toggleLang} bg="#475569">{t('langSwitch')}</Btn>
         <Btn onClick={()=>setBoardTheme(th => th==='classic'?'wood3d':th==='wood3d'?'neon':'classic')} bg="#1e293b">🎨 Тема</Btn>
       </div>
-
       {gameOver && (
         <div style={{background:'#1e293b', padding:'1.2rem', borderRadius:'12px', textAlign:'center', maxWidth:'400px', border:'1px solid #fbbf24', marginTop:'0.5rem'}}>
           <h3 style={{color:'#fbbf24', margin:'0 0 0.5rem 0'}}>{winner==='player'?t('win'):winner==='bot'?t('lose'):t('draw')}</h3>
           <Btn onClick={()=>setView('profile')} bg="#10b981">{t('profile')}</Btn>
         </div>
       )}
-
       {showGrok && (
         <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.85)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999}} onClick={()=>setShowGrok(false)}>
           <div style={{background:'linear-gradient(135deg,#1e293b,#334155)', padding:'1.5rem', borderRadius:'16px', maxWidth:'360px', width:'90%', border:'2px solid #f59e0b'}} onClick={e=>e.stopPropagation()}>
