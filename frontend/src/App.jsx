@@ -130,12 +130,12 @@ const LANG = {
 
 // 🎨 6 ТЕМ ДОСКИ (цвета)
 const THEMES = {
-  c: { light: '#eeeed2', dark: '#769656' }, // classic
-  w: { light: '#e8c49a', dark: '#8b6f47' }, // wood
-  n: { light: '#1a1a2e', dark: '#16213e' }, // neon
-  o: { light: '#a8d8ea', dark: '#2a6f97' }, // ocean
-  s: { light: '#ffecd2', dark: '#fcb69f' }, // sunset
-  m: { light: '#f0f0f0', dark: '#606060' }  // minimal
+  c: { light: '#eeeed2', dark: '#769656' },
+  w: { light: '#e8c49a', dark: '#8b6f47' },
+  n: { light: '#1a1a2e', dark: '#16213e' },
+  o: { light: '#a8d8ea', dark: '#2a6f97' },
+  s: { light: '#ffecd2', dark: '#fcb69f' },
+  m: { light: '#f0f0f0', dark: '#606060' }
 }
 
 const fmtTime = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`
@@ -143,11 +143,8 @@ const GROK_LINK = 'https://four.meme/token/0x62a3e247e28cad2d2902cd2dc2e6aea7cdd
 const GROK_CONTRACT = '0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444'
 
 export default function App() {
-  // 🌐 Язык
   const [lang, setLang] = useState('ru')
   const t = useCallback((key) => LANG[lang][key] || key, [lang])
-
-  // 🎮 Состояние интерфейса
   const [view, setView] = useState('menu')
   const [msg, setMsg] = useState('')
   const [isConnecting, setIsConnecting] = useState(false)
@@ -156,7 +153,6 @@ export default function App() {
   const [boardTheme, setBoardTheme] = useState('c')
   const [boardSize, setBoardSize] = useState(Math.min(window.innerWidth * 0.9, 400))
 
-  // ♟️ Шахматы
   const gameRef = useRef(new Chess())
   const [fen, setFen] = useState(gameRef.current.fen())
   const [history, setHistory] = useState([gameRef.current.fen()])
@@ -164,267 +160,125 @@ export default function App() {
   const [isPlayerTurn, setIsPlayerTurn] = useState(true)
   const [gameOver, setGameOver] = useState(false)
   const [winner, setWinner] = useState(null)
-
-  // ⏱️ Таймеры (15 минут = 900 секунд)
   const [playerTime, setPlayerTime] = useState(900)
   const [botTime, setBotTime] = useState(900)
-  const [timerActive, setTimerActive] = useState(null) // 'player' | 'bot' | null
+  const [timerActive, setTimerActive] = useState(null)
   const timerRef = useRef(null)
 
-  // 📏 Ресайз доски
   useEffect(() => {
     const handleResize = () => setBoardSize(Math.min(window.innerWidth * 0.9, 400))
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // ✅ ТАЙМЕР: Функциональные обновления — работает в гостевом режиме!
-  // Бот ходит через 3 секунды после получения хода (см. setTimeout в onDrop)
+  // ⏱️ ТАЙМЕР
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current)
     if (!timerActive || gameOver) return
-
     timerRef.current = setInterval(() => {
       if (timerActive === 'player') {
         setPlayerTime(prev => {
-          if (prev <= 1) {
-            clearInterval(timerRef.current)
-            setGameOver(true)
-            setWinner('bot')
-            setMsg(t('tp'))
-            return 0
-          }
+          if (prev <= 1) { clearInterval(timerRef.current); setGameOver(true); setWinner('bot'); setMsg(t('tp')); return 0 }
           return prev - 1
         })
-      } else if (timerActive === 'bot') {
+      } else {
         setBotTime(prev => {
-          if (prev <= 1) {
-            clearInterval(timerRef.current)
-            setGameOver(true)
-            setWinner('player')
-            setMsg(t('tb'))
-            return 0
-          }
+          if (prev <= 1) { clearInterval(timerRef.current); setGameOver(true); setWinner('player'); setMsg(t('tb')); return 0 }
           return prev - 1
         })
       }
     }, 1000)
-
     return () => clearInterval(timerRef.current)
   }, [timerActive, gameOver, t])
 
-  // 🔘 ОБРАБОТЧИКИ КНОПОК
+  // 🔘 КНОПКИ
   const handleGuest = useCallback(() => {
-    setMsg(t('g'))
-    setGameOver(false)
-    setWinner(null)
-    setPlayerTime(900)
-    setBotTime(900)
-    startGame()
+    setMsg(t('g')); setGameOver(false); setWinner(null); setPlayerTime(900); setBotTime(900); startGame()
   }, [t])
 
-  // ✅ Кошелёк: .then().catch() вместо async/await — нет Unhandled Promise
   const handleConnect = useCallback(() => {
     if (isConnecting) return
     setIsConnecting(true)
     if (typeof window !== 'undefined' && window.ethereum) {
       window.ethereum.request({ method: 'eth_requestAccounts' })
-        .then(() => {
-          setMsg(t('cn'))
-          setView('profile')
-        })
+        .then(() => { setMsg(t('cn')); setView('profile') })
         .catch(() => setMsg(t('nw')))
         .finally(() => setIsConnecting(false))
     } else {
-      setMsg(t('nw'))
-      setIsConnecting(false)
+      setMsg(t('nw')); setIsConnecting(false)
     }
   }, [isConnecting, t])
 
   const handleGrok = useCallback(() => setShowGrok(true), [])
-  
-  // ✅ Язык: цикл через 7 языков
   const toggleLang = useCallback(() => {
-    setLang(prev => {
-      const order = ['ru','en','de','fr','es','zh','hi']
-      const idx = order.indexOf(prev)
-      return order[(idx + 1) % order.length]
-    })
+    setLang(prev => { const order = ['ru','en','de','fr','es','zh','hi']; const idx = order.indexOf(prev); return order[(idx + 1) % order.length] })
   }, [])
-  
-  const copyContract = useCallback(() => {
-    navigator.clipboard.writeText(GROK_CONTRACT)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }, [])
+  const copyContract = useCallback(() => { navigator.clipboard.writeText(GROK_CONTRACT); setCopied(true); setTimeout(()=>setCopied(false), 2000) }, [])
 
-  // 🎲 Старт игры
   const startGame = useCallback(() => {
-    gameRef.current.reset()
-    setFen(gameRef.current.fen())
-    setHistory([gameRef.current.fen()])
-    setMoveIdx(0)
-    setIsPlayerTurn(true)
-    setGameOver(false)
-    setWinner(null)
-    setPlayerTime(900)
-    setBotTime(900)
-    setTimerActive('player') // ✅ Запуск таймера игрока
-    setView('game')
+    gameRef.current.reset(); setFen(gameRef.current.fen()); setHistory([gameRef.current.fen()]); setMoveIdx(0); setIsPlayerTurn(true); setGameOver(false); setWinner(null); setPlayerTime(900); setBotTime(900); setTimerActive('player'); setView('game')
   }, [])
 
-  // 🤖 Ход бота (через 3 секунды после получения хода)
   const makeBotMove = useCallback(() => {
     if (gameOver || gameRef.current.isGameOver()) return
-    const moves = gameRef.current.moves()
-    if (!moves.length) return
-    const mv = moves[Math.floor(Math.random() * moves.length)]
-    gameRef.current.move(mv)
-    setFen(gameRef.current.fen())
-    setHistory(h => [...h, gameRef.current.fen()])
-    setMoveIdx(i => i + 1)
-    setIsPlayerTurn(true)
-    setTimerActive('player') // ✅ Переключение таймера на игрока
-    if (gameRef.current.isCheckmate()) {
-      setGameOver(true)
-      setWinner('bot')
-      setMsg(t('x'))
-    } else if (gameRef.current.isDraw()) {
-      setGameOver(true)
-      setWinner(null)
-      setMsg(t('d'))
-    } else {
-      setMsg(t('yt'))
-    }
+    const moves = gameRef.current.moves(); if (!moves.length) return
+    const mv = moves[Math.floor(Math.random() * moves.length)]; gameRef.current.move(mv)
+    setFen(gameRef.current.fen()); setHistory(h => [...h, gameRef.current.fen()]); setMoveIdx(i => i + 1); setIsPlayerTurn(true); setTimerActive('player')
+    if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner('bot'); setMsg(t('x')) }
+    else if (gameRef.current.isDraw()) { setGameOver(true); setWinner(null); setMsg(t('d')) }
+    else { setMsg(t('yt')) }
   }, [gameOver, t])
 
-  // ♟️ Ход игрока
   const onDrop = useCallback((src, tgt) => {
     if (!isPlayerTurn || gameOver) return false
     try {
-      const res = gameRef.current.move({ from: src, to: tgt, promotion: 'q' })
-      if (!res) return false
-      setFen(gameRef.current.fen())
-      setHistory(h => [...h, gameRef.current.fen()])
-      setMoveIdx(i => i + 1)
-      setIsPlayerTurn(false)
-      setTimerActive('bot') // ✅ Переключение таймера на бота
-      if (gameRef.current.isCheckmate()) {
-        setGameOver(true)
-        setWinner('player')
-        setMsg(t('w'))
-      } else if (gameRef.current.isDraw()) {
-        setGameOver(true)
-        setWinner(null)
-        setMsg(t('d'))
-      } else {
-        setMsg(t('bt'))
-        // ✅ Бот ходит через 3 секунды (3000 мс)
-        setTimeout(makeBotMove, 3000)
-      }
+      const res = gameRef.current.move({ from: src, to: tgt, promotion: 'q' }); if (!res) return false
+      setFen(gameRef.current.fen()); setHistory(h => [...h, gameRef.current.fen()]); setMoveIdx(i => i + 1); setIsPlayerTurn(false); setTimerActive('bot')
+      if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner('player'); setMsg(t('w')) }
+      else if (gameRef.current.isDraw()) { setGameOver(true); setWinner(null); setMsg(t('d')) }
+      else { setMsg(t('bt')); setTimeout(makeBotMove, 3000) } // ✅ Бот ходит через 3 секунды
       return true
-    } catch {
-      return false
-    }
+    } catch { return false }
   }, [isPlayerTurn, gameOver, makeBotMove, t])
 
-  // 🎨 UI Компоненты
+  // 🎨 UI
   const Btn = ({ children, onClick, bg, disabled, style = {} }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        padding: '0.8rem 1.2rem',
-        background: bg || '#3b82f6',
-        color: '#fff',
-        border: 'none',
-        borderRadius: '10px',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        fontSize: '1rem',
-        fontWeight: '600',
-        opacity: disabled ? 0.5 : 1,
-        transition: '0.2s',
-        ...style
-      }}
-    >
-      {children}
-    </button>
+    <button type="button" onClick={onClick} disabled={disabled} style={{
+      padding: '0.8rem 1.2rem', background: bg || '#3b82f6', color: '#fff', border: 'none', borderRadius: '10px',
+      cursor: disabled ? 'not-allowed' : 'pointer', fontSize: '1rem', fontWeight: '600', opacity: disabled ? 0.5 : 1, ...style
+    }}>{children}</button>
   )
-
   const TimerBox = ({ label, time, active }) => (
-    <div style={{
-      background: active ? '#059669' : '#1e293b',
-      padding: '10px 20px',
-      borderRadius: '10px',
-      color: '#fff',
-      textAlign: 'center',
-      border: active ? '2px solid #34d399' : '1px solid #334155',
-      width: '45%'
-    }}>
+    <div style={{ background: active ? '#059669' : '#1e293b', padding: '10px 20px', borderRadius: '10px', color: '#fff', textAlign: 'center', border: active ? '2px solid #34d399' : '1px solid #334155', width: '45%' }}>
       <div style={{ fontSize: '0.85rem', opacity: 0.8 }}>{label}</div>
-      <div style={{ fontSize: '1.6rem', fontWeight: 'bold', fontFamily: 'monospace' }}>
-        {fmtTime(time)}
-      </div>
+      <div style={{ fontSize: '1.6rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{fmtTime(time)}</div>
     </div>
   )
 
   // ============================================================================
-  // 🖥️ РЕНДЕР: МЕНЮ
+  // 🖥️ РЕНДЕР: МЕНЮ (БЕЗ КНОПКИ GROK)
   // ============================================================================
   if (view === 'menu') return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg,#0f172a,#1e293b)',
-      color: '#f1f5f9',
-      fontFamily: 'system-ui',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '2rem',
-      textAlign: 'center',
-      gap: '1rem'
-    }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#0f172a,#1e293b)', color: '#f1f5f9', fontFamily: 'system-ui', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center', gap: '1rem' }}>
       <h1 style={{ fontSize: '2.5rem', color: '#fbbf24', margin: 0 }}>{t('t')}</h1>
       <p style={{ color: '#94a3b8' }}>{t('s')}</p>
       <Btn onClick={handleGuest} bg="linear-gradient(135deg,#3b82f6,#2563eb)">{t('g')}</Btn>
-      <Btn onClick={handleConnect} bg="linear-gradient(135deg,#f59e0b,#d97706)" disabled={isConnecting}>
-        {isConnecting ? '⏳...' : t('c')}
-      </Btn>
-      <Btn onClick={handleGrok} bg="linear-gradient(135deg,#10b981,#059669)">{t('k')}</Btn>
+      <Btn onClick={handleConnect} bg="linear-gradient(135deg,#f59e0b,#d97706)" disabled={isConnecting}>{isConnecting ? '⏳...' : t('c')}</Btn>
+      {/* 🔥 Кнопка GROK УБРАНА с главной страницы */}
       <Btn onClick={toggleLang} bg="#475569">{t('ln')}</Btn>
-      {msg && (
-        <div style={{
-          padding: '0.6rem',
-          background: 'rgba(59,130,246,0.2)',
-          borderRadius: '8px',
-          color: '#60a5fa'
-        }}>
-          {msg}
-        </div>
-      )}
+      {msg && <div style={{ padding: '0.6rem', background: 'rgba(59,130,246,0.2)', borderRadius: '8px', color: '#60a5fa' }}>{msg}</div>}
     </div>
   )
 
   // ============================================================================
-  // 🖥️ РЕНДЕР: ПРОФИЛЬ
+  // 🖥️ РЕНДЕР: ПРОФИЛЬ (КНОПКА GROK ЕСТЬ)
   // ============================================================================
   if (view === 'profile') return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#0f172a',
-      color: '#f1f5f9',
-      fontFamily: 'system-ui',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      padding: '1.5rem',
-      gap: '1rem'
-    }}>
+    <div style={{ minHeight: '100vh', background: '#0f172a', color: '#f1f5f9', fontFamily: 'system-ui', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.5rem', gap: '1rem' }}>
       <h2 style={{ color: '#fbbf24' }}>{t('p')}</h2>
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
         <Btn onClick={() => setView('menu')} bg="#ef4444">{t('l')}</Btn>
+        {/* 🔥 Кнопка GROK ТОЛЬКО здесь */}
         <Btn onClick={handleGrok} bg="#10b981">{t('k')}</Btn>
         <Btn onClick={startGame} bg="#8b5cf6">🎮 {t('g')}</Btn>
         <Btn onClick={toggleLang} bg="#475569">{t('ln')}</Btn>
@@ -436,65 +290,21 @@ export default function App() {
   // 🖥️ РЕНДЕР: ИГРА
   // ============================================================================
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#0f172a',
-      color: '#f1f5f9',
-      fontFamily: 'system-ui',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      paddingTop: '1rem',
-      gap: '1rem',
-      padding: '0 1rem'
-    }}>
-      {/* Таймеры */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-around',
-        width: '100%',
-        maxWidth: '420px',
-        marginBottom: '0.5rem'
-      }}>
+    <div style={{ minHeight: '100vh', background: '#0f172a', color: '#f1f5f9', fontFamily: 'system-ui', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '1rem', gap: '1rem', padding: '0 1rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-around', width: '100%', maxWidth: '420px', marginBottom: '0.5rem' }}>
         <TimerBox label={t('y')} time={playerTime} active={timerActive === 'player'} />
         <TimerBox label={t('b')} time={botTime} active={timerActive === 'bot'} />
       </div>
-
-      {/* Сообщение */}
       {msg && <div style={{ color: '#38bdf8', textAlign: 'center' }}>{msg}</div>}
-
-      {/* Доска */}
-      <div style={{
-        background: '#1e293b',
-        padding: '10px',
-        borderRadius: '12px',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
-      }}>
-        <Chessboard
-          position={fen}
-          onPieceDrop={onDrop}
-          boardWidth={boardSize}
+      <div style={{ background: '#1e293b', padding: '10px', borderRadius: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
+        <Chessboard position={fen} onPieceDrop={onDrop} boardWidth={boardSize}
           customDarkSquareStyle={{ backgroundColor: THEMES[boardTheme].dark }}
-          customLightSquareStyle={{ backgroundColor: THEMES[boardTheme].light }}
-        />
+          customLightSquareStyle={{ backgroundColor: THEMES[boardTheme].light }} />
       </div>
-
-      {/* Кнопки управления */}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
         <Btn onClick={() => setView('profile')} bg="#3b82f6">{t('p')}</Btn>
         <Btn onClick={toggleLang} bg="#475569">{t('ln')}</Btn>
-        <select
-          value={boardTheme}
-          onChange={e => setBoardTheme(e.target.value)}
-          style={{
-            padding: '0.8rem',
-            background: '#1e293b',
-            color: '#fff',
-            border: '1px solid #475569',
-            borderRadius: '8px',
-            cursor: 'pointer'
-          }}
-        >
+        <select value={boardTheme} onChange={e => setBoardTheme(e.target.value)} style={{ padding: '0.8rem', background: '#1e293b', color: '#fff', border: '1px solid #475569', borderRadius: '8px', cursor: 'pointer' }}>
           <option value="c">🏛️ {t('tm').c}</option>
           <option value="w">🪵 {t('tm').w}</option>
           <option value="n">💜 {t('tm').n}</option>
@@ -503,137 +313,30 @@ export default function App() {
           <option value="m">⚪ {t('tm').m}</option>
         </select>
       </div>
-
-      {/* Конец игры */}
       {gameOver && (
-        <div style={{
-          background: '#1e293b',
-          padding: '1.2rem',
-          borderRadius: '12px',
-          textAlign: 'center',
-          maxWidth: '400px',
-          border: '1px solid #fbbf24'
-        }}>
-          <h3 style={{ color: '#fbbf24' }}>
-            {winner === 'player' ? t('w') : winner === 'bot' ? t('x') : t('d')}
-          </h3>
+        <div style={{ background: '#1e293b', padding: '1.2rem', borderRadius: '12px', textAlign: 'center', maxWidth: '400px', border: '1px solid #fbbf24' }}>
+          <h3 style={{ color: '#fbbf24' }}>{winner === 'player' ? t('w') : winner === 'bot' ? t('x') : t('d')}</h3>
           <Btn onClick={() => setView('profile')} bg="#10b981">{t('p')}</Btn>
         </div>
       )}
-
-      {/* 🔥 МОДАЛЬНОЕ ОКНО: Как купить GROK (3 шага) */}
       {showGrok && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0,0,0,0.9)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            padding: '1rem'
-          }}
-          onClick={() => setShowGrok(false)}
-        >
-          <div
-            style={{
-              background: 'linear-gradient(135deg,#1e293b,#334155)',
-              padding: '1.5rem',
-              borderRadius: '16px',
-              maxWidth: '420px',
-              width: '100%',
-              border: '2px solid #f59e0b'
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Заголовок + кнопка закрытия */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '1rem'
-            }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem' }} onClick={() => setShowGrok(false)}>
+          <div style={{ background: 'linear-gradient(135deg,#1e293b,#334155)', padding: '1.5rem', borderRadius: '16px', maxWidth: '420px', width: '100%', border: '2px solid #f59e0b' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ color: '#fbbf24', margin: 0 }}>{t('gt')}</h3>
-              <button
-                onClick={() => setShowGrok(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#94a3b8',
-                  fontSize: '1.5rem',
-                  cursor: 'pointer'
-                }}
-              >
-                ✕
-              </button>
+              <button onClick={() => setShowGrok(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '1.5rem', cursor: 'pointer' }}>✕</button>
             </div>
-
-            {/* 3 ШАГА */}
-            <ol style={{
-              color: '#cbd5e1',
-              margin: '0 0 1rem 0',
-              paddingLeft: '1.2rem',
-              lineHeight: '1.6',
-              fontSize: '0.95rem'
-            }}>
+            <ol style={{ color: '#cbd5e1', margin: '0 0 1rem 0', paddingLeft: '1.2rem', lineHeight: '1.6', fontSize: '0.95rem' }}>
               <li style={{ marginBottom: '0.5rem' }}>{t('g1')}</li>
               <li style={{ marginBottom: '0.5rem' }}>{t('g2')}</li>
               <li>
                 {t('g3')}<br />
-                <code style={{
-                  background: '#0f172a',
-                  padding: '0.4rem 0.6rem',
-                  borderRadius: '6px',
-                  color: '#60a5fa',
-                  wordBreak: 'break-all',
-                  display: 'block',
-                  margin: '0.5rem 0'
-                }}>
-                  {GROK_CONTRACT}
-                </code>
-                <button
-                  onClick={copyContract}
-                  style={{
-                    padding: '0.4rem 0.8rem',
-                    background: copied ? '#10b981' : '#3b82f6',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {copied ? t('cd') : t('cp')}
-                </button>
+                <code style={{ background: '#0f172a', padding: '0.4rem 0.6rem', borderRadius: '6px', color: '#60a5fa', wordBreak: 'break-all', display: 'block', margin: '0.5rem 0' }}>{GROK_CONTRACT}</code>
+                <button onClick={copyContract} style={{ padding: '0.4rem 0.8rem', background: copied ? '#10b981' : '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>{copied ? t('cd') : t('cp')}</button>
               </li>
             </ol>
-
-            {/* Кнопка перехода по ссылке */}
-            <a
-              href={GROK_LINK}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: 'block',
-                background: '#f59e0b',
-                color: '#000',
-                padding: '0.8rem',
-                borderRadius: '10px',
-                textAlign: 'center',
-                textDecoration: 'none',
-                fontWeight: '600',
-                marginBottom: '0.8rem'
-              }}
-            >
-              🔗 four.meme → GROK
-            </a>
-
-            <Btn onClick={() => setShowGrok(false)} bg="#64748b" style={{ width: '100%' }}>
-              {t('cl')}
-            </Btn>
+            <a href={GROK_LINK} target="_blank" rel="noopener noreferrer" style={{ display: 'block', background: '#f59e0b', color: '#000', padding: '0.8rem', borderRadius: '10px', textAlign: 'center', textDecoration: 'none', fontWeight: '600', marginBottom: '0.8rem' }}>🔗 four.meme → GROK</a>
+            <Btn onClick={() => setShowGrok(false)} bg="#64748b" style={{ width: '100%' }}>{t('cl')}</Btn>
           </div>
         </div>
       )}
