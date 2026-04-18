@@ -2,25 +2,15 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Chess } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
 
-// 🛡️ Глобальная защита от ошибок расширения
-if (typeof window !== 'undefined') {
-  window.addEventListener('unhandledrejection', function(e) {
-    if (e.reason && e.reason.message && (e.reason.message.includes('MetaMask') || e.reason.message.includes('not found'))) {
-      e.preventDefault()
-      console.warn('🛡️ Wallet error ignored')
-    }
-  })
-}
-
-// 🌍 7 ЯЗЫКОВ (полный словарь)
+// 🌍 7 ЯЗЫКОВ (полный словарь, БЕЗ УПОМИНАНИЙ КОШЕЛЬКА)
 const LANG = {
-  ru: { t:'♟️ Chess4Crypto', s:'Web3 шахматы с крипто-ставками', g:'👤 Гостевой вход', c:'🦊 Подключить кошелёк', k:'💰 Купить GROK', p:'👤 Профиль', l:'🚪 Выйти', y:'👤 Вы', b:'🤖 Бот', yt:'♟️ Ваш ход!', bt:'🤖 Бот думает (3с)...', w:'🏆 ПОБЕДА!', x:'😔 Поражение', d:'🤝 Ничья', tp:'⏰ Бот выиграл', tb:'⏰ Вы выиграли', cn:'✅ Кошелёк подключён!', nw:'⚠️ Вход в профиль...', cl:'Закрыть', cp:'📋 Копировать', cd:'✅ Скопировано!', gt:'💰 Как купить GROK', g1:'1. Перейди по ссылке и подключи крипто-кошелёк в сети BNB (нужен BNB для комиссии).', g2:'2. Купи монету GROK на любую сумму.', g3:'3. Добавь адрес в кошелёк для отображения:', ln:'🇷🇺 RU', th:'🎨 Тема доски', tm:{c:'🏛️ Классика',w:'🪵 Дерево',n:'💜 Неон',o:'🌊 Океан',s:'🌅 Закат',m:'⚪ Минимал'} },
-  en: { t:'♟️ Chess4Crypto', s:'Web3 Chess with Crypto Stakes', g:'👤 Guest Mode', c:'🦊 Connect Wallet', k:'💰 Buy GROK', p:'👤 Profile', l:'🚪 Logout', y:'👤 You', b:'🤖 Bot', yt:'♟️ Your turn!', bt:'🤖 Bot thinks (3s)...', w:'🏆 YOU WIN!', x:'😔 You lost', d:'🤝 Draw', tp:'⏰ Bot wins', tb:'⏰ You win', cn:'✅ Wallet connected!', nw:'⚠️ Entering profile...', cl:'Close', cp:'📋 Copy', cd:'✅ Copied!', gt:'💰 How to Buy GROK', g1:'1. Follow the link and connect your BNB Chain wallet (need BNB for gas).', g2:'2. Buy GROK token for any amount.', g3:'3. Add contract to wallet to display:', ln:'🇬🇧 EN', th:'🎨 Board Theme', tm:{c:'🏛️ Classic',w:'🪵 Wood',n:'💜 Neon',o:'🌊 Ocean',s:'🌅 Sunset',m:'⚪ Minimal'} },
-  de: { t:'♟️ Chess4Crypto', s:'Web3-Schach mit Krypto', g:'👤 Gast', c:'🦊 Wallet', k:'💰 GROK', p:'👤 Profil', l:'🚪 Exit', y:'👤 Du', b:'🤖 Bot', yt:'♟️ Dein Zug!', bt:'🤖 Bot denkt (3s)...', w:'🏆 GEWINN!', x:'😔 Verloren', d:'🤝 Remis', tp:'⏰ Bot gewinnt', tb:'⏰ Du gewinnst', cn:'✅ Verbunden', nw:'⚠️ Profil...', cl:'Schließen', cp:'📋 Kopieren', cd:'✅ Kopiert', gt:'💰 GROK kaufen', g1:'1. Link öffnen und BNB Chain Wallet verbinden (BNB nötig).', g2:'2. GROK-Token kaufen.', g3:'3. Adresse im Wallet hinzufügen:', ln:'🇩🇪 DE', th:'🎨 Design', tm:{c:'🏛️ Klassisch',w:'🪵 Holz',n:'💜 Neon',o:'🌊 Ozean',s:'🌅 Sonnenuntergang',m:'⚪ Minimal'} },
-  fr: { t:'♟️ Chess4Crypto', s:'Échecs Web3 crypto', g:'👤 Invité', c:'🦊 Wallet', k:'💰 GROK', p:'👤 Profil', l:'🚪 Quitter', y:'👤 Vous', b:'🤖 Bot', yt:'♟️ À vous!', bt:'🤖 Bot pense (3s)...', w:'🏆 GAGNÉ!', x:'😔 Perdu', d:'🤝 Nulle', tp:'⏰ Bot gagne', tb:'⏰ Vous gagnez', cn:'✅ Connecté', nw:'⚠️ Profil...', cl:'Fermer', cp:'📋 Copier', cd:'✅ Copié', gt:'💰 Acheter GROK', g1:'1. Suivre le lien et connecter wallet BNB Chain (BNB requis).', g2:'2. Acheter GROK.', g3:'3. Ajouter l\'adresse au wallet:', ln:'🇫🇷 FR', th:'🎨 Thème', tm:{c:'🏛️ Classique',w:'🪵 Bois',n:'💜 Néon',o:'🌊 Océan',s:'🌅 Coucher',m:'⚪ Minimal'} },
-  es: { t:'♟️ Chess4Crypto', s:'Ajedrez Web3 crypto', g:'👤 Invitado', c:'🦊 Wallet', k:'💰 GROK', p:'👤 Perfil', l:'🚪 Salir', y:'👤 Tú', b:'🤖 Bot', yt:'♟️ ¡Tu turno!', bt:'🤖 Bot piensa (3s)...', w:'🏆 ¡GANASTE!', x:'😔 Perdiste', d:'🤝 Empate', tp:'⏰ Bot gana', tb:'⏰ Ganas tú', cn:'✅ Conectado', nw:'⚠️ Perfil...', cl:'Cerrar', cp:'📋 Copiar', cd:'✅ Copiado', gt:'💰 Comprar GROK', g1:'1. Ir al enlace y conectar wallet BNB Chain (necesitas BNB).', g2:'2. Comprar GROK.', g3:'3. Añadir dirección al wallet:', ln:'🇪🇸 ES', th:'🎨 Tema', tm:{c:'🏛️ Clásico',w:'🪵 Madera',n:'💜 Neón',o:'🌊 Océano',s:'🌅 Atardecer',m:'⚪ Minimal'} },
-  zh: { t:'♟️ Chess4Crypto', s:'Web3国际象棋', g:'👤 访客', c:'🦊 钱包', k:'💰 GROK', p:'👤 资料', l:'🚪 退出', y:'👤 你', b:'🤖 机器人', yt:'♟️ 轮到你!', bt:'🤖 思考中 (3s)...', w:'🏆 你赢了!', x:'😔 你输了', d:'🤝 平局', tp:'⏰ 机器人赢', tb:'⏰ 你赢了', cn:'✅ 已连接', nw:'⚠️ 进入资料...', cl:'关闭', cp:'📋 复制', cd:'✅ 已复制', gt:'💰 购买GROK', g1:'1. 点击链接连接BNB链钱包（需BNB支付手续费）。', g2:'2. 购买GROK代币。', g3:'3. 将地址添加到钱包:', ln:'🇨🇳 中文', th:'🎨 主题', tm:{c:'🏛️ 经典',w:'🪵 木质',n:'💜 霓虹',o:'🌊 海洋',s:'🌅 日落',m:'⚪ 简约'} },
-  hi: { t:'♟️ Chess4Crypto', s:'Web3 शतरंज', g:'👤 अतिथि', c:'🦊 वॉलेट', k:'💰 GROK', p:'👤 प्रोफ़ाइल', l:'🚪 बाहर', y:'👤 आप', b:'🤖 बॉट', yt:'♟️ आपकी बारी!', bt:'🤖 सोच रहा (3s)...', w:'🏆 आप जीते!', x:'😔 आप हारे', d:'🤝 ड्रॉ', tp:'⏰ बॉट जीता', tb:'⏰ आप जीते', cn:'✅ कनेक्ट', nw:'⚠️ प्रोफ़ाइल...', cl:'बंद', cp:'📋 कॉपी', cd:'✅ कॉपी', gt:'💰 GROK खरीदें', g1:'1. लिंक पर जाएं और BNB चेन वॉलेट कनेक्ट करें (BNB चाहिए)।', g2:'2. GROK खरीदें।', g3:'3. वॉलेट में एड्रेस जोड़ें:', ln:'🇮🇳 हिंदी', th:'🎨 थीम', tm:{c:'🏛️ क्लासिक',w:'🪵 लकड़ी',n:'💜 नियॉन',o:'🌊 महासागर',s:'🌅 सूर्यास्त',m:'⚪ मिनिमल'} }
+  ru: { t:'♟️ Chess4Crypto', s:'Web3 шахматы с крипто-ставками', g:'👤 Гостевой вход', c:'👤 Войти', k:'💰 Купить GROK', p:'👤 Профиль', l:'🚪 Выйти', y:'👤 Вы', b:'🤖 Бот', yt:'♟️ Ваш ход!', bt:'🤖 Бот думает (3с)...', w:'🏆 ПОБЕДА!', x:'😔 Поражение', d:'🤝 Ничья', tp:'⏰ Бот выиграл', tb:'⏰ Вы выиграли', cn:'✅ Вход выполнен!', cl:'Закрыть', cp:'📋 Копировать', cd:'✅ Скопировано!', gt:'💰 Как купить GROK', g1:'1. Перейди по ссылке и подключи крипто-кошелёк в сети BNB (нужен BNB для комиссии).', g2:'2. Купи монету GROK на любую сумму.', g3:'3. Добавь адрес в кошелёк для отображения:', ln:'🇷🇺 RU', th:'🎨 Тема доски', tm:{c:'🏛️ Классика',w:'🪵 Дерево',n:'💜 Неон',o:'🌊 Океан',s:'🌅 Закат',m:'⚪ Минимал'} },
+  en: { t:'♟️ Chess4Crypto', s:'Web3 Chess with Crypto Stakes', g:'👤 Guest Mode', c:'👤 Sign In', k:'💰 Buy GROK', p:'👤 Profile', l:'🚪 Logout', y:'👤 You', b:'🤖 Bot', yt:'♟️ Your turn!', bt:'🤖 Bot thinks (3s)...', w:'🏆 YOU WIN!', x:'😔 You lost', d:'🤝 Draw', tp:'⏰ Bot wins', tb:'⏰ You win', cn:'✅ Signed in!', cl:'Close', cp:'📋 Copy', cd:'✅ Copied!', gt:'💰 How to Buy GROK', g1:'1. Follow the link and connect your BNB Chain wallet (need BNB for gas).', g2:'2. Buy GROK token for any amount.', g3:'3. Add contract to wallet to display:', ln:'🇬🇧 EN', th:'🎨 Board Theme', tm:{c:'🏛️ Classic',w:'🪵 Wood',n:'💜 Neon',o:'🌊 Ocean',s:'🌅 Sunset',m:'⚪ Minimal'} },
+  de: { t:'♟️ Chess4Crypto', s:'Web3-Schach mit Krypto', g:'👤 Gast', c:'👤 Anmelden', k:'💰 GROK', p:'👤 Profil', l:'🚪 Exit', y:'👤 Du', b:'🤖 Bot', yt:'♟️ Dein Zug!', bt:'🤖 Bot denkt (3s)...', w:'🏆 GEWINN!', x:'😔 Verloren', d:'🤝 Remis', tp:'⏰ Bot gewinnt', tb:'⏰ Du gewinnst', cn:'✅ Angemeldet', cl:'Schließen', cp:'📋 Kopieren', cd:'✅ Kopiert', gt:'💰 GROK kaufen', g1:'1. Link öffnen und BNB Chain Wallet verbinden (BNB nötig).', g2:'2. GROK-Token kaufen.', g3:'3. Adresse im Wallet hinzufügen:', ln:'🇩🇪 DE', th:'🎨 Design', tm:{c:'🏛️ Klassisch',w:'🪵 Holz',n:'💜 Neon',o:'🌊 Ozean',s:'🌅 Sonnenuntergang',m:'⚪ Minimal'} },
+  fr: { t:'♟️ Chess4Crypto', s:'Échecs Web3 crypto', g:'👤 Invité', c:'👤 Connexion', k:'💰 GROK', p:'👤 Profil', l:'🚪 Quitter', y:'👤 Vous', b:'🤖 Bot', yt:'♟️ À vous!', bt:'🤖 Bot pense (3s)...', w:'🏆 GAGNÉ!', x:'😔 Perdu', d:'🤝 Nulle', tp:'⏰ Bot gagne', tb:'⏰ Vous gagnez', cn:'✅ Connecté', cl:'Fermer', cp:'📋 Copier', cd:'✅ Copié', gt:'💰 Acheter GROK', g1:'1. Suivre le lien et connecter wallet BNB Chain (BNB requis).', g2:'2. Acheter GROK.', g3:'3. Ajouter l\'adresse au wallet:', ln:'🇫🇷 FR', th:'🎨 Thème', tm:{c:'🏛️ Classique',w:'🪵 Bois',n:'💜 Néon',o:'🌊 Océan',s:'🌅 Coucher',m:'⚪ Minimal'} },
+  es: { t:'♟️ Chess4Crypto', s:'Ajedrez Web3 crypto', g:'👤 Invitado', c:'👤 Entrar', k:'💰 GROK', p:'👤 Perfil', l:'🚪 Salir', y:'👤 Tú', b:'🤖 Bot', yt:'♟️ ¡Tu turno!', bt:'🤖 Bot piensa (3s)...', w:'🏆 ¡GANASTE!', x:'😔 Perdiste', d:'🤝 Empate', tp:'⏰ Bot gana', tb:'⏰ Ganas tú', cn:'✅ Conectado', cl:'Cerrar', cp:'📋 Copiar', cd:'✅ Copiado', gt:'💰 Comprar GROK', g1:'1. Ir al enlace y conectar wallet BNB Chain (necesitas BNB).', g2:'2. Comprar GROK.', g3:'3. Añadir dirección al wallet:', ln:'🇪🇸 ES', th:'🎨 Tema', tm:{c:'🏛️ Clásico',w:'🪵 Madera',n:'💜 Neón',o:'🌊 Océano',s:'🌅 Atardecer',m:'⚪ Minimal'} },
+  zh: { t:'♟️ Chess4Crypto', s:'Web3国际象棋', g:'👤 访客', c:'👤 登录', k:'💰 GROK', p:'👤 资料', l:'🚪 退出', y:'👤 你', b:'🤖 机器人', yt:'♟️ 轮到你!', bt:'🤖 思考中 (3s)...', w:'🏆 你赢了!', x:'😔 你输了', d:'🤝 平局', tp:'⏰ 机器人赢', tb:'⏰ 你赢了', cn:'✅ 已登录', cl:'关闭', cp:'📋 复制', cd:'✅ 已复制', gt:'💰 购买GROK', g1:'1. 点击链接连接BNB链钱包（需BNB支付手续费）。', g2:'2. 购买GROK代币。', g3:'3. 将地址添加到钱包:', ln:'🇨🇳 中文', th:'🎨 主题', tm:{c:'🏛️ 经典',w:'🪵 木质',n:'💜 霓虹',o:'🌊 海洋',s:'🌅 日落',m:'⚪ 简约'} },
+  hi: { t:'♟️ Chess4Crypto', s:'Web3 शतरंज', g:'👤 अतिथि', c:'👤 लॉगिन', k:'💰 GROK', p:'👤 प्रोफ़ाइल', l:'🚪 बाहर', y:'👤 आप', b:'🤖 बॉट', yt:'♟️ आपकी बारी!', bt:'🤖 सोच रहा (3s)...', w:'🏆 आप जीते!', x:'😔 आप हारे', d:'🤝 ड्रॉ', tp:'⏰ बॉट जीता', tb:'⏰ आप जीते', cn:'✅ लॉगिन', cl:'बंद', cp:'📋 कॉपी', cd:'✅ कॉपी', gt:'💰 GROK खरीदें', g1:'1. लिंक पर जाएं और BNB चेन वॉलेट कनेक्ट करें (BNB चाहिए)।', g2:'2. GROK खरीदें।', g3:'3. वॉलेट में एड्रेस जोड़ें:', ln:'🇮🇳 हिंदी', th:'🎨 थीम', tm:{c:'🏛️ क्लासिक',w:'🪵 लकड़ी',n:'💜 नियॉन',o:'🌊 महासागर',s:'🌅 सूर्यास्त',m:'⚪ मिनिमल'} }
 }
 
 // 🎨 6 ТЕМ ДОСОК
@@ -42,12 +32,9 @@ const GROK_LINK = 'https://four.meme/token/0x62a3e247e28cad2d2902cd2dc2e6aea7cdd
 const GROK_CONTRACT = '0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444'
 
 export default function App() {
-  var lang = useState('ru')[0]
-  var setLang = useState('ru')[1]
-  // 🔁 Правильная инициализация хуков
+  // 🔁 Инициализация хуков
   var langState = useState('ru')
-  lang = langState[0]
-  setLang = langState[1]
+  var lang = langState[0], setLang = langState[1]
   
   var viewState = useState('menu')
   var view = viewState[0], setView = viewState[1]
@@ -64,38 +51,39 @@ export default function App() {
   var themeState = useState('c')
   var boardTheme = themeState[0], setBoardTheme = themeState[1]
   
-  var sizeState = useState(Math.min(typeof window !== 'undefined' ? window.innerWidth * 0.9 : 400, 400))
+  var sizeState = useState(360)
   var boardSize = sizeState[0], setBoardSize = sizeState[1]
 
   // ♟️ Шахматы
   var gameRef = useRef(null)
   if (gameRef.current === null) { gameRef.current = new Chess() }
+  
   var fenState = useState(gameRef.current.fen())
   var fen = fenState[0], setFen = fenState[1]
   
   var histState = useState([gameRef.current.fen()])
   var history = histState[0], setHistory = histState[1]
   
-  var miState = useState(0)
-  var moveIdx = miState[0], setMoveIdx = miState[1]
+  var miState = useState(0), setMoveIdx = useState(0)[1]
+  var moveIdx = miState[0]
   
-  var ptState = useState(true)
-  var isPlayerTurn = ptState[0], setIsPlayerTurn = ptState[1]
+  var ptState = useState(true), setIsPlayerTurn = useState(true)[1]
+  var isPlayerTurn = ptState[0]
   
-  var goState = useState(false)
-  var gameOver = goState[0], setGameOver = goState[1]
+  var goState = useState(false), setGameOver = useState(false)[1]
+  var gameOver = goState[0]
   
-  var winState = useState(null)
-  var winner = winState[0], setWinner = winState[1]
+  var winState = useState(null), setWinner = useState(null)[1]
+  var winner = winState[0]
   
-  var pTState = useState(900)
-  var playerTime = pTState[0], setPlayerTime = pTState[1]
+  var pTState = useState(900), setPlayerTime = useState(900)[1]
+  var playerTime = pTState[0]
   
-  var bTState = useState(900)
-  var botTime = bTState[0], setBotTime = bTState[1]
+  var bTState = useState(900), setBotTime = useState(900)[1]
+  var botTime = bTState[0]
   
-  var taState = useState(null)
-  var timerActive = taState[0], setTimerActive = taState[1]
+  var taState = useState(null), setTimerActive = useState(null)[1]
+  var timerActive = taState[0]
   
   var timerRef = useRef(null)
 
@@ -109,8 +97,9 @@ export default function App() {
   // 📏 Ресайз
   useEffect(function() {
     function onResize() {
-      var w = typeof window !== 'undefined' ? window.innerWidth : 400
-      setBoardSize(Math.min(w * 0.9, 400))
+      if (typeof window !== 'undefined') {
+        setBoardSize(Math.min(window.innerWidth * 0.9, 400))
+      }
     }
     if (typeof window !== 'undefined') {
       window.addEventListener('resize', onResize)
@@ -157,7 +146,7 @@ export default function App() {
     }
   }, [timerActive, gameOver])
 
-  // 🔘 КНОПКИ
+  // 🔘 КНОПКИ (БЕЗ КОШЕЛЬКА!)
   function handleGuest() {
     setMsg(t('g'))
     setGameOver(false)
@@ -167,9 +156,9 @@ export default function App() {
     startGame()
   }
 
-  function connectWallet() {
-    // ✅ Безопасно: без try/catch, без async, без ethereum.request
-    setMsg(t('nw'))
+  // ✅ Кнопка "Войти": просто переходит в профиль (НИКАКИХ ВЫЗОВОВ!)
+  function handleSignIn() {
+    setMsg(t('cn'))
     setView('profile')
   }
 
@@ -281,7 +270,7 @@ export default function App() {
   }
 
   // ============================================================================
-  // 🖥️ МЕНЮ
+  // 🖥️ МЕНЮ (БЕЗ КНОПКИ GROK)
   // ============================================================================
   if (view === 'menu') {
     return React.createElement('div', {
@@ -290,14 +279,14 @@ export default function App() {
       React.createElement('h1', { style: { fontSize: '2.5rem', color: '#fbbf24', margin: 0 } }, t('t')),
       React.createElement('p', { style: { color: '#94a3b8' } }, t('s')),
       React.createElement(Btn, { c: t('g'), o: handleGuest, bg: 'linear-gradient(135deg,#3b82f6,#2563eb)' }),
-      React.createElement(Btn, { c: t('c'), o: connectWallet, bg: 'linear-gradient(135deg,#f59e0b,#d97706)' }),
+      React.createElement(Btn, { c: t('c'), o: handleSignIn, bg: 'linear-gradient(135deg,#f59e0b,#d97706)' }),
       React.createElement(Btn, { c: t('ln'), o: toggleLang, bg: '#475569' }),
       msg ? React.createElement('div', { style: { padding: '0.6rem', background: 'rgba(59,130,246,0.2)', borderRadius: '8px', color: '#60a5fa' } }, msg) : null
     )
   }
 
   // ============================================================================
-  // 🖥️ ПРОФИЛЬ
+  // 🖥️ ПРОФИЛЬ (КНОПКА GROK ЗДЕСЬ)
   // ============================================================================
   if (view === 'profile') {
     return React.createElement('div', {
