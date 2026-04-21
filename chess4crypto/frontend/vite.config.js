@@ -6,6 +6,15 @@ export default defineConfig({
   base: '/chess4crypto/',
   build: {
     outDir: 'dist',
-    emptyOutDir: true
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
+      }
+    }
+  },
+  define: { global: 'globalThis' },
+  optimizeDeps: {
+    esbuildOptions: { define: { global: 'globalThis' } }
   }
 })

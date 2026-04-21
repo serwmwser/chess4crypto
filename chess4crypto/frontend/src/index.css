@@ -1,3 +1,4 @@
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,sans-serif;background:#0f172a;color:#f1f5f9}
-button{font-family:inherit}
+body{font-family:system-ui,sans-serif;background:#0f172a;color:#f1f5f9;overflow-x:hidden}
+button{font-family:inherit;cursor:pointer}
+select,input{font-family:inherit;padding:0.5rem;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:6px}
