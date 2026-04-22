@@ -31,3 +31,37 @@ export const subscribeToGame = (gameId, callbacks) => {
     .subscribe()
   return () => supabase.removeChannel(channel)
 }
+
+// 👤 Получить профиль игрока
+export const getProfile = async (address) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('address', address.toLowerCase())
+    .single()
+  if (error && error.code !== 'PGRST116') { // PGRST116 = not found
+    console.error('getProfile error:', error)
+    throw error
+  }
+  return data
+}
+
+// 👤 Обновить профиль игрока
+export const updateProfile = async (address, profileData) => {
+  const { error } = await supabase
+    .from('profiles')
+    .upsert({
+      address: address.toLowerCase(),
+      avatar_url: profileData.avatar,
+      display_name: profileData.name,
+      bio: profileData.bio,
+      website: profileData.website,
+      social: profileData.social,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'address' })
+  if (error) {
+    console.error('updateProfile error:', error)
+    throw error
+  }
+  return true
+}
