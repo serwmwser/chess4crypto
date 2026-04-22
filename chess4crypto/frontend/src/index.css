@@ -1,4 +1,12 @@
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,sans-serif;background:#0f172a;color:#f1f5f9;overflow-x:hidden}
+html,body {
+  font-family:system-ui,sans-serif;
+  background:#00695c;
+  color:#ffffff;
+  overflow-x: hidden; /* ✅ Запрещает горизонтальную прокрутку */
+  width: 100%;
+}
 button{font-family:inherit;cursor:pointer}
-select,input{font-family:inherit;padding:0.5rem;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:6px}
+select{font-family:inherit;padding:0.5rem;background:#004d40;color:#fff;border:1px solid #00897b;border-radius:6px}
+/* Убираем подсветку при тапе на мобильных */
+* { -webkit-tap-highlight-color: transparent; }
