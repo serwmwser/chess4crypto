@@ -11,7 +11,7 @@ export const createGameRecord = async (gameId, creator, stake, timeLimit) => {
     id: gameId, creator, challenger: null, stake, time_limit: timeLimit,
     fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
     turn: 'w', status: 'waiting', winner: null, is_draw: false, done: false,
-    cPaid: true, hPaid: false,
+    cpaid: true, hpaid: false,  // ✅ snake_case для Supabase REST
     created_at: new Date().toISOString(), updated_at: new Date().toISOString()
   }).select().single()
   if (error) { console.error('createGameRecord error:', error); throw error }
@@ -32,7 +32,6 @@ export const subscribeToGame = (gameId, callbacks) => {
   return () => supabase.removeChannel(channel)
 }
 
-// 👤 Получить профиль игрока
 export const getProfile = async (address) => {
   const { data, error } = await supabase
     .from('profiles')
@@ -46,7 +45,6 @@ export const getProfile = async (address) => {
   return data
 }
 
-// 👤 Обновить профиль игрока
 export const updateProfile = async (address, profileData) => {
   const { error } = await supabase
     .from('profiles')
@@ -66,14 +64,13 @@ export const updateProfile = async (address, profileData) => {
   return true
 }
 
-// 🎮 Получить доступные игры для присоединения (видны всем)
 export const listAvailableGames = async () => {
   const { data, error } = await supabase
     .from('games')
     .select('*')
     .eq('status', 'waiting')
-    .eq('cPaid', true) // Создатель уже внёс депозит
-    .eq('hPaid', false) // Соперник ещё не присоединился
+    .eq('cpaid', true)    // ✅ snake_case
+    .eq('hpaid', false)   // ✅ snake_case
     .order('created_at', { ascending: false })
     .limit(20)
   if (error) {
