@@ -8,8 +8,8 @@ import{supabase,createGameRecord,updateGameStatus,subscribeToGame,getProfile,upd
 
 const COLORS={bg:'#00695c',cardBg:'#004d40',btnBlue:'#1a237e',btnOrange:'#f57c00',text:'#ffffff',textSec:'#b2dfdb',accent:'#ffb74d'}
 const LANG={
-ru:{t:'♟️ Chess4Crypto',s:'PvP ставки в GROK',g:'👤 Гостевой',c:'🦊 Войти',k:'💰 Купить GROK',p:'👤 Профиль',l:'🚪 Выйти',y:'👤 Вы',b:'🤖 Бот',yt:'♟️ Ваш ход!',bt:'🤖 Бот думает (3с)...',w:'🏆 ПОБЕДА!',x:'😔 Поражение',d:'🤝 Ничья',tp:'⏰ Бот выиграл',tb:'⏰ Вы выиграли',cn:'✅ Подключено',cl:'Закрыть',cp:'📋 Копировать',cd:'✅ Скопировано!',gt:'💰 Как купить GROK',g1:'1. Перейдите по ссылке и подключите кошелёк в сети BNB.',g2:'2. Купите монету GROK.',g3:'3. Адрес контракта:',ln:'🇷🇺 RU',th:'🎨 Тема',tm:{c:'🏛️ Классика',w:'🪵 Дерево',n:'💜 Неон',o:'🌊 Океан',s:'🌅 Закат',m:'⚪ Минимал'},tc:'Время:',st:'Ставка:',cr:'➕ Создать матч',jn:'🤝 Присоединиться',mv:'Ходы:',newG:'🔄 В лобби',botG:'🤖 С ботом',select:'Время',bal:'Баланс:',games:'Игры:',noG:'Нет игр',myG:'Мои игры',join:'Войти',copy:'Ссылка скопирована!',invite:'🔗 Приглашение',dep:'💰 Внести',claim:'🏆 Забрать',approve:'✅ Разрешить',waiting:'⏳ Ожидание соперника...',playing:'♟️ Игра идёт',sync:'🔄 Синхронизация...',review:'🔍 Просмотр',live:'▶️ В реальном времени',prev:'⏪ Назад',next:'⏩ Вперёд',pot:'Банк игры:',payout:'Выплата:',refund:'Возврат',drawRefund:'🤝 Ничья — ставки возвращены',winnerGets:'🏆 Победитель забирает весь банк',needDep:'Нужно внести',toJoin:'для присоединения',yourStake:'Ваша ставка:',oppStake:'Ставка соперника:',totalPot:'Общий банк:',setTime:'Выберите время:',approveTx:'1️⃣ Разрешаем контракт тратить GROK...',depositTx:'2️⃣ Переводим ставку в пул игры...',successDep:'✅ Депозит в пул принят! Игра создана.',successJoin:'✅ Депозит внесён! Игра начинается.',errTx:'❌ Ошибка транзакции: ',errBal:'❌ Недостаточно GROK',claimBtn:'💰 Забрать выигрыш',victoryTitle:'🏆 Победа!',defeatTitle:'😔 Поражение',drawTitle:'🤝 Ничья',noMetaMask:'⚠️ Установите MetaMask/TrustWallet',playerProfile:'👤 Профиль',avatar:'🖼️ Аватар',name:'👤 Имя',bio:'📝 О себе',website:'🌐 Сайт',social:'🔗 Соцсеть',save:'💾 Сохранить',availableGames:'🎮 Доступные игры',guestInfo:'⏱️ Гостевой режим: бесплатно с ботом.',grokInstructions:'📖 Создание игры на GROK:\n• Нажмите "Создать матч".\n• Подтвердите Approve (разрешение) в кошельке.\n• Подтвердите Deposit (перевод ставки) в кошельке.\n• Средства поступают в пул игры на смарт-контракт.\n• Отправьте ссылку сопернику.\n• Победитель забирает весь банк!',txCancelled:'⚠️ Транзакция отменена',step1:'Шаг 1/2: Разрешение',step2:'Шаг 2/2: Депозит'},
-en:{t:'♟️ Chess4Crypto',s:'GROK PvP Betting',g:'👤 Guest',c:'🦊 Connect',k:'💰 GROK',p:'👤 Profile',l:'🚪 Logout',y:'👤 You',b:'🤖 Bot',yt:'♟️ Your turn!',bt:'🤖 Bot thinks (3s)...',w:'🏆 YOU WIN!',x:'😔 Lost',d:'🤝 Draw',tp:'⏰ Bot wins',tb:'⏰ You win',cn:'✅ Connected',cl:'Close',cp:'📋 Copy',cd:'✅ Copied!',gt:'💰 Buy GROK',g1:'1. Follow link, connect BNB wallet.',g2:'2. Buy GROK.',g3:'3. Contract address:',ln:'🇬🇧 EN',th:'🎨 Theme',tm:{c:'🏛️ Classic',w:'🪵 Wood',n:'💜 Neon',o:'🌊 Ocean',s:'🌅 Sunset',m:'⚪ Minimal'},tc:'Time:',st:'Stake:',cr:'➕ Create Match',jn:'🤝 Join',mv:'Moves:',newG:'🔄 Lobby',botG:'🤖 Vs Bot',select:'Time',bal:'Balance:',games:'Games:',noG:'No games',myG:'My Games',join:'Join',copy:'Copied!',invite:'🔗 Invite',dep:'💰 Deposit',claim:'🏆 Claim Win',approve:'✅ Approve',waiting:'⏳ Waiting opponent...',playing:'♟️ Game in progress',sync:'🔄 Syncing...',review:'🔍 Review',live:'▶️ Live',prev:'⏪ Prev',next:'⏩ Next',pot:'Game Pot:',payout:'Payout:',refund:'Refund',drawRefund:'🤝 Draw — stakes refunded',winnerGets:'🏆 Winner takes entire pot',needDep:'Need to deposit',toJoin:'to join',yourStake:'Your stake:',oppStake:'Opponent stake:',totalPot:'Total pot:',setTime:'Select Time:',approveTx:'1️⃣ Approve GROK...',depositTx:'2️⃣ Deposit to pool...',successDep:'✅ Deposit accepted! Game created.',successJoin:'✅ Deposit paid! Game started.',errTx:'❌ Transaction error: ',errBal:'❌ Insufficient GROK',claimBtn:'💰 Claim Winnings',victoryTitle:'🏆 Victory!',defeatTitle:'😔 Defeat',drawTitle:'🤝 Draw',noMetaMask:'⚠️ Install MetaMask/TrustWallet',playerProfile:'👤 Profile',avatar:'🖼️ Avatar',name:'👤 Name',bio:'📝 Bio',website:'🌐 Website',social:'🔗 Social',save:'💾 Save',availableGames:'🎮 Available Games',guestInfo:'⏱️ Guest: free vs bot.',grokInstructions:'📖 Create GROK game:\n• Click "Create Match".\n• Confirm Approve in wallet.\n• Confirm Deposit in wallet.\n• Funds go to game pool on contract.\n• Share link with opponent.\n• Winner takes all!',txCancelled:'⚠️ Transaction cancelled',step1:'Step 1/2: Approve',step2:'Step 2/2: Deposit'}
+ru:{t:'♟️ Chess4Crypto',s:'PvP ставки в GROK',g:'👤 Гостевой',c:'🦊 Войти',k:'💰 Купить GROK',p:'👤 Профиль',l:'🚪 Выйти',y:'👤 Вы',b:'🤖 Бот',yt:'♟️ Ваш ход!',bt:'🤖 Бот думает (3с)...',w:'🏆 ПОБЕДА!',x:'😔 Поражение',d:'🤝 Ничья',tp:'⏰ Бот выиграл',tb:'⏰ Вы выиграли',cn:'✅ Подключено',cl:'Закрыть',cp:'📋 Копировать',cd:'✅ Скопировано!',gt:'💰 Как купить GROK',g1:'1. Перейдите по ссылке и подключите кошелёк в сети BNB.',g2:'2. Купите монету GROK.',g3:'3. Адрес контракта:',ln:'🇷🇺 RU',th:'🎨 Тема',tm:{c:'🏛️ Классика',w:'🪵 Дерево',n:'💜 Неон',o:'🌊 Океан',s:'🌅 Закат',m:'⚪ Минимал'},tc:'Время:',st:'Ставка:',cr:'➕ Создать матч',jn:'🤝 Присоединиться',mv:'Ходы:',newG:'🔄 В лобби',botG:'🤖 С ботом',select:'Время',bal:'Баланс:',games:'Игры:',noG:'Нет игр',myG:'Мои игры',join:'Войти',copy:'Ссылка скопирована!',invite:'🔗 Приглашение',dep:'💰 Внести',claim:'🏆 Забрать',approve:'✅ Разрешить',waiting:'⏳ Ожидание соперника...',playing:'♟️ Игра идёт',sync:'🔄 Синхронизация...',review:'🔍 Просмотр',live:'▶️ В реальном времени',prev:'⏪ Назад',next:'⏩ Вперёд',pot:'Банк игры:',payout:'Выплата:',refund:'Возврат',drawRefund:'🤝 Ничья — ставки возвращены',winnerGets:'🏆 Победитель забирает весь банк',needDep:'Нужно внести',toJoin:'для присоединения',yourStake:'Ваша ставка:',oppStake:'Ставка соперника:',totalPot:'Общий банк:',setTime:'Выберите время:',approveTx:'1️⃣ Разрешаем контракт тратить GROK...',depositTx:'2️⃣ Переводим ставку в пул игры...',successDep:'✅ Депозит в пул принят! Игра создана.',successJoin:'✅ Депозит внесён! Игра начинается.',errTx:'❌ Ошибка: ',errBal:'❌ Недостаточно GROK',claimBtn:'💰 Забрать выигрыш',victoryTitle:'🏆 Победа!',defeatTitle:'😔 Поражение',drawTitle:'🤝 Ничья',noMetaMask:'⚠️ Установите MetaMask/TrustWallet',playerProfile:'👤 Профиль',avatar:'🖼️ Аватар',name:'👤 Имя',bio:'📝 О себе',website:'🌐 Сайт',social:'🔗 Соцсеть',save:'💾 Сохранить',availableGames:'🎮 Доступные игры',guestInfo:'⏱️ Гостевой режим: бесплатно с ботом.',grokInstructions:'📖 Создание игры на GROK:\n• Нажмите "Создать матч".\n• Подтвердите Approve (разрешение) в кошельке.\n• Подтвердите Deposit (перевод ставки) в кошельке.\n• Средства поступают в пул игры на смарт-контракт.\n• Отправьте ссылку сопернику.\n• Победитель забирает весь банк!',txCancelled:'⚠️ Транзакция отменена',step1:'Шаг 1/2: Разрешение',step2:'Шаг 2/2: Депозит'},
+en:{t:'♟️ Chess4Crypto',s:'GROK PvP Betting',g:'👤 Guest',c:'🦊 Connect',k:'💰 GROK',p:'👤 Profile',l:'🚪 Logout',y:'👤 You',b:'🤖 Bot',yt:'♟️ Your turn!',bt:'🤖 Bot thinks (3s)...',w:'🏆 YOU WIN!',x:'😔 Lost',d:'🤝 Draw',tp:'⏰ Bot wins',tb:'⏰ You win',cn:'✅ Connected',cl:'Close',cp:'📋 Copy',cd:'✅ Copied!',gt:'💰 Buy GROK',g1:'1. Follow link, connect BNB wallet.',g2:'2. Buy GROK.',g3:'3. Contract address:',ln:'🇬🇧 EN',th:'🎨 Theme',tm:{c:'🏛️ Classic',w:'🪵 Wood',n:'💜 Neon',o:'🌊 Ocean',s:'🌅 Sunset',m:'⚪ Minimal'},tc:'Time:',st:'Stake:',cr:'➕ Create Match',jn:'🤝 Join',mv:'Moves:',newG:'🔄 Lobby',botG:'🤖 Vs Bot',select:'Time',bal:'Balance:',games:'Games:',noG:'No games',myG:'My Games',join:'Join',copy:'Copied!',invite:'🔗 Invite',dep:'💰 Deposit',claim:'🏆 Claim Win',approve:'✅ Approve',waiting:'⏳ Waiting opponent...',playing:'♟️ Game in progress',sync:'🔄 Syncing...',review:'🔍 Review',live:'▶️ Live',prev:'⏪ Prev',next:'⏩ Next',pot:'Game Pot:',payout:'Payout:',refund:'Refund',drawRefund:'🤝 Draw — stakes refunded',winnerGets:'🏆 Winner takes entire pot',needDep:'Need to deposit',toJoin:'to join',yourStake:'Your stake:',oppStake:'Opponent stake:',totalPot:'Total pot:',setTime:'Select Time:',approveTx:'1️⃣ Approve GROK...',depositTx:'2️⃣ Deposit to pool...',successDep:'✅ Deposit accepted! Game created.',successJoin:'✅ Deposit paid! Game started.',errTx:'❌ Error: ',errBal:'❌ Insufficient GROK',claimBtn:'💰 Claim Winnings',victoryTitle:'🏆 Victory!',defeatTitle:'😔 Defeat',drawTitle:'🤝 Draw',noMetaMask:'⚠️ Install MetaMask/TrustWallet',playerProfile:'👤 Profile',avatar:'🖼️ Avatar',name:'👤 Name',bio:'📝 Bio',website:'🌐 Website',social:'🔗 Social',save:'💾 Save',availableGames:'🎮 Available Games',guestInfo:'⏱️ Guest: free vs bot.',grokInstructions:'📖 Create GROK game:\n• Click "Create Match".\n• Confirm Approve in wallet.\n• Confirm Deposit in wallet.\n• Funds go to game pool on contract.\n• Share link with opponent.\n• Winner takes all!',txCancelled:'⚠️ Transaction cancelled',step1:'Step 1/2: Approve',step2:'Step 2/2: Deposit'}
 }
 const THEMES={c:{l:'#eeeed2',d:'#769656',n:'🏛️ Classic'},w:{l:'#f0d9b5',d:'#b58863',n:'🪵 Wood'},n:{l:'#1a1a2e',d:'#16213e',n:'💜 Neon'},o:{l:'#e0f7fa',d:'#006064',n:'🌊 Ocean'},s:{l:'#fff3e0',d:'#e65100',n:'🌅 Sunset'},m:{l:'#e0e0e0',d:'#757575',n:'⚪ Minimal'}}
 const TIME_OPTIONS=[5,15,30,60,1440]
@@ -74,10 +74,10 @@ const botTimerRef=useRef(null)
 const{writeContractAsync}=useWriteContract()
 const{grokBalance}=useReadContract({address:GROK_ADDR,abi:ERC20_ABI,functionName:'balanceOf',args:[address||'0x0000000000000000000000000000000000000000'],watch:true})
 
-// ✅ ИСПРАВЛЕНО: Правильная инициализация размера доски
+// ✅ Исправление размера доски
 useEffect(()=>{
   const updateSize=()=>setBs(Math.min(window.innerWidth-40,400))
-  updateSize() // ✅ Теперь функция определена и вызывается корректно
+  updateSize()
   window.addEventListener('resize',updateSize)
   return()=>window.removeEventListener('resize',updateSize)
 },[])
@@ -86,9 +86,9 @@ useEffect(()=>{if(address&&grokBalance!==undefined)setUserBalance(Number(formatU
 useEffect(()=>{if(timerRef.current)clearInterval(timerRef.current);if(!timerActive||gameOver||gameState!=='playing'||isReviewMode)return;timerRef.current=setInterval(()=>{if(timerActive==='player'){setPTime(p=>{if(p<=1){clearInterval(timerRef.current);setGameOver(true);setWinner('bot');setMsg(t('tp'));return 0}return p-1})}else{setBTime(p=>{if(p<=1){clearInterval(timerRef.current);setGameOver(true);setWinner('player');setMsg(t('tb'));return 0}return p-1})}},1000);return()=>clearInterval(timerRef.current)},[timerActive,gameOver,t,gameState,isReviewMode])
 useEffect(()=>{if(isConnected&&address){setMsg(t('cn'));setView('profile');loadProfile()}},[isConnected,address,t])
 
-const loadProfile=useCallback(async()=>{if(!address)return;try{setProfileLoading(true);const d=await getProfile(address);if(d)setProfile(d)}catch(e){console.warn(e)}finally{setProfileLoading(false)}},[address])
-const loadAvailableGames=useCallback(async()=>{try{const g=await listAvailableGames();setAvailableGames(g||[])}catch(e){console.warn(e)}},[])
-const loadActiveGames=useCallback(async()=>{if(!address)return;try{const{data,error}=await supabase.from('games').select('*').or(`creator.eq.${address},challenger.eq.${address}`).order('created_at',{ascending:false}).limit(10);if(!error)setActiveGames(data||[])}catch(e){console.warn(e)}},[address])
+const loadProfile=useCallback(async()=>{if(!address)return;try{setProfileLoading(true);const d=await getProfile(address);if(d)setProfile(d)}catch(e){console.warn('Profile load:',e.message)}finally{setProfileLoading(false)}},[address])
+const loadAvailableGames=useCallback(async()=>{try{const g=await listAvailableGames();setAvailableGames(g||[])}catch(e){console.warn('Games load:',e.message)}},[])
+const loadActiveGames=useCallback(async()=>{if(!address)return;try{const{data,error}=await supabase.from('games').select('*').or(`creator.eq.${address},challenger.eq.${address}`).order('created_at',{ascending:false}).limit(10);if(!error)setActiveGames(data||[])}catch(e){console.warn('Active games load:',e.message)}},[address])
 
 useEffect(()=>{const p=new URLSearchParams(window.location.search);const gid=p.get('game');if(gid){setPendingJoin({id:gid,stake:parseInt(p.get('stake'))||5000,time:parseInt(p.get('time'))||15});setView('profile');setProfileTab('lobby');setMsg(`${t('needDep')} ${parseInt(p.get('stake'))||5000} GROK ${t('toJoin')}`)}},[])
 useEffect(()=>{loadActiveGames();loadAvailableGames();const i=setInterval(()=>{loadActiveGames();loadAvailableGames()},15000);return()=>clearInterval(i)},[address,loadActiveGames,loadAvailableGames])
@@ -108,6 +108,7 @@ const connectWallet=async()=>{
 const resetGame=()=>{gameRef.current.reset();setFen(gameRef.current.fen());setHist([gameRef.current.fen()]);setMi(0);setIsPlayerTurn(true);setGameOver(false);setWinner(null);setMoveHistory([]);setSelectedSq(null);setPossibleMoves([]);setIsDeposited(false);setGameState('idle');setRemoteFen(null);setIsRemoteTurn(false);setCurrentMoveIdx(-1);setIsReviewMode(false);setLiveFen(null);if(botTimerRef.current)clearTimeout(botTimerRef.current);if(unsubscribeRef.current){unsubscribeRef.current();unsubscribeRef.current=null}}
 const startGame=()=>{setPTime(timeCtrl*60);setBTime(timeCtrl*60);setTimerActive('player');setView('game');setGameState('playing')}
 
+// 💰 СОЗДАНИЕ ИГРЫ + ДЕПОЗИТ
 const handleCreateMatch=async()=>{
   if(!isConnected||!address){setMsg('🦊 '+t('c'));return}
   if(CHESS_CONTRACT==='0x0000000000000000000000000000000000000000'){setMsg('⚠️ Contract not set');return}
@@ -116,19 +117,30 @@ const handleCreateMatch=async()=>{
   try{
     setMsg(t('step1'))
     await writeContractAsync({address:GROK_ADDR,abi:ERC20_ABI,functionName:'approve',args:[CHESS_CONTRACT,parseUnits(createStake.toString(),18)]})
+    
     const rawId='game_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)
     const bytes32Id=keccak256(stringToBytes(rawId))
+    
     setMsg(t('step2'))
     await writeContractAsync({address:CHESS_CONTRACT,abi:CHESS_ABI,functionName:'create',args:[bytes32Id]})
     await writeContractAsync({address:CHESS_CONTRACT,abi:CHESS_ABI,functionName:'deposit',args:[bytes32Id]})
+    
     await createGameRecord(rawId,address,createStake,timeCtrl)
+    
     setGameId(rawId);setIsDeposited(true);setGameState('waiting_funds')
     const link=`${window.location.origin}${window.location.pathname}?game=${rawId}&stake=${createStake}&time=${timeCtrl}`
     setInviteLink(link)
     if(navigator.clipboard)navigator.clipboard.writeText(link)
     setMsg(t('successDep'))
-    setupGameSubscription(rawId);await loadActiveGames();await loadAvailableGames();setProfileTab('my')
-  }catch(e){console.error(e);setMsg(e.message?.includes('rejected')||e.message?.includes('denied')?t('txCancelled'):t('errTx')+(e.shortMessage||''))}finally{setLoadingTx(false)}
+    
+    setupGameSubscription(rawId)
+    await loadActiveGames()
+    await loadAvailableGames()
+    setProfileTab('my')
+  }catch(e){
+    console.error('Create error:',e)
+    setMsg(e.message?.includes('rejected')||e.message?.includes('denied')?t('txCancelled'):t('errTx')+(e.shortMessage||e.message||''))
+  }finally{setLoadingTx(false)}
 }
 
 const handleJoinMatch=async()=>{
@@ -139,14 +151,20 @@ const handleJoinMatch=async()=>{
   try{
     setMsg(t('step1'))
     await writeContractAsync({address:GROK_ADDR,abi:ERC20_ABI,functionName:'approve',args:[CHESS_CONTRACT,parseUnits(pendingJoin.stake.toString(),18)]})
+    
     const bytes32Id=keccak256(stringToBytes(pendingJoin.id))
     setMsg(t('step2'))
     await writeContractAsync({address:CHESS_CONTRACT,abi:CHESS_ABI,functionName:'deposit',args:[bytes32Id]})
+    
     await updateGameStatus(pendingJoin.id,{challenger:address,hpaid:true,status:'playing',updated_at:new Date().toISOString()})
+    
     setGameId(pendingJoin.id);setCreateStake(pendingJoin.stake);setTimeCtrl(pendingJoin.time)
     setGameState('playing');setupGameSubscription(pendingJoin.id);setMsg(t('successJoin'));setPendingJoin(null)
     loadActiveGames();loadAvailableGames();setTimeout(()=>startGame(),500)
-  }catch(e){console.error(e);setMsg(e.message?.includes('rejected')?t('txCancelled'):t('errTx')+(e.shortMessage||''))}finally{setLoadingTx(false)}
+  }catch(e){
+    console.error('Join error:',e)
+    setMsg(e.message?.includes('rejected')?t('txCancelled'):t('errTx')+(e.shortMessage||e.message||''))
+  }finally{setLoadingTx(false)}
 }
 
 const setupGameSubscription=(id)=>{if(unsubscribeRef.current)unsubscribeRef.current();unsubscribeRef.current=subscribeToGame(id,{onGameUpdate:(g)=>{if(g.status==='playing'&&!g.hpaid)setMsg(t('waiting'));else if(g.status==='playing'&&g.hpaid)setMsg('♟️ Game started!');},onMove:(m)=>{if(m.player!==address&&!isReviewMode){setSyncStatus('🔄...');setTimeout(()=>{try{gameRef.current.move({from:m.from_sq,to:m.to_sq,promotion:'q'});const nf=gameRef.current.fen();setFen(nf);setLiveFen(nf);setHist(h=>[...h,nf]);setMoveHistory(mh=>[...mh,{san:m.san,from:m.from_sq,to:m.to_sq}]);setMi(i=>i+1);setCurrentMoveIdx(i=>i+1);setIsPlayerTurn(true);setTimerActive('player');setSyncStatus('');if(gameRef.current.isCheckmate()){setGameOver(true);setWinner(address);handleClaim(false)}else if(gameRef.current.isDraw()){setGameOver(true);setWinner(null);handleClaim(true)}else setMsg(t('yt'))}catch(e){console.warn(e)}},300)}}})}

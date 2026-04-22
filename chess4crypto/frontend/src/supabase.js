@@ -8,44 +8,77 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 export const createGameRecord = async (gameId, creator, stake, timeLimit) => {
   const { data, error } = await supabase.from('games').insert({
-    id: gameId, creator, challenger: null, stake, time_limit: timeLimit,
+    id: gameId,
+    creator: creator.toLowerCase(),
+    challenger: null,
+    stake,
+    time_limit: timeLimit,
     fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-    turn: 'w', status: 'waiting', winner: null, is_draw: false, done: false,
-    cpaid: true, hpaid: false,  // ✅ snake_case для Supabase REST
-    created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+    turn: 'w',
+    status: 'waiting',
+    winner: null,
+    is_draw: false,
+    done: false,
+    cpaid: true,   // ✅ snake_case
+    hpaid: false,  // ✅ snake_case
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   }).select().single()
-  if (error) { console.error('createGameRecord error:', error); throw error }
+  
+  if (error) {
+    console.error('createGameRecord error:', error)
+    throw new Error(error.message || 'Failed to create game')
+  }
   return data
 }
 
 export const updateGameStatus = async (gameId, updates) => {
-  const { error } = await supabase.from('games').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', gameId)
-  if (error) { console.error('updateGameStatus error:', error); throw error }
+  const { error } = await supabase
+    .from('games')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', gameId)
+  
+  if (error) {
+    console.error('updateGameStatus error:', error)
+    throw new Error(error.message || 'Failed to update game')
+  }
   return true
 }
 
 export const subscribeToGame = (gameId, callbacks) => {
-  const channel = supabase.channel(`game:${gameId}`)
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` }, payload => callbacks?.onGameUpdate?.(payload.new))
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'moves', filter: `game_id=eq.${gameId}` }, payload => callbacks?.onMove?.(payload.new))
+  const channel = supabase
+    .channel(`game:${gameId}`)
+    .on('postgres_changes', 
+      { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` }, 
+      payload => callbacks?.onGameUpdate?.(payload.new)
+    )
+    .on('postgres_changes', 
+      { event: 'INSERT', schema: 'public', table: 'moves', filter: `game_id=eq.${gameId}` }, 
+      payload => callbacks?.onMove?.(payload.new)
+    )
     .subscribe()
+  
   return () => supabase.removeChannel(channel)
 }
 
 export const getProfile = async (address) => {
+  if (!address) return null
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
     .eq('address', address.toLowerCase())
-    .single()
+    .maybeSingle() // ✅ Возвращает null если не найдено (не ошибку)
+  
   if (error && error.code !== 'PGRST116') {
     console.error('getProfile error:', error)
-    throw error
+    throw new Error(error.message || 'Failed to get profile')
   }
   return data
 }
 
 export const updateProfile = async (address, profileData) => {
+  if (!address) throw new Error('Address required')
+  
   const { error } = await supabase
     .from('profiles')
     .upsert({
@@ -56,10 +89,14 @@ export const updateProfile = async (address, profileData) => {
       website: profileData.website,
       social: profileData.social,
       updated_at: new Date().toISOString()
-    }, { onConflict: 'address' })
+    }, { 
+      onConflict: 'address',
+      ignoreDuplicates: false 
+    })
+  
   if (error) {
     console.error('updateProfile error:', error)
-    throw error
+    throw new Error(error.message || 'Failed to update profile')
   }
   return true
 }
@@ -73,9 +110,10 @@ export const listAvailableGames = async () => {
     .eq('hpaid', false)   // ✅ snake_case
     .order('created_at', { ascending: false })
     .limit(20)
+  
   if (error) {
     console.error('listAvailableGames error:', error)
-    throw error
+    throw new Error(error.message || 'Failed to list games')
   }
   return data
 }
