@@ -6,6 +6,17 @@ import{useWeb3Modal}from'@web3modal/wagmi/react'
 import{parseUnits,formatUnits}from'viem'
 import{supabase,createGameRecord,updateGameStatus,subscribeToGame}from'./supabase'
 
+// 🎨 ЦВЕТА ДИЗАЙНА
+const COLORS = {
+  bg: '#00695c', // Бирюзовый фон
+  cardBg: '#004d40', // Темно-бирюзовый для карточек
+  btnBlue: '#1a237e', // Темно-синий
+  btnOrange: '#f57c00', // Оранжевый
+  text: '#ffffff',
+  textSec: '#b2dfdb',
+  accent: '#ffb74d'
+}
+
 // 🌍 7 ЯЗЫКОВ
 const LANG={
 ru:{t:'♟️ Chess4Crypto',s:'PvP ставки в GROK',g:'👤 Гостевой',c:'🦊 Войти',k:'💰 Купить GROK',p:'👤 Профиль',l:'🚪 Выйти',y:'👤 Вы',b:'🤖 Бот',yt:'♟️ Ваш ход!',bt:'🤖 Бот думает (3с)...',w:'🏆 ПОБЕДА!',x:'😔 Поражение',d:'🤝 Ничья',tp:'⏰ Бот выиграл',tb:'⏰ Вы выиграли',cn:'✅ Подключено',cl:'Закрыть',cp:'📋 Копировать',cd:'✅ Скопировано!',gt:'💰 Как купить GROK',g1:'1. Перейдите по ссылке и подключите крипто-кошелёк в сети BNB.',g2:'2. Купите монету GROK.',g3:'3. Добавьте адрес контракта:',ln:'🇷🇺 RU',th:'🎨 Тема',tm:{c:'🏛️ Классика',w:'🪵 Дерево',n:'💜 Неон',o:'🌊 Океан',s:'🌅 Закат',m:'⚪ Минимал'},tc:'Время:',st:'Ставка:',cr:'➕ Создать матч',jn:'🤝 Присоединиться',mv:'Ходы:',newG:'🔄 В лобби',botG:'🤖 С ботом',select:'Время',bal:'Баланс:',games:'Игры:',noG:'Нет игр',myG:'Мои игры',join:'Войти',copy:'Ссылка скопирована!',invite:'🔗 Приглашение',dep:'💰 Внести',claim:'🏆 Забрать',approve:'✅ Разрешить',waiting:'⏳ Ожидание соперника...',playing:'♟️ Игра идёт',sync:'🔄 Синхронизация...',review:'🔍 Просмотр',live:'▶️ В реальном времени',prev:'⏪ Назад',next:'⏩ Вперёд',pot:'Банк игры:',payout:'Выплата:',refund:'Возврат',drawRefund:'🤝 Ничья — ставки возвращены',winnerGets:'🏆 Победитель забирает весь банк',needDep:'Нужно внести',toJoin:'для присоединения',yourStake:'Ваша ставка:',oppStake:'Ставка соперника:',totalPot:'Общий банк:',setTime:'Выберите время:',approveTx:'⏳ Подтвердите транзакцию в кошельке...',depositTx:'💸 Внесение депозита...',successDep:'✅ Депозит принят! Игра создана.',successJoin:'✅ Депозит внесён! Игра начинается.',errTx:'❌ Транзакция отклонена или произошла ошибка',errBal:'❌ Недостаточно GROK на балансе'},
@@ -104,51 +115,38 @@ const startGame=()=>{const gameTime=timeCtrl*60;setPTime(gameTime);setBTime(game
 const handleCreateMatch=async()=>{
   if(!isConnected){setMsg('🦊 '+t('c'));return}
   if(!address||CHESS_CONTRACT==='0x0000000000000000000000000000000000000000'){setMsg('⚠️ Contract not set');return}
-  
   try{
     setMsg(t('approveTx'))
     await writeContractAsync({address:GROK_ADDR,abi:ERC20_ABI,functionName:'approve',args:[CHESS_CONTRACT,parseUnits(createStake.toString(),18)]})
-    
     setMsg(t('depositTx'))
     const newId='game_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)
     await writeContractAsync({address:CHESS_CONTRACT,abi:CHESS_ABI,functionName:'create',args:[newId]})
     await writeContractAsync({address:CHESS_CONTRACT,abi:CHESS_ABI,functionName:'deposit',args:[newId]})
-    
     await createGameRecord(newId,address,createStake,timeCtrl)
     setGameId(newId);setIsDeposited(true);setGameState('waiting_funds')
-    
     const link=`${window.location.origin}${window.location.pathname}?game=${newId}&stake=${createStake}&time=${timeCtrl}`
     setInviteLink(link)
     if(navigator.clipboard)navigator.clipboard.writeText(link)
     setMsg(t('successDep'))
     setupGameSubscription(newId)
-  }catch(e){
-    console.error(e)
-    setMsg(e.shortMessage||t('errTx'))
-  }
+  }catch(e){console.error(e);setMsg(e.shortMessage||t('errTx'))}
 }
 
 // 🤝 ПОЛНАЯ ЦЕПОЧКА: Approve -> Deposit -> Supabase -> UI
 const handleJoinMatch=async()=>{
   if(!isConnected||!pendingJoin){setMsg('🦊 '+t('c'));return}
   if(!address||CHESS_CONTRACT==='0x0000000000000000000000000000000000000000'){setMsg('⚠️ Contract not set');return}
-  
   try{
     setMsg(t('approveTx'))
     await writeContractAsync({address:GROK_ADDR,abi:ERC20_ABI,functionName:'approve',args:[CHESS_CONTRACT,parseUnits(pendingJoin.stake.toString(),18)]})
-    
     setMsg(t('depositTx'))
     await writeContractAsync({address:CHESS_CONTRACT,abi:CHESS_ABI,functionName:'deposit',args:[pendingJoin.id]})
-    
     await updateGameStatus(pendingJoin.id,{challenger:address,hPaid:true,status:'playing',updated_at:new Date().toISOString()})
     setGameId(pendingJoin.id);setCreateStake(pendingJoin.stake);setTimeCtrl(pendingJoin.time)
     setGameState('playing');setupGameSubscription(pendingJoin.id)
     setMsg(t('successJoin'));setPendingJoin(null)
     setTimeout(()=>startGame(),500)
-  }catch(e){
-    console.error(e)
-    setMsg(e.shortMessage||t('errTx'))
-  }
+  }catch(e){console.error(e);setMsg(e.shortMessage||t('errTx'))}
 }
 
 const setupGameSubscription=(id)=>{if(unsubscribeRef.current)unsubscribeRef.current();unsubscribeRef.current=subscribeToGame(id,{onGameUpdate:(g)=>{if(g.status==='playing'&&!g.hPaid)setMsg(t('waiting'));else if(g.status==='playing'&&g.hPaid)setMsg('♟️ Game started!');},onMove:(m)=>{if(m.player!==address&&!isReviewMode){setSyncStatus('🔄...');setTimeout(()=>{try{gameRef.current.move({from:m.from_sq,to:m.to_sq,promotion:'q'});const nf=gameRef.current.fen();setFen(nf);setLiveFen(nf);setHist(h=>[...h,nf]);setMoveHistory(mh=>[...mh,{san:m.san,from:m.from_sq,to:m.to_sq}]);setMi(i=>i+1);setCurrentMoveIdx(i=>i+1);setIsPlayerTurn(true);setTimerActive('player');setSyncStatus('');if(gameRef.current.isCheckmate()){setGameOver(true);setWinner(address);handleClaim(false)}else if(gameRef.current.isDraw()){setGameOver(true);setWinner(null);handleClaim(true)}else setMsg(t('yt'))}catch(e){console.warn(e)}},300)}}})}
@@ -170,26 +168,141 @@ const nextMove=()=>{if(currentMoveIdx<hist.length-1)goToMove(currentMoveIdx+1);e
 const resumeLive=()=>{if(liveFen){setFen(liveFen);setCurrentMoveIdx(hist.length-1);setIsReviewMode(false);setIsPlayerTurn(hist.length%2===1);setMsg(t('live'))}}
 
 const sqStyles=useMemo(()=>{const s={};if(selectedSq&&!isReviewMode)s[selectedSq]={backgroundColor:'rgba(255,255,0,0.4)'};possibleMoves.forEach(q=>{if(!isReviewMode)s[q]={backgroundColor:'rgba(20,85,30,0.5)',backgroundImage:'radial-gradient(circle,rgba(255,255,255,0.9) 25%,transparent 25%)',backgroundSize:'14px 14px',backgroundPosition:'center'}});return s},[selectedSq,possibleMoves,isReviewMode])
-const Btn=({c,o,bg,dis,st})=>(<button onClick={o}disabled={dis}style={{padding:'0.8rem 1.2rem',background:bg||'#3b82f6',color:'#fff',border:'none',borderRadius:'10px',cursor:dis?'not-allowed':'pointer',fontSize:'1rem',fontWeight:'600',opacity:dis?0.5:1,...st}}>{c}</button>)
-const Timer=({l,t,a})=>(<div style={{background:a?'#059669':'#1e293b',padding:'10px 20px',borderRadius:'10px',color:'#fff',textAlign:'center',border:a?'2px solid #34d399':'1px solid #334155',width:'45%'}}><div style={{fontSize:'0.85rem',opacity:0.8}}>{l}</div><div style={{fontSize:'1.6rem',fontWeight:'bold',fontFamily:'monospace'}}>{fmtTime(t)}</div></div>)
 
-return(<div style={{minHeight:'100vh',background:'#0f172a',color:'#f1f5f9',fontFamily:'system-ui',padding:'1rem'}}>{view==='menu'&&<div style={{maxWidth:'400px',margin:'0 auto',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'80vh',gap:'1rem'}}><h1 style={{color:'#fbbf24'}}>{t('t')}</h1>
-<div style={{background:'#1e293b',padding:'0.8rem',borderRadius:'12px',width:'100%',textAlign:'center'}}><div style={{color:'#94a3b8',marginBottom:'0.5rem',fontSize:'0.9rem'}}>{t('setTime')}</div><select value={timeCtrl}onChange={e=>setTimeCtrl(Number(e.target.value))}style={{width:'100%',padding:'0.6rem',background:'#0f172a',color:'#fff',border:'1px solid #334155',borderRadius:'8px',fontSize:'1rem'}}>{TIME_OPTIONS.map(m=>(<option key={m}value={m}>{m===1440?'24 часа':`${m} мин`}</option>))}</select></div>
-<Btn c={t('g')}o={guest}bg="#3b82f6"/><Btn c={t('c')}o={connectWallet}bg="#f59e0b"/><Btn c={t('k')}o={buyGrok}bg="#10b981"/><Btn c={t('ln')}o={langNext}bg="#475569"/>{msg&&<div style={{padding:'0.5rem',background:'#1e293b',borderRadius:'8px',color:'#60a5fa',textAlign:'center'}}>{msg}</div>}</div>}
+// 🎨 ЕДИНЫЙ СТИЛЬ КНОПОК
+const BtnStyle = (color) => ({
+  width: '100%', 
+  padding: '12px', 
+  background: color, 
+  color: '#fff', 
+  border: 'none', 
+  borderRadius: '10px', 
+  fontSize: '1rem', 
+  fontWeight: '600', 
+  cursor: 'pointer',
+  marginTop: '8px',
+  boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+})
 
-{view==='profile'&&<div style={{maxWidth:'600px',margin:'0 auto',display:'flex',flexDirection:'column',gap:'1rem'}}><div style={{background:'#1e293b',padding:'1rem',borderRadius:'12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}><div><div style={{fontWeight:'bold',fontSize:'1.1rem'}}>{address?.slice(0,6)}...{address?.slice(-4)}</div><div style={{color:'#94a3b8',fontSize:'0.9rem'}}>{t('bal')} <span style={{color:'#fbbf24'}}>{userBalance.toLocaleString()} GROK</span></div></div><Btn c={t('l')}o={()=>{disconnect();setView('menu')}}bg="#ef4444"/></div>
+return(<div style={{minHeight:'100vh',background:COLORS.bg,color:COLORS.text,fontFamily:'system-ui',padding:'1rem',display:'flex',justifyContent:'center'}}>
+{view==='menu'&&<div style={{maxWidth:'400px',width:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'1.5rem'}}>
+<h1 style={{color:COLORS.accent,marginBottom:0}}>{t('t')}</h1>
+<div style={{background:'rgba(0,0,0,0.3)',padding:'1rem',borderRadius:'12px',width:'100%',textAlign:'center'}}>
+<div style={{color:COLORS.textSec,marginBottom:'0.5rem'}}>{t('setTime')}</div>
+<select value={timeCtrl}onChange={e=>setTimeCtrl(Number(e.target.value))}style={{width:'100%',padding:'10px',background:COLORS.cardBg,color:'#fff',border:'1px solid rgba(255,255,255,0.2)',borderRadius:'8px',fontSize:'1rem'}}>{TIME_OPTIONS.map(m=>(<option key={m}value={m}>{m===1440?'24 часа':`${m} мин`}</option>))}</select>
+</div>
+<button onClick={guest}style={BtnStyle(COLORS.btnBlue)}>{t('g')}</button>
+<button onClick={connectWallet}style={BtnStyle(COLORS.btnOrange)}>{t('c')}</button>
+<button onClick={buyGrok}style={BtnStyle(COLORS.btnOrange)}>{t('k')}</button>
+<button onClick={langNext}style={BtnStyle(COLORS.btnBlue)}>{t('ln')}</button>
+{msg&&<div style={{padding:'1rem',background:'rgba(0,0,0,0.4)',borderRadius:'8px',color:COLORS.accent,textAlign:'center',width:'100%'}}>{msg}</div>}
+</div>}
 
-{activeGames.length>0&&<div style={{background:'#1e293b',padding:'1rem',borderRadius:'12px'}}><h3 style={{color:'#fbbf24',margin:'0 0 0.8rem 0'}}>{t('games')}</h3>
-{activeGames.map(g=>{const totalPot=(g.stake||0)*((g.cPaid?1:0)+(g.hPaid?1:0));const isCreator=g.creator===address;const myPaid=isCreator?g.cPaid:g.hPaid;const oppPaid=isCreator?g.hPaid:g.cPaid;const isDone=g.done;const isDraw=g.isDraw;return(<div key={g.id}style={{background:'#0f172a',padding:'0.8rem',borderRadius:'8px',marginBottom:'0.5rem'}}><div style={{display:'flex',justifyContent:'space-between',marginBottom:'0.5rem'}}><span style={{fontWeight:'bold'}}>ID: ...{g.id.slice(-6)}</span><span style={{color:g.status==='playing'?'#3b82f6':'#94a3b8'}}>{g.status}</span></div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0.5rem',fontSize:'0.9rem'}}><div><span style={{color:'#94a3b8'}}>{t('yourStake')}</span><div style={{color:'#fbbf24',fontWeight:'bold'}}>{g.stake?.toLocaleString()||0} GROK {myPaid?'✅':'⏳'}</div></div><div><span style={{color:'#94a3b8'}}>{t('oppStake')}</span><div style={{color:'#fbbf24',fontWeight:'bold'}}>{g.stake?.toLocaleString()||0} GROK {oppPaid?'✅':'⏳'}</div></div></div><div style={{marginTop:'0.5rem',paddingTop:'0.5rem',borderTop:'1px solid #334155'}}><span style={{color:'#94a3b8'}}>{t('totalPot')}</span><div style={{color:'#fbbf24',fontSize:'1.2rem',fontWeight:'bold'}}>{totalPot.toLocaleString()} GROK</div><div style={{fontSize:'0.8rem',color:'#60a5fa',marginTop:'0.3rem'}}>{isDone?(isDraw?t('drawRefund'):t('winnerGets')):t('waiting')}</div></div></div>))}</div>}
+{view==='profile'&&<div style={{maxWidth:'600px',width:'100%',display:'flex',flexDirection:'column',gap:'1rem'}}>
+<div style={{background:COLORS.cardBg,padding:'1rem',borderRadius:'12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+<div><div style={{fontWeight:'bold',fontSize:'1.1rem'}}>{address?.slice(0,6)}...{address?.slice(-4)}</div><div style={{color:COLORS.textSec,fontSize:'0.9rem'}}>{t('bal')} <span style={{color:COLORS.accent}}>{userBalance.toLocaleString()} GROK</span></div></div>
+<button onClick={()=>{disconnect();setView('menu')}}style={{...BtnStyle('#b71c1c'),width:'auto',padding:'8px 16px',marginTop:0}}>{t('l')}</button>
+</div>
 
-{pendingJoin&&<div style={{background:'linear-gradient(135deg,#1e293b,#334155)',padding:'1rem',borderRadius:'12px',textAlign:'center',border:'2px solid #fbbf24'}}><h3 style={{color:'#fbbf24',margin:'0 0 0.5rem'}}>{t('invite')}</h3><p>{t('needDep')} <strong style={{color:'#fbbf24'}}>{pendingJoin.stake.toLocaleString()} GROK</strong></p><p style={{color:'#94a3b8',fontSize:'0.9rem',marginBottom:'1rem'}}>{t('tc')}: {pendingJoin.time} мин</p><Btn c={`🤝 ${t('jn')}`}o={handleJoinMatch}bg="#10b981"st={{width:'100%',padding:'1rem',fontSize:'1.2rem'}}/></div>}
+{activeGames.length>0&&<div style={{background:COLORS.cardBg,padding:'1rem',borderRadius:'12px'}}><h3 style={{color:COLORS.accent,margin:'0 0 0.8rem'}}>{t('games')}</h3>
+{activeGames.map(g=>{
+  const totalPot=(g.stake||0)*((g.cPaid?1:0)+(g.hPaid?1:0));
+  const isCreator=g.creator===address;
+  const myPaid=isCreator?g.cPaid:g.hPaid;
+  const oppPaid=isCreator?g.hPaid:g.cPaid;
+  const isDone=g.done;
+  const isDraw=g.isDraw;
+  return(
+    <div key={g.id}style={{background:'rgba(0,0,0,0.2)',padding:'0.8rem',borderRadius:'8px',marginBottom:'0.8rem'}}>
+      <div style={{display:'flex',justifyContent:'space-between',marginBottom:'0.5rem'}}>
+        <span style={{fontWeight:'bold'}}>ID: ...{g.id.slice(-6)}</span>
+        <span style={{color:g.status==='playing'?COLORS.accent:COLORS.textSec}}>{g.status}</span>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0.5rem',fontSize:'0.9rem'}}>
+        <div><span style={{color:COLORS.textSec}}>{t('yourStake')}</span><div style={{color:COLORS.accent,fontWeight:'bold'}}>{g.stake?.toLocaleString()||0} GROK {myPaid?'✅':'⏳'}</div></div>
+        <div><span style={{color:COLORS.textSec}}>{t('oppStake')}</span><div style={{color:COLORS.accent,fontWeight:'bold'}}>{g.stake?.toLocaleString()||0} GROK {oppPaid?'✅':'⏳'}</div></div>
+      </div>
+      <div style={{marginTop:'0.5rem',paddingTop:'0.5rem',borderTop:'1px solid rgba(255,255,255,0.1)'}}>
+        <span style={{color:COLORS.textSec}}>{t('totalPot')}</span>
+        <div style={{color:COLORS.accent,fontSize:'1.2rem',fontWeight:'bold'}}>{totalPot.toLocaleString()} GROK</div>
+        <div style={{fontSize:'0.8rem',color:'#60a5fa',marginTop:'0.3rem'}}>
+          {isDone?(isDraw?t('drawRefund'):t('winnerGets')):t('waiting')}
+        </div>
+      </div>
+    </div>
+  );
+})}</div>}
 
-<div style={{display:'flex',gap:'0.5rem'}}>{['lobby','my','create'].map(tab=>(<Btn key={tab}c={tab==='lobby'?t('jn'):tab==='my'?t('myG'):t('cr')}o={()=>setProfileTab(tab)}bg={profileTab===tab?'#3b82f6':'#334155'}/>))}<Btn c={t('ln')}o={langNext}bg="#475569"/></div>
-{profileTab==='create'&&<div style={{background:'#1e293b',padding:'1rem',borderRadius:'12px'}}><div style={{marginBottom:'0.5rem'}}><label>{t('st')}</label><div style={{display:'flex',gap:'0.5rem',flexWrap:'wrap'}}>{STAKE_OPTIONS.map(a=>(<Btn key={a}c={a.toLocaleString()}o={()=>setCreateStake(a)}bg={createStake===a?'#10b981':'#334155'}/>))}</div></div><Btn c={t('cr')}o={handleCreateMatch}bg="#10b981"st={{width:'100%',marginTop:'0.5rem'}}/>{inviteLink&&<div style={{marginTop:'0.5rem',fontSize:'0.8rem',background:'#0f172a',padding:'0.5rem',borderRadius:'6px',wordBreak:'break-all'}}>{inviteLink}</div>}</div>}
-{profileTab==='my'&&<div style={{background:'#1e293b',padding:'1rem',borderRadius:'12px'}}><p>Game ID: {gameId||'-'}</p><p>Status: {gameState} {syncStatus&&<span style={{color:'#60a5fa'}}>{syncStatus}</span>}</p>{gameState==='playing'&&<Btn c="🎮 Play"o={()=>setView('game')}bg="#8b5cf6"st={{width:'100%'}}/>}</div>}</div>}
+{pendingJoin&&<div style={{background:'linear-gradient(135deg,#1e293b,#334155)',padding:'1.5rem',borderRadius:'12px',textAlign:'center',border:`2px solid ${COLORS.accent}`}}>
+  <h3 style={{color:COLORS.accent,margin:'0 0 0.5rem'}}>{t('invite')}</h3>
+  <p style={{fontSize:'1.1rem'}}>{t('needDep')} <strong style={{color:COLORS.accent}}>{pendingJoin.stake.toLocaleString()} GROK</strong></p>
+  <p style={{color:COLORS.textSec,fontSize:'0.9rem',marginBottom:'1rem'}}>{t('tc')}: {pendingJoin.time} мин</p>
+  <button onClick={handleJoinMatch}style={BtnStyle('#10b981')}>{`🤝 ${t('jn')}`}</button>
+</div>}
 
-{view==='game'&&<div style={{maxWidth:'420px',margin:'0 auto'}}><div style={{display:'flex',justifyContent:'space-around',marginBottom:'0.5rem'}}><Timer l={t('y')}t={pTime}a={timerActive==='player'}/><Timer l={t('b')}t={bTime}a={timerActive==='bot'}/></div>{syncStatus&&<div style={{textAlign:'center',color:'#60a5fa',fontSize:'0.9rem'}}>{syncStatus}</div>}{msg&&<div style={{color:'#38bdf8',textAlign:'center',marginBottom:'0.3rem'}}>{msg}</div>}{isReviewMode&&<div style={{textAlign:'center',background:'#1e293b',padding:'0.5rem',borderRadius:'8px',marginBottom:'0.5rem',color:'#fbbf24'}}>{t('review')} • {currentMoveIdx+1}/{hist.length}</div>}<div style={{background:'#1e293b',padding:'8px',borderRadius:'12px'}}><Chessboard position={fen}onPieceDrop={isReviewMode?null:onDrop}onSquareClick={isReviewMode?null:onSqClick}boardWidth={bs}customSquareStyles={sqStyles}customDarkSquareStyle={{backgroundColor:THEMES[theme].d}}customLightSquareStyle={{backgroundColor:THEMES[theme].l}}/></div>{moveHistory.length>0&&<div style={{display:'flex',gap:'0.5rem',marginTop:'0.5rem',justifyContent:'center'}}><Btn c={t('prev')}o={prevMove}dis={currentMoveIdx<=0}bg="#475569"/><Btn c={t('next')}o={nextMove}dis={currentMoveIdx>=hist.length-1}bg="#475569"/>{isReviewMode&&<Btn c={t('live')}o={resumeLive}bg="#10b981"/>}</div>}<div style={{display:'flex',gap:'0.5rem',marginTop:'0.5rem',justifyContent:'center'}}><Btn c={t('newG')}o={()=>{resetGame();setView('profile')}}bg="#3b82f6"/><Btn c={t('botG')}o={()=>{resetGame();startGame()}}bg="#10b981"/><select value={theme}onChange={e=>setTheme(e.target.value)}style={{padding:'0.5rem',background:'#1e293b',color:'#fff',border:'none',borderRadius:'6px'}}>{Object.entries(THEMES).map(([k,v])=>(<option key={k}value={k}>{v.n}</option>))}</select></div>{moveHistory.length>0&&<div style={{marginTop:'0.5rem',background:'#1e293b',padding:'0.5rem',borderRadius:'8px',maxHeight:'100px',overflowY:'auto',fontSize:'0.8rem'}}>{moveHistory.map((m,i)=>(<span key={i}style={{marginRight:'0.5rem',background:currentMoveIdx===i?'#3b82f6':'#0f172a',padding:'0.2rem 0.4rem',borderRadius:'4px'}}>{i+1}.{m.san}</span>))}</div>}</div>}
+<div style={{display:'flex',gap:'0.5rem',flexWrap:'wrap',justifyContent:'center'}}>
+  {['lobby','my','create'].map(tab=>(
+    <button key={tab} onClick={()=>setProfileTab(tab)} style={{...BtnStyle(profileTab===tab?COLORS.btnBlue:'#334155'),flex:'1',minWidth:'80px',padding:'10px 0',fontSize:'0.9rem'}}>
+      {tab==='lobby'?t('jn'):tab==='my'?t('myG'):t('cr')}
+    </button>
+  ))}
+  <button onClick={langNext} style={{...BtnStyle('#334155'),minWidth:'auto',flex:'0',width:'auto',padding:'0 15px'}}>{t('ln')}</button>
+</div>
 
-{grok&&<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.9)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}}onClick={()=>setGrok(false)}><div style={{background:'#1e293b',padding:'1.5rem',borderRadius:'16px',maxWidth:'360px'}}onClick={e=>e.stopPropagation()}><h3 style={{color:'#fbbf24'}}>{t('gt')}</h3><ol style={{color:'#cbd5e1',margin:'1rem 0',paddingLeft:'1.2rem'}}><li>{t('g1')}<br/><a href={GROK_LINK}target="_blank"rel="noopener"style={{color:'#60a5fa',wordBreak:'break-all'}}>{GROK_LINK}</a></li><li>{t('g2')}</li><li>{t('g3')}<br/><code style={{background:'#0f172a',padding:'0.3rem',borderRadius:'4px',display:'block',margin:'0.3rem 0',fontSize:'0.8rem'}}>{GROK_ADDR}</code><Btn c={t('cp')}o={copyAddr}bg="#3b82f6"st={{marginTop:'0.3rem'}}/></li></ol><a href={GROK_LINK}target="_blank"style={{display:'block',background:'#f59e0b',color:'#000',padding:'0.6rem',borderRadius:'8px',textAlign:'center',textDecoration:'none'}}>🔗 four.meme</a><Btn c={t('cl')}o={()=>setGrok(false)}bg="#475569"st={{marginTop:'0.5rem',width:'100%'}}/></div></div>}
-{msg&&<div style={{position:'fixed',bottom:'1rem',left:'50%',transform:'translateX(-50%)',background:'#3b82f6',color:'#fff',padding:'0.6rem 1rem',borderRadius:'8px',zIndex:1000}}>{msg}</div>}</div>)
+{profileTab==='create'&&<div style={{background:COLORS.cardBg,padding:'1rem',borderRadius:'12px'}}>
+  <div style={{marginBottom:'0.5rem'}}><label>{t('st')}</label>
+    <div style={{display:'flex',gap:'0.5rem',flexWrap:'wrap'}}>
+      {STAKE_OPTIONS.map(a=>(<button key={a} onClick={()=>setCreateStake(a)} style={{...BtnStyle(createStake===a?'#10b981':'#334155'),flex:'1',minWidth:'70px',padding:'10px 0',fontSize:'0.9rem'}}>{a.toLocaleString()}</button>))}
+    </div>
+  </div>
+  <button onClick={handleCreateMatch}style={BtnStyle('#10b981')}>{t('cr')}</button>
+  {inviteLink&&<div style={{marginTop:'0.5rem',fontSize:'0.8rem',background:'#00332e',padding:'0.5rem',borderRadius:'6px',wordBreak:'break-all'}}>{inviteLink}</div>}
+</div>}
+
+{profileTab==='my'&&<div style={{background:COLORS.cardBg,padding:'1rem',borderRadius:'12px'}}>
+  <p>Game ID: {gameId||'-'}</p>
+  <p>Status: {gameState} {syncStatus&&<span style={{color:COLORS.accent}}>{syncStatus}</span>}</p>
+  {gameState==='playing'&&<button onClick={()=>setView('game')}style={BtnStyle('#8b5cf6')}>🎮 Play</button>}
+</div>}
+</div>}
+
+{view==='game'&&<div style={{maxWidth:'420px',width:'100%'}}>
+<div style={{display:'flex',justifyContent:'space-around',marginBottom:'0.5rem'}}>
+  <div style={{background:'#004d40',padding:'10px 20px',borderRadius:'10px',color:'#fff',textAlign:'center',border:'1px solid #00897b',width:'45%'}}>
+    <div style={{fontSize:'0.85rem',opacity:0.8}}>{t('y')}</div><div style={{fontSize:'1.6rem',fontWeight:'bold',fontFamily:'monospace'}}>{fmtTime(pTime)}</div></div>
+  <div style={{background:'#004d40',padding:'10px 20px',borderRadius:'10px',color:'#fff',textAlign:'center',border:'1px solid #00897b',width:'45%'}}>
+    <div style={{fontSize:'0.85rem',opacity:0.8}}>{t('b')}</div><div style={{fontSize:'1.6rem',fontWeight:'bold',fontFamily:'monospace'}}>{fmtTime(bTime)}</div></div>
+</div>
+{syncStatus&&<div style={{textAlign:'center',color:COLORS.accent,fontSize:'0.9rem',marginBottom:'0.3rem'}}>{syncStatus}</div>}
+{msg&&<div style={{color:'#38bdf8',textAlign:'center',marginBottom:'0.3rem'}}>{msg}</div>}
+{isReviewMode&&<div style={{textAlign:'center',background:COLORS.cardBg,padding:'0.5rem',borderRadius:'8px',marginBottom:'0.5rem',color:COLORS.accent}}>{t('review')} • {currentMoveIdx+1}/{hist.length}</div>}
+<div style={{background:COLORS.cardBg,padding:'8px',borderRadius:'12px'}}><Chessboard position={fen}onPieceDrop={isReviewMode?null:onDrop}onSquareClick={isReviewMode?null:onSqClick}boardWidth={bs}customSquareStyles={sqStyles}customDarkSquareStyle={{backgroundColor:THEMES[theme].d}}customLightSquareStyle={{backgroundColor:THEMES[theme].l}}/></div>
+{moveHistory.length>0&&<div style={{display:'flex',gap:'0.5rem',marginTop:'0.5rem',justifyContent:'center'}}>
+  <button onClick={prevMove}disabled={currentMoveIdx<=0}style={{...BtnStyle('#334155'),width:'auto',padding:'8px 16px'}}>{t('prev')}</button>
+  <button onClick={nextMove}disabled={currentMoveIdx>=hist.length-1}style={{...BtnStyle('#334155'),width:'auto',padding:'8px 16px'}}>{t('next')}</button>
+  {isReviewMode&&<button onClick={resumeLive}style={{...BtnStyle('#10b981'),width:'auto',padding:'8px 16px'}}>{t('live')}</button>
+</div>}
+<div style={{display:'flex',gap:'0.5rem',marginTop:'0.5rem',justifyContent:'center'}}>
+  <button onClick={()=>{resetGame();setView('profile')}}style={{...BtnStyle(COLORS.btnBlue),width:'auto',flex:'1'}}>{t('newG')}</button>
+  <button onClick={()=>{resetGame();startGame()}}style={{...BtnStyle('#10b981'),width:'auto',flex:'1'}}>{t('botG')}</button>
+  <select value={theme}onChange={e=>setTheme(e.target.value)}style={{background:'#004d40',color:'#fff',border:'1px solid #00897b',borderRadius:'6px',padding:'0 10px'}}>{Object.entries(THEMES).map(([k,v])=>(<option key={k}value={k}>{v.n}</option>))}</select>
+</div>
+{moveHistory.length>0&&<div style={{marginTop:'0.5rem',background:COLORS.cardBg,padding:'0.5rem',borderRadius:'8px',maxHeight:'100px',overflowY:'auto',fontSize:'0.8rem'}}>
+  {moveHistory.map((m,i)=>(<span key={i}style={{marginRight:'0.5rem',background:currentMoveIdx===i?COLORS.btnBlue:'rgba(0,0,0,0.3)',padding:'0.2rem 0.4rem',borderRadius:'4px'}}>{i+1}.{m.san}</span>))}</div>}
+</div>}
+
+{grok&&<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.9)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}}onClick={()=>setGrok(false)}><div style={{background:COLORS.cardBg,padding:'1.5rem',borderRadius:'16px',maxWidth:'360px'}}onClick={e=>e.stopPropagation()}>
+  <h3 style={{color:COLORS.accent}}>{t('gt')}</h3>
+  <ol style={{color:COLORS.textSec,margin:'1rem 0',paddingLeft:'1.2rem'}}>
+    <li style={{marginBottom:'0.5rem'}}>{t('g1')}<br/><a href={GROK_LINK}target="_blank"rel="noopener"style={{color:'#60a5fa',wordBreak:'break-all'}}>{GROK_LINK}</a></li>
+    <li style={{marginBottom:'0.5rem'}}>{t('g2')}</li>
+    <li>{t('g3')}<br/><code style={{background:'#00332e',padding:'0.3rem',borderRadius:'4px',display:'block',margin:'0.3rem 0',fontSize:'0.8rem'}}>{GROK_ADDR}</code>
+    <button onClick={copyAddr}style={{...BtnStyle(COLORS.btnBlue),marginTop:'0.5rem',padding:'8px'}}>{cop?t('cd'):t('cp')}</button></li>
+  </ol>
+  <a href={GROK_LINK}target="_blank"style={{display:'block',background:'#f57c00',color:'#000',padding:'0.6rem',borderRadius:'8px',textAlign:'center',textDecoration:'none',marginTop:'0.5rem'}}>🔗 four.meme</a>
+  <button onClick={()=>setGrok(false)}style={{...BtnStyle('#334155'),marginTop:'0.5rem'}}>{t('cl')}</button>
+</div></div>}
+
+{msg&&<div style={{position:'fixed',bottom:'1rem',left:'50%',transform:'translateX(-50%)',background:COLORS.btnBlue,color:'#fff',padding:'0.6rem 1rem',borderRadius:'8px',zIndex:1000}}>{msg}</div>}
+</div>)
 }
