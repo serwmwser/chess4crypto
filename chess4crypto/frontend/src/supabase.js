@@ -40,7 +40,7 @@ export const subscribeToGame = (gameId, callbacks) => {
   return () => supabase.removeChannel(channel)
 }
 
-// ✅ Тест подключения — ТОЛЬКО в консоль, не в UI
+// ✅ Тест подключения — ТОЛЬКО в консоль, НЕ В UI
 export const testConnection = async () => {
   try {
     const { data, error } = await supabase.from('games').select('id').limit(1)
@@ -48,7 +48,7 @@ export const testConnection = async () => {
     console.log('✅ Supabase connected:', data)
     return true
   } catch (e) {
-    // ❌ НЕ показываем ошибку пользователю — только в консоль для разработчика
+    // ❌ НЕ показываем ошибку пользователю
     console.warn('⚠️ Supabase connection warning:', e.message)
     return false
   }

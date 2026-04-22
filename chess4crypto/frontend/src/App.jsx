@@ -19,7 +19,7 @@ hi:{t:'♟️ Chess4Crypto',s:'GROK PvP दांव',g:'👤 अतिथि',c
 
 const THEMES={c:{l:'#eeeed2',d:'#769656',n:'🏛️ Classic'},w:{l:'#f0d9b5',d:'#b58863',n:'🪵 Wood'},n:{l:'#1a1a2e',d:'#16213e',n:'💜 Neon'},o:{l:'#e0f7fa',d:'#006064',n:'🌊 Ocean'},s:{l:'#fff3e0',d:'#e65100',n:'🌅 Sunset'},m:{l:'#e0e0e0',d:'#757575',n:'⚪ Minimal'}}
 const TIME_OPTIONS=[5,15,30,60,1440]
-// ✅ Разрешённые ставки в GROK (с 18 знаками после запятой)
+// ✅ Разрешённые ставки в GROK
 const STAKE_OPTIONS=[500,1000,5000,10000,25000,50000,100000,250000]
 const fmtTime=s=>{const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;return h>0?`${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`:`${m}:${String(sec).padStart(2,'0')}`}
 const GROK_LINK='https://four.meme/token/0x62a3e247e28cad2d2902cd2dc2e6aea7cdd14444?code=AHGX96R5GHK9'
@@ -108,13 +108,13 @@ useEffect(()=>{
   if(!address)return
   const loadActiveGames=async()=>{
     try{
-      const{data,error}=await supabase.from('games').select('*').or(`creator.eq.${address},challenger.eq.${address}`).eq('status','playing')
+      const{data,error}=await supabase.from('games').select('*').or(`creator.eq.${address},challenger.eq.${address}`).in('status',['playing','waiting']).order('created_at',{ascending:false}).limit(10)
       if(error)throw error
       setActiveGames(data||[])
     }catch(e){console.warn('Load games failed:',e.message)}
   }
   loadActiveGames()
-  const interval=setInterval(loadActiveGames,10000)
+  const interval=setInterval(loadActiveGames,15000)
   return()=>clearInterval(interval)
 },[address])
 
@@ -270,7 +270,37 @@ return(<div style={{minHeight:'100vh',background:'#0f172a',color:'#f1f5f9',fontF
 {view==='profile'&&<div style={{maxWidth:'600px',margin:'0 auto',display:'flex',flexDirection:'column',gap:'1rem'}}><div style={{background:'#1e293b',padding:'1rem',borderRadius:'12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}><div><div style={{fontWeight:'bold',fontSize:'1.1rem'}}>{address?.slice(0,6)}...{address?.slice(-4)}</div><div style={{color:'#94a3b8',fontSize:'0.9rem'}}>{t('bal')} <span style={{color:'#fbbf24'}}>{userBalance.toLocaleString()} GROK</span></div></div><div style={{display:'flex',gap:'0.5rem'}}><Btn c={t('l')}o={()=>{disconnect();setView('menu')}}bg="#ef4444"/></div></div>
 
 {/* 📊 ТАБЛО ИГР С БАЛАНСАМИ */}
-{activeGames.length>0&&<div style={{background:'#1e293b',padding:'1rem',borderRadius:'12px'}}><h3 style={{color:'#fbbf24',margin:'0 0 0.8rem 0'}}>{t('games')}</h3>{activeGames.map(g=>{const totalPot=g.stake*(g.cPaid?1:0)+g.stake*(g.hPaid?1:0);const isCreator=g.creator===address;const isChallenger=g.challenger===address;const myPaid=isCreator?g.cPaid:g.hPaid;const oppPaid=isCreator?g.hPaid:g.cPaid;return(<div key={g.id}style={{background:'#0f172a',padding:'0.8rem',borderRadius:'8px',marginBottom:'0.5rem'}}><div style={{display:'flex',justifyContent:'space-between',marginBottom:'0.5rem'}}><span style={{fontWeight:'bold'}}>ID: ...{g.id.slice(-6)}</span><span style={{color:g.status==='playing'?'#3b82f6':'#94a3b8'}}>{g.status}</span></div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0.5rem',fontSize:'0.9rem'}}><div><span style={{color:'#94a3b8'}}>{t('yourStake')}</span><div style={{color:'#fbbf24',fontWeight:'bold'}}>{g.stake.toLocaleString()} GROK {myPaid?'✅':'⏳'}</div></div><div><span style={{color:'#94a3b8'}}>{t('oppStake')}</span><div style={{color:'#fbbf24',fontWeight:'bold'}}>{g.stake.toLocaleString()} GROK {oppPaid?'✅':'⏳'}</div></div></div><div style={{marginTop:'0.5rem',paddingTop:'0.5rem',borderTop:'1px solid #334155'}}><span style={{color:'#94a3b8'}}>{t('totalPot')}</span><div style={{color:'#fbbf24',fontSize:'1.2rem',fontWeight:'bold'}}>{totalPot.toLocaleString()} GROK</div><div style={{fontSize:'0.8rem',color:'#60a5fa',marginTop:'0.3rem'}}>{g.done?(g.isDraw?t('drawRefund'):t('winnerGets')):t('waiting')}</div></div>{!g.done&&myPaid&&<Btn c={t('newG')}o={()=>{setGameId(g.id);setCreateStake(g.stake);setTimeCtrl(g.time_limit);setView('game');setGameState('playing')}}bg="#8b5cf6"st={{marginTop:'0.5rem',width:'100%'}}/>}</div>))}</div>}
+{activeGames.length>0&&<div style={{background:'#1e293b',padding:'1rem',borderRadius:'12px'}}><h3 style={{color:'#fbbf24',margin:'0 0 0.8rem 0'}}>{t('games')}</h3>
+{activeGames.map(g=>{
+  const totalPot=(g.stake||0)*((g.cPaid?1:0)+(g.hPaid?1:0));
+  const isCreator=g.creator===address;
+  const myPaid=isCreator?g.cPaid:g.hPaid;
+  const oppPaid=isCreator?g.hPaid:g.cPaid;
+  const isDone=g.status==='finished'||g.status==='draw';
+  const isDraw=g.status==='draw';
+  return(
+    <div key={g.id}style={{background:'#0f172a',padding:'0.8rem',borderRadius:'8px',marginBottom:'0.5rem'}}>
+      <div style={{display:'flex',justifyContent:'space-between',marginBottom:'0.5rem'}}>
+        <span style={{fontWeight:'bold'}}>ID: ...{g.id.slice(-6)}</span>
+        <span style={{color:g.status==='playing'?'#3b82f6':'#94a3b8'}}>{g.status}</span>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0.5rem',fontSize:'0.9rem'}}>
+        <div><span style={{color:'#94a3b8'}}>{t('yourStake')}</span><div style={{color:'#fbbf24',fontWeight:'bold'}}>{g.stake?.toLocaleString()||0} GROK {myPaid?'✅':'⏳'}</div></div>
+        <div><span style={{color:'#94a3b8'}}>{t('oppStake')}</span><div style={{color:'#fbbf24',fontWeight:'bold'}}>{g.stake?.toLocaleString()||0} GROK {oppPaid?'✅':'⏳'}</div></div>
+      </div>
+      <div style={{marginTop:'0.5rem',paddingTop:'0.5rem',borderTop:'1px solid #334155'}}>
+        <span style={{color:'#94a3b8'}}>{t('totalPot')}</span>
+        <div style={{color:'#fbbf24',fontSize:'1.2rem',fontWeight:'bold'}}>{totalPot.toLocaleString()} GROK</div>
+        <div style={{fontSize:'0.8rem',color:'#60a5fa',marginTop:'0.3rem'}}>
+          {isDone?(isDraw?t('drawRefund'):t('winnerGets')):t('waiting')}
+        </div>
+      </div>
+      {!isDone&&myPaid&&(
+        <Btn c={t('newG')}o={()=>{setGameId(g.id);setCreateStake(g.stake);setTimeCtrl(g.time_limit||15);setView('game');setGameState('playing');}}bg="#8b5cf6"st={{marginTop:'0.5rem',width:'100%'}}/>
+      )}
+    </div>
+  );
+})}</div>}
 
 <div style={{display:'flex',gap:'0.5rem'}}>{['lobby','my','create'].map(tab=>(<Btn key={tab}c={tab==='lobby'?t('jn'):tab==='my'?t('myG'):t('cr')}o={()=>setProfileTab(tab)}bg={profileTab===tab?'#3b82f6':'#334155'}/>))}<Btn c={t('ln')}o={langNext}bg="#475569"/></div>
 
