@@ -26,22 +26,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'chess4crypto/frontend/package-lock.json'
 
-      - name: Install & Build
+      - name: Install dependencies
         run: |
           cd chess4crypto/frontend
+          # Очищаем кэш и устанавливаем зависимости
+          npm cache clean --force
           npm ci --legacy-peer-deps 2>/dev/null || npm install --legacy-peer-deps
-          npm run build
+          # Делаем bin-файлы исполняемыми (исправление "Permission denied")
+          chmod +x node_modules/.bin/vite 2>/dev/null || true
 
-      - name: Upload
+      - name: Build with npx (more reliable than npm run)
+        run: |
+          cd chess4crypto/frontend
+          # Используем npx вместо npm run для надёжности
+          npx vite build
+
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: 'chess4crypto/frontend/dist'
 
-      - name: Deploy
+      - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
