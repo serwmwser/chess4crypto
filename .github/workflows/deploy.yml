@@ -1,10 +1,8 @@
-name: Deploy Chess4Crypto
-
+name: Deploy to GitHub Pages
 on:
   push:
-    branches: [ main ]
-    paths:
-      - 'chess4crypto/frontend/**'
+    branches: ["main"]
+    paths: ["chess4crypto/frontend/**"]
   workflow_dispatch:
 
 permissions:
@@ -17,37 +15,24 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'npm', cache-dependency-path: 'chess4crypto/frontend/package-lock.json' }
+      - run: |
+          cd chess4crypto/frontend
+          npm ci --legacy-peer-deps
+          npx vite build
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: 'chess4crypto/frontend/dist' }
   deploy:
+    needs: build
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'  # ✅ Обновлено с 18 на 20
-          cache: 'npm'
-          cache-dependency-path: 'chess4crypto/frontend/package-lock.json'
-
-      - name: Install dependencies
-        run: |
-          cd chess4crypto/frontend
-          npm ci --legacy-peer-deps 2>/dev/null || npm install --legacy-peer-deps
-
-      - name: Build
-        run: |
-          cd chess4crypto/frontend
-          npm run build
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: 'chess4crypto/frontend/dist'
-
-      - name: Deploy to GitHub Pages
+      - uses: actions/deploy-pages@v4
         id: deployment
-        uses: actions/deploy-pages@v4
