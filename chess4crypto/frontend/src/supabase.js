@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 
-// 🔑 ВСТАВЬТЕ СВОИ КЛЮЧИ (Settings → API в Supabase)
+// 🔑 ВСТАВЬТЕ СВОИ КЛЮЧИ ИЗ SUPABASE (Settings → API)
 const SUPABASE_URL = 'https://ybepednbzebkrnxivlpm.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InliZXBlZG5iemVia3JueGl2bHBtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3NTE5MjAsImV4cCI6MjA5MTMyNzkyMH0.zMva2tTNkkAoEqU_W7W3hw2ce3qD-YAUPhwzwZHi9sQ'
 
@@ -10,7 +10,7 @@ export const createGameRecord = async (gameId, creator, stake, timeLimit) => {
   const { data, error } = await supabase.from('games').insert({
     id: gameId, creator, challenger: null, stake, time_limit: timeLimit,
     fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-    turn: 'w', status: 'waiting', winner: null,
+    turn: 'w', status: 'waiting', winner: null, is_draw: false,
     created_at: new Date().toISOString(), updated_at: new Date().toISOString()
   }).select().single()
   if (error) { console.error('createGameRecord error:', error); throw error }
@@ -40,11 +40,16 @@ export const subscribeToGame = (gameId, callbacks) => {
   return () => supabase.removeChannel(channel)
 }
 
+// ✅ Тест подключения — ТОЛЬКО в консоль, не в UI
 export const testConnection = async () => {
   try {
     const { data, error } = await supabase.from('games').select('id').limit(1)
     if (error) throw error
     console.log('✅ Supabase connected:', data)
     return true
-  } catch (e) { console.error('❌ Supabase error:', e.message); return false }
+  } catch (e) {
+    // ❌ НЕ показываем ошибку пользователю — только в консоль для разработчика
+    console.warn('⚠️ Supabase connection warning:', e.message)
+    return false
+  }
 }

@@ -17,7 +17,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # 🔹 Этап 1: Сборка
   build:
     runs-on: ubuntu-latest
     steps:
@@ -42,7 +41,6 @@ jobs:
         with:
           path: chess4crypto/frontend/dist
 
-  # 🔹 Этап 2: Деплой (запускается ТОЛЬКО если сборка успешна)
   deploy:
     needs: build
     environment:
