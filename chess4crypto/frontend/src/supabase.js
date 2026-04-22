@@ -39,7 +39,7 @@ export const getProfile = async (address) => {
     .select('*')
     .eq('address', address.toLowerCase())
     .single()
-  if (error && error.code !== 'PGRST116') { // PGRST116 = not found
+  if (error && error.code !== 'PGRST116') {
     console.error('getProfile error:', error)
     throw error
   }
@@ -64,4 +64,21 @@ export const updateProfile = async (address, profileData) => {
     throw error
   }
   return true
+}
+
+// 🎮 Получить доступные игры для присоединения (видны всем)
+export const listAvailableGames = async () => {
+  const { data, error } = await supabase
+    .from('games')
+    .select('*')
+    .eq('status', 'waiting')
+    .eq('cPaid', true) // Создатель уже внёс депозит
+    .eq('hPaid', false) // Соперник ещё не присоединился
+    .order('created_at', { ascending: false })
+    .limit(20)
+  if (error) {
+    console.error('listAvailableGames error:', error)
+    throw error
+  }
+  return data
 }
