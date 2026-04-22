@@ -3,10 +3,9 @@ html,body {
   font-family:system-ui,sans-serif;
   background:#00695c;
   color:#ffffff;
-  overflow-x: hidden; /* ✅ Запрещает горизонтальную прокрутку */
+  overflow-x: hidden;
   width: 100%;
 }
 button{font-family:inherit;cursor:pointer}
 select{font-family:inherit;padding:0.5rem;background:#004d40;color:#fff;border:1px solid #00897b;border-radius:6px}
-/* Убираем подсветку при тапе на мобильных */
 * { -webkit-tap-highlight-color: transparent; }
