@@ -6,7 +6,6 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-// ✅ Создание записи игры (snake_case колонки)
 export const createGameRecord = async (gameId, creator, stake, timeLimit) => {
   const { data, error } = await supabase.from('games').insert({
     id: gameId,
@@ -33,7 +32,6 @@ export const createGameRecord = async (gameId, creator, stake, timeLimit) => {
   return data
 }
 
-// ✅ Обновление статуса игры
 export const updateGameStatus = async (gameId, updates) => {
   const { error } = await supabase
     .from('games')
@@ -47,7 +45,6 @@ export const updateGameStatus = async (gameId, updates) => {
   return true
 }
 
-// ✅ Подписка на изменения игры
 export const subscribeToGame = (gameId, callbacks) => {
   const channel = supabase
     .channel(`game:${gameId}`)
@@ -64,23 +61,22 @@ export const subscribeToGame = (gameId, callbacks) => {
   return () => supabase.removeChannel(channel)
 }
 
-// ✅ Получение профиля (используем maybeSingle для обработки отсутствия)
 export const getProfile = async (address) => {
   if (!address) return null
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
     .eq('address', address.toLowerCase())
-    .maybeSingle() // ✅ Возвращает null если не найдено, а не ошибку
+    .maybeSingle()
   
   if (error && error.code !== 'PGRST116') {
     console.error('getProfile error:', error)
-    throw new Error(error.message || 'Failed to get profile')
+    // Не выбрасываем ошибку, возвращаем null
+    return null
   }
   return data
 }
 
-// ✅ Обновление профиля
 export const updateProfile = async (address, profileData) => {
   if (!address) throw new Error('Address required')
   
@@ -98,12 +94,12 @@ export const updateProfile = async (address, profileData) => {
   
   if (error) {
     console.error('updateProfile error:', error)
-    throw new Error(error.message || 'Failed to update profile')
+    // Не выбрасываем ошибку, чтобы не ломать интерфейс
+    return false
   }
   return true
 }
 
-// ✅ Список доступных игр (snake_case)
 export const listAvailableGames = async () => {
   const { data, error } = await supabase
     .from('games')
@@ -121,7 +117,6 @@ export const listAvailableGames = async () => {
   return data
 }
 
-// ✅ Запись хода (для синхронизации)
 export const recordMove = async (gameId, player, fromSq, toSq, san, fenAfter) => {
   const { error } = await supabase.from('moves').insert({
     game_id: gameId,
@@ -135,7 +130,8 @@ export const recordMove = async (gameId, player, fromSq, toSq, san, fenAfter) =>
   
   if (error) {
     console.error('recordMove error:', error)
-    throw error
+    // Не выбрасываем ошибку, чтобы не ломать игру
+    return false
   }
   return true
 }
