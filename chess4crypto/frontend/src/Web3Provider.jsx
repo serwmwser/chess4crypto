@@ -5,7 +5,7 @@ import { config, queryClient, projectId, metadata } from './wagmi.js'
 import { createWeb3Modal } from '@web3modal/wagmi/react'
 import { bsc } from 'wagmi/chains'
 
-// ✅ Инициализация Web3Modal (выполняется один раз)
+// ✅ Инициализация Web3Modal
 createWeb3Modal({
   wagmiConfig: config,
   projectId,
@@ -20,7 +20,6 @@ createWeb3Modal({
   enableOnramp: false
 })
 
-// ✅ Провайдер-обёртка для приложения
 export function Web3Provider({ children }) {
   return (
     <WagmiProvider config={config}>

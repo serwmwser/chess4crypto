@@ -1,6 +1,7 @@
 import { http, createConfig } from 'wagmi'
 import { bsc } from 'wagmi/chains'
-import { walletConnect, metaMask, injected, coinbaseWallet, trustWallet } from 'wagmi/connectors'
+// ✅ УДАЛЕНО: trustWallet (не доступен в этой версии wagmi)
+import { walletConnect, metaMask, injected, coinbaseWallet } from 'wagmi/connectors'
 import { QueryClient } from '@tanstack/react-query'
 
 // 🔑 ВАШ PROJECT ID С https://cloud.walletconnect.com/app
@@ -21,6 +22,7 @@ export const config = createConfig({
     [bsc.id]: http('https://bsc-dataseed.binance.org')
   },
   connectors: [
+    // 📱 WalletConnect v2 - основной для мобильных (включая Trust Wallet!)
     walletConnect({
       projectId,
       metadata,
@@ -29,14 +31,19 @@ export const config = createConfig({
         themeMode: 'dark',
         mobileWallets: [
           { id: 'metaMask', name: 'MetaMask' },
-          { id: 'trust', name: 'Trust Wallet' },
+          { id: 'trust', name: 'Trust Wallet' }, // ✅ Trust Wallet поддерживается через WalletConnect
           { id: 'rainbow', name: 'Rainbow' }
         ]
       }
     }),
+    
+    // 🦊 MetaMask
     metaMask({ order: 2 }),
+    
+    // 🪙 Coinbase Wallet
     coinbaseWallet({ appName: metadata.name, order: 3 }),
-    trustWallet({ projectId, order: 4 }),
+    
+    // 💻 Injected (браузерные расширения, включая мобильные с инжектом)
     injected({ shimDisconnect: true, order: 5 })
   ],
   ssr: true,
