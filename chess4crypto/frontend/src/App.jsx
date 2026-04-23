@@ -58,6 +58,9 @@ const[profile,setProfile]=useState({avatar:'',name:'',bio:'',website:'',social:'
 const[isEditingProfile,setIsEditingProfile]=useState(false)
 const[profileLoading,setProfileLoading]=useState(false)
 
+// 🔄 НОВЫЙ ФЛАГ: Режим PvP (отключает бота)
+const[isPvP,setIsPvP]=useState(false)
+
 const gameRef=useRef(new Chess())
 const[fen,setFen]=useState(gameRef.current.fen())
 const[hist,setHist]=useState([gameRef.current.fen()])
@@ -74,14 +77,7 @@ const botTimerRef=useRef(null)
 const{writeContractAsync}=useWriteContract()
 const{grokBalance}=useReadContract({address:GROK_ADDR,abi:ERC20_ABI,functionName:'balanceOf',args:[address||'0x0000000000000000000000000000000000000000'],watch:true})
 
-// ✅ Исправление: updateSize определена внутри useEffect
-useEffect(()=>{
-  const updateSize=()=>setBs(Math.min(window.innerWidth-40,400))
-  updateSize() // ✅ Теперь функция существует
-  window.addEventListener('resize',updateSize)
-  return()=>window.removeEventListener('resize',updateSize)
-},[])
-
+useEffect(()=>{const r=()=>setBs(Math.min(window.innerWidth-40,400));r();window.addEventListener('resize',r);return()=>window.removeEventListener('resize',r)},[])
 useEffect(()=>{if(address&&grokBalance!==undefined)setUserBalance(Number(formatUnits(grokBalance,18)))},[address,grokBalance])
 useEffect(()=>{if(timerRef.current)clearInterval(timerRef.current);if(!timerActive||gameOver||gameState!=='playing'||isReviewMode)return;timerRef.current=setInterval(()=>{if(timerActive==='player'){setPTime(p=>{if(p<=1){clearInterval(timerRef.current);setGameOver(true);setWinner('bot');setMsg(t('tp'));return 0}return p-1})}else{setBTime(p=>{if(p<=1){clearInterval(timerRef.current);setGameOver(true);setWinner('player');setMsg(t('tb'));return 0}return p-1})}},1000);return()=>clearInterval(timerRef.current)},[timerActive,gameOver,t,gameState,isReviewMode])
 useEffect(()=>{if(isConnected&&address){setMsg(t('cn'));setView('profile');loadProfile()}},[isConnected,address,t])
@@ -98,10 +94,10 @@ const buyGrok=()=>setGrok(true)
 const langNext=()=>setLang(l=>({ru:'en',en:'de',de:'fr',fr:'es',es:'zh',zh:'hi',hi:'ru'})[l])
 const copyAddr=()=>{if(navigator.clipboard){navigator.clipboard.writeText(GROK_ADDR);setCop(true);setTimeout(()=>setCop(false),2000)}}
 const connectWallet=async()=>{try{if(typeof window.ethereum!=='undefined'){await open()}else{window.location.href='https://metamask.io/download/'}}catch(e){setMsg(t('noMetaMask'))}}
-const resetGame=()=>{gameRef.current.reset();setFen(gameRef.current.fen());setHist([gameRef.current.fen()]);setMi(0);setIsPlayerTurn(true);setGameOver(false);setWinner(null);setMoveHistory([]);setSelectedSq(null);setPossibleMoves([]);setIsDeposited(false);setGameState('idle');setRemoteFen(null);setIsRemoteTurn(false);setCurrentMoveIdx(-1);setIsReviewMode(false);setLiveFen(null);if(botTimerRef.current)clearTimeout(botTimerRef.current);if(unsubscribeRef.current){unsubscribeRef.current();unsubscribeRef.current=null}}
+const resetGame=()=>{gameRef.current.reset();setFen(gameRef.current.fen());setHist([gameRef.current.fen()]);setMi(0);setIsPlayerTurn(true);setGameOver(false);setWinner(null);setMoveHistory([]);setSelectedSq(null);setPossibleMoves([]);setIsDeposited(false);setGameState('idle');setIsPvP(false);setRemoteFen(null);setIsRemoteTurn(false);setCurrentMoveIdx(-1);setIsReviewMode(false);setLiveFen(null);if(botTimerRef.current)clearTimeout(botTimerRef.current);if(unsubscribeRef.current){unsubscribeRef.current();unsubscribeRef.current=null}}
 const startGame=()=>{setPTime(timeCtrl*60);setBTime(timeCtrl*60);setTimerActive('player');setView('game');setGameState('playing')}
 
-// 💰 СОЗДАНИЕ ИГРЫ + ДЕПОЗИТ
+// 💰 СОЗДАНИЕ ИГРЫ + ДЕПОЗИТ + СТАТУС ТРАНЗАКЦИИ
 const handleCreateMatch=async()=>{
   if(!isConnected||!address){setMsg('🦊 '+t('c'));return}
   if(CHESS_CONTRACT==='0x0000000000000000000000000000000000000000'){setMsg('⚠️ Contract not set');return}
@@ -114,9 +110,10 @@ const handleCreateMatch=async()=>{
     const bytes32Id=keccak256(stringToBytes(rawId))
     setMsg(t('step2'))
     await writeContractAsync({address:CHESS_CONTRACT,abi:CHESS_ABI,functionName:'create',args:[bytes32Id]})
-    await writeContractAsync({address:CHESS_CONTRACT,abi:CHESS_ABI,functionName:'deposit',args:[bytes32Id]})
+    const depositTx=await writeContractAsync({address:CHESS_CONTRACT,abi:CHESS_ABI,functionName:'deposit',args:[bytes32Id]})
+    console.log('Deposit TX:', depositTx)
     await createGameRecord(rawId,address,createStake,timeCtrl)
-    setGameId(rawId);setIsDeposited(true);setGameState('waiting_funds')
+    setGameId(rawId);setIsDeposited(true);setGameState('waiting_funds');setIsPvP(false)
     const link=`${window.location.origin}${window.location.pathname}?game=${rawId}&stake=${createStake}&time=${timeCtrl}`
     setInviteLink(link)
     if(navigator.clipboard)navigator.clipboard.writeText(link)
@@ -125,6 +122,7 @@ const handleCreateMatch=async()=>{
   }catch(e){console.error('Create:',e);setMsg(e.message?.includes('rejected')||e.message?.includes('denied')?t('txCancelled'):t('errTx')+(e.shortMessage||e.message||''))}finally{setLoadingTx(false)}
 }
 
+// 🤝 ПРИСОЕДИНЕНИЕ + ПЕРЕКЛЮЧЕНИЕ НА PvP
 const handleJoinMatch=async()=>{
   if(!isConnected||!pendingJoin||!address){setMsg('🦊 '+t('c'));return}
   if(CHESS_CONTRACT==='0x0000000000000000000000000000000000000000'){setMsg('⚠️ Contract not set');return}
@@ -138,16 +136,24 @@ const handleJoinMatch=async()=>{
     await writeContractAsync({address:CHESS_CONTRACT,abi:CHESS_ABI,functionName:'deposit',args:[bytes32Id]})
     await updateGameStatus(pendingJoin.id,{challenger:address,hpaid:true,status:'playing',updated_at:new Date().toISOString()})
     setGameId(pendingJoin.id);setCreateStake(pendingJoin.stake);setTimeCtrl(pendingJoin.time)
-    setGameState('playing');setupGameSubscription(pendingJoin.id);setMsg(t('successJoin'));setPendingJoin(null)
+    setGameState('playing');setIsPvP(true) // ✅ Включаем режим PvP
+    setupGameSubscription(pendingJoin.id);setMsg(t('successJoin'));setPendingJoin(null)
     loadActiveGames();loadAvailableGames();setTimeout(()=>startGame(),500)
   }catch(e){console.error('Join:',e);setMsg(e.message?.includes('rejected')?t('txCancelled'):t('errTx')+(e.shortMessage||e.message||''))}finally{setLoadingTx(false)}
 }
 
-const setupGameSubscription=(id)=>{if(unsubscribeRef.current)unsubscribeRef.current();unsubscribeRef.current=subscribeToGame(id,{onGameUpdate:(g)=>{if(g.status==='playing'&&!g.hpaid)setMsg(t('waiting'));else if(g.status==='playing'&&g.hpaid)setMsg('♟️ Game started!');},onMove:(m)=>{if(m.player!==address&&!isReviewMode){setSyncStatus('🔄...');setTimeout(()=>{try{gameRef.current.move({from:m.from_sq,to:m.to_sq,promotion:'q'});const nf=gameRef.current.fen();setFen(nf);setLiveFen(nf);setHist(h=>[...h,nf]);setMoveHistory(mh=>[...mh,{san:m.san,from:m.from_sq,to:m.to_sq}]);setMi(i=>i+1);setCurrentMoveIdx(i=>i+1);setIsPlayerTurn(true);setTimerActive('player');setSyncStatus('');if(gameRef.current.isCheckmate()){setGameOver(true);setWinner(address);handleClaim(false)}else if(gameRef.current.isDraw()){setGameOver(true);setWinner(null);handleClaim(true)}else setMsg(t('yt'))}catch(e){console.warn(e)}},300)}}})}
+const setupGameSubscription=(id)=>{if(unsubscribeRef.current)unsubscribeRef.current();unsubscribeRef.current=subscribeToGame(id,{onGameUpdate:(g)=>{if(g.status==='playing'&&!g.hpaid)setMsg(t('waiting'));else if(g.status==='playing'&&g.hpaid&&!isPvP)setIsPvP(true);},onMove:(m)=>{if(m.player!==address&&!isReviewMode){setSyncStatus('🔄...');setTimeout(()=>{try{gameRef.current.move({from:m.from_sq,to:m.to_sq,promotion:'q'});const nf=gameRef.current.fen();setFen(nf);setLiveFen(nf);setHist(h=>[...h,nf]);setMoveHistory(mh=>[...mh,{san:m.san,from:m.from_sq,to:m.to_sq}]);setMi(i=>i+1);setCurrentMoveIdx(i=>i+1);setIsPlayerTurn(true);setTimerActive('player');setSyncStatus('');if(gameRef.current.isCheckmate()){setGameOver(true);setWinner(address);handleClaim(false)}else if(gameRef.current.isDraw()){setGameOver(true);setWinner(null);handleClaim(true)}else setMsg(t('yt'))}catch(e){console.warn(e)}},300)}}})}
+
 const handleClaim=(isDraw)=>{if(!gameId)return;if(!isConnected||!address){setMsg(isDraw?t('drawRefund'):t('winnerGets'));return}const bytes32Id=keccak256(stringToBytes(gameId));writeContractAsync({address:CHESS_CONTRACT,abi:CHESS_ABI,functionName:'finish',args:[bytes32Id,address,isDraw]}).then(()=>{setMsg(isDraw?t('drawRefund'):t('winnerGets'));setGameState('idle')}).catch(e=>setMsg(e.message?.includes('rejected')?t('txCancelled'):t('errTx')))}
-const botMove=useCallback(()=>{if(gameOver||gameRef.current.isGameOver()||gameState!=='playing'||isRemoteTurn||isReviewMode)return;const moves=gameRef.current.moves({verbose:true});if(!moves.length)return;let c;const r=Math.random();if(r<0.7)c=moves[Math.floor(Math.random()*moves.length)];else{const caps=moves.filter(m=>m.captured);c=caps.length?caps[Math.floor(Math.random()*caps.length)]:moves[Math.floor(Math.random()*moves.length)]}gameRef.current.move(c);const san=gameRef.current.history({verbose:true}).pop()?.san||`${c.from}${c.to}`;const nf=gameRef.current.fen();setFen(nf);setLiveFen(nf);setHist(h=>[...h,nf]);setMoveHistory(mh=>[...mh,{san,from:c.from,to:c.to}]);setMi(i=>i+1);setCurrentMoveIdx(i=>i+1);setIsPlayerTurn(true);setTimerActive('player');if(gameRef.current.isCheckmate()){setGameOver(true);setWinner('bot');setMsg(t('x'))}else if(gameRef.current.isDraw()){setGameOver(true);setWinner(null);handleClaim(true)}else setMsg(t('yt'))},[gameOver,t,gameState,isRemoteTurn,isReviewMode])
+
+// 🤖 ХОД БОТА (РАБОТАЕТ ТОЛЬКО ЕСЛИ НЕ PvP)
+const botMove=useCallback(()=>{if(gameOver||gameRef.current.isGameOver()||gameState!=='playing'||isRemoteTurn||isReviewMode||isPvP)return;const moves=gameRef.current.moves({verbose:true});if(!moves.length)return;let c;const r=Math.random();if(r<0.7)c=moves[Math.floor(Math.random()*moves.length)];else{const caps=moves.filter(m=>m.captured);c=caps.length?caps[Math.floor(Math.random()*caps.length)]:moves[Math.floor(Math.random()*moves.length)]}gameRef.current.move(c);const san=gameRef.current.history({verbose:true}).pop()?.san||`${c.from}${c.to}`;const nf=gameRef.current.fen();setFen(nf);setLiveFen(nf);setHist(h=>[...h,nf]);setMoveHistory(mh=>[...mh,{san,from:c.from,to:c.to}]);setMi(i=>i+1);setCurrentMoveIdx(i=>i+1);setIsPlayerTurn(true);setTimerActive('player');if(gameRef.current.isCheckmate()){setGameOver(true);setWinner('bot');setMsg(t('x'))}else if(gameRef.current.isDraw()){setGameOver(true);setWinner(null);handleClaim(true)}else setMsg(t('yt'))},[gameOver,t,gameState,isRemoteTurn,isReviewMode,isPvP])
+
 const onSqClick=useCallback((sq)=>{if(gameOver||gameState!=='playing'||!isPlayerTurn||isRemoteTurn||isReviewMode)return;const p=gameRef.current.get(sq);if(p&&p.color===(isPlayerTurn?'w':'b')){setSelectedSq(sq);setPossibleMoves(gameRef.current.moves({square:sq,verbose:true}).map(m=>m.to));return}if(selectedSq&&possibleMoves.includes(sq)){onDrop(selectedSq,sq);setSelectedSq(null);setPossibleMoves([]);return}setSelectedSq(null);setPossibleMoves([])},[gameOver,isPlayerTurn,selectedSq,possibleMoves,gameState,isRemoteTurn,isReviewMode])
-const onDrop=useCallback((src,tgt)=>{if(!isPlayerTurn||gameOver||gameState!=='playing'||isRemoteTurn||isReviewMode)return false;try{const r=gameRef.current.move({from:src,to:tgt,promotion:'q'});if(!r)return false;const san=gameRef.current.history({verbose:true}).pop()?.san||`${src}${tgt}`;const nf=gameRef.current.fen();setFen(nf);setLiveFen(nf);setHist(h=>[...h,nf]);setMoveHistory(mh=>[...mh,{san,from:src,to:tgt}]);setMi(i=>i+1);setCurrentMoveIdx(i=>i+1);setIsPlayerTurn(false);setTimerActive('bot');setSelectedSq(null);setPossibleMoves([]);if(gameId&&address){setSyncStatus('🔄...');recordMove(gameId,address,src,tgt,san,nf).then(()=>setSyncStatus('')).catch(()=>setSyncStatus(''))}if(gameRef.current.isCheckmate()){setGameOver(true);setWinner(address);handleClaim(false)}else if(gameRef.current.isDraw()){setGameOver(true);setWinner(null);handleClaim(true)}else{setMsg(t('bt'));if(botTimerRef.current)clearTimeout(botTimerRef.current);botTimerRef.current=setTimeout(()=>{botMove()},3000)}return true}catch{return false}},[isPlayerTurn,gameOver,gameState,isRemoteTurn,isReviewMode,gameId,address,botMove,t])
+
+// ♟️ ХОД ИГРОКА (СИНХРОНИЗАЦИЯ ДЛЯ PvP / БОТ ДЛЯ PvBot)
+const onDrop=useCallback((src,tgt)=>{if(!isPlayerTurn||gameOver||gameState!=='playing'||isRemoteTurn||isReviewMode)return false;try{const r=gameRef.current.move({from:src,to:tgt,promotion:'q'});if(!r)return false;const san=gameRef.current.history({verbose:true}).pop()?.san||`${src}${tgt}`;const nf=gameRef.current.fen();setFen(nf);setLiveFen(nf);setHist(h=>[...h,nf]);setMoveHistory(mh=>[...mh,{san,from:src,to:tgt}]);setMi(i=>i+1);setCurrentMoveIdx(i=>i+1);setIsPlayerTurn(false);setTimerActive('bot');setSelectedSq(null);setPossibleMoves([]);if(gameId&&address){setSyncStatus('🔄...');recordMove(gameId,address,src,tgt,san,nf).then(()=>setSyncStatus('')).catch(()=>setSyncStatus(''))}if(gameRef.current.isCheckmate()){setGameOver(true);setWinner(address);handleClaim(false)}else if(gameRef.current.isDraw()){setGameOver(true);setWinner(null);handleClaim(true)}else{setMsg(t('bt'));if(!isPvP&&botTimerRef.current)clearTimeout(botTimerRef.current);if(!isPvP)botTimerRef.current=setTimeout(()=>{botMove()},3000)}return true}catch{return false}},[isPlayerTurn,gameOver,gameState,isRemoteTurn,isReviewMode,gameId,address,botMove,t,isPvP])
+
 const goToMove=(i)=>{if(i<0||i>=hist.length)return;setCurrentMoveIdx(i);setFen(hist[i]);setIsReviewMode(i<hist.length-1);setIsPlayerTurn(i%2===0)}
 const prevMove=()=>{if(currentMoveIdx>0)goToMove(currentMoveIdx-1)}
 const nextMove=()=>{if(currentMoveIdx<hist.length-1)goToMove(currentMoveIdx+1);else resumeLive()}
