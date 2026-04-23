@@ -84,16 +84,53 @@ const unsubscribeRef=useRef(null)
 const botTimerRef=useRef(null)
 const{writeContractAsync}=useWriteContract()
 const{depositReceipt,isSuccess:depositConfirmed}=useWaitForTransactionReceipt({hash:txHash})
-const{grokBalance}=useReadContract({address:GROK_ADDR,abi:ERC20_ABI,functionName:'balanceOf',args:[address||'0x0000000000000000000000000000000000000000'],watch:true})
-// ✅ Чтение баланса контракта для отладки
-const{data:contractGrokBalance}=useReadContract({address:GROK_ADDR,abi:ERC20_ABI,functionName:'balanceOf',args:[CHESS_CONTRACT],watch:true})
+
+// ✅ ИСПРАВЛЕНО: Баланс пользователя с рефетчем при подключении
+const{data:userGrokBalance,refetch:refetchUserBalance}=useReadContract({
+  address:GROK_ADDR,
+  abi:ERC20_ABI,
+  functionName:'balanceOf',
+  args:[address],
+  watch:true,
+  query:{enabled:!!address} // ✅ Только если адрес определён
+})
+
+// ✅ Баланс контракта для отладки
+const{data:contractGrokBalance}=useReadContract({
+  address:GROK_ADDR,
+  abi:ERC20_ABI,
+  functionName:'balanceOf',
+  args:[CHESS_CONTRACT],
+  watch:true
+})
+
+// ✅ Обновляем баланс при изменении данных
+useEffect(()=>{
+  if(userGrokBalance!==undefined){
+    setUserBalance(Number(formatUnits(userGrokBalance,18)))
+  }
+},[userGrokBalance])
+
+useEffect(()=>{
+  if(contractGrokBalance!==undefined){
+    setContractBalance(Number(formatUnits(contractGrokBalance,18)))
+  }
+},[contractGrokBalance])
 
 useEffect(()=>{const r=()=>setBs(Math.min(window.innerWidth-40,400));r();window.addEventListener('resize',r);return()=>window.removeEventListener('resize',r)},[])
-useEffect(()=>{if(address&&grokBalance!==undefined)setUserBalance(Number(formatUnits(grokBalance,18)))},[address,grokBalance])
-useEffect(()=>{if(contractGrokBalance!==undefined)setContractBalance(Number(formatUnits(contractGrokBalance,18)))},[contractGrokBalance])
 useEffect(()=>{if(depositConfirmed&&gameId){setMsg(t('successDep'));setGameState('waiting_funds');setTxHash(null)}},[depositConfirmed,gameId,t])
 useEffect(()=>{if(timerRef.current)clearInterval(timerRef.current);if(!timerActive||gameOver||gameState!=='playing'||isReviewMode)return;timerRef.current=setInterval(()=>{if(timerActive==='player'){setPTime(p=>{if(p<=1){clearInterval(timerRef.current);setGameOver(true);setWinner('bot');setMsg(t('tp'));return 0}return p-1})}else{setBTime(p=>{if(p<=1){clearInterval(timerRef.current);setGameOver(true);setWinner('player');setMsg(t('tb'));return 0}return p-1})}},1000);return()=>clearInterval(timerRef.current)},[timerActive,gameOver,t,gameState,isReviewMode])
-useEffect(()=>{if(isConnected&&address){setMsg(t('cn'));setView('profile');loadProfile()}},[isConnected,address,t])
+
+// ✅ Рефетч баланса при подключении кошелька
+useEffect(()=>{
+  if(isConnected&&address){
+    setMsg(t('cn'))
+    setView('profile')
+    loadProfile()
+    // ✅ Обновляем баланс токена
+    setTimeout(()=>refetchUserBalance?.(),500)
+  }
+},[isConnected,address,t,refetchUserBalance])
 
 const loadProfile=useCallback(async()=>{if(!address)return;try{setProfileLoading(true);const d=await getProfile(address);if(d)setProfile(d)}catch(e){console.warn('Profile:',e.message)}finally{setProfileLoading(false)}},[address])
 const loadAvailableGames=useCallback(async()=>{try{const g=await listAvailableGames();setAvailableGames(g||[])}catch(e){console.warn('Games:',e.message)}},[])
@@ -106,10 +143,37 @@ const guest=()=>{setMsg(t('g'));resetGame();startGame()}
 const buyGrok=()=>setGrok(true)
 const langNext=()=>setLang(l=>({ru:'en',en:'de',de:'fr',fr:'es',es:'zh',zh:'hi',hi:'ru'})[l])
 
+// ✅ ИСПРАВЛЕНО: Надёжное копирование для мобильных
 const copyToClipboard=async(text)=>{
-  try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(text);setCop(true);setTimeout(()=>setCop(false),2000);return true}}catch(e){console.warn('Clipboard API failed:',e)}
-  try{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();document.execCommand('copy');document.body.removeChild(ta);setCop(true);setTimeout(()=>setCop(false),2000);return true}catch(e){console.warn('execCommand copy failed:',e);return false}
+  // Метод 1: Стандартный Clipboard API (требует фокуса)
+  try{
+    if(document.hasFocus()&&navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(text)
+      setCop(true);setTimeout(()=>setCop(false),2000)
+      return true
+    }
+  }catch(e){console.warn('Clipboard API failed:',e)}
+  
+  // Метод 2: execCommand фолбэк (работает без фокуса)
+  try{
+    const ta=document.createElement('textarea')
+    ta.value=text
+    ta.style.position='fixed'
+    ta.style.opacity='0'
+    ta.style.left='-9999px'
+    document.body.appendChild(ta)
+    ta.focus()
+    ta.select()
+    const success=document.execCommand('copy')
+    document.body.removeChild(ta)
+    if(success){setCop(true);setTimeout(()=>setCop(false),2000);return true}
+  }catch(e){console.warn('execCommand copy failed:',e)}
+  
+  // Метод 3: Показать текст для ручного копирования
+  setMsg(t('clickToCopy')+': '+text.slice(0,30)+'...')
+  return false
 }
+
 const copyAddr=()=>copyToClipboard(GROK_ADDR)
 const connectWallet=async()=>{try{await open()}catch(e){console.error('Connect error:',e);setMsg(t('noMetaMask'))}}
 const resetGame=()=>{gameRef.current.reset();setFen(gameRef.current.fen());setHist([gameRef.current.fen()]);setMi(0);setIsPlayerTurn(true);setGameOver(false);setWinner(null);setMoveHistory([]);setSelectedSq(null);setPossibleMoves([]);setIsDeposited(false);setGameState('idle');setIsPvP(false);setRemoteFen(null);setIsRemoteTurn(false);setCurrentMoveIdx(-1);setIsReviewMode(false);setLiveFen(null);setTxHash(null);if(botTimerRef.current)clearTimeout(botTimerRef.current);if(unsubscribeRef.current){unsubscribeRef.current();unsubscribeRef.current=null}}
@@ -119,10 +183,9 @@ const startGame=()=>{setPTime(timeCtrl*60);setBTime(timeCtrl*60);setTimerActive(
 const handleCreateMatch=async()=>{
   if(!isConnected||!address){setMsg('🦊 '+t('c'));return}
   if(CHESS_CONTRACT==='0x0000000000000000000000000000000000000000'){setMsg('⚠️ Contract not set');return}
-  if(grokBalance!==undefined&&Number(formatUnits(grokBalance,18))<createStake){setMsg(t('errBal'));return}
+  if(userGrokBalance!==undefined&&Number(formatUnits(userGrokBalance,18))<createStake){setMsg(t('errBal'));return}
   setLoadingTx(true)
   try{
-    // 🔍 Проверка баланса контракта ДО депозита
     console.log('Contract balance BEFORE:',contractBalance)
     
     setMsg(t('step1'))
@@ -149,16 +212,24 @@ const handleCreateMatch=async()=>{
     
     setMsg(t('confirmingTx'))
     setupGameSubscription(rawId);await loadActiveGames();await loadAvailableGames();setProfileTab('my')
+    
+    // ✅ Рефетч баланса после депозита
+    setTimeout(()=>refetchUserBalance?.(),2000)
   }catch(e){
     console.error('Create error:',e)
-    setMsg(e.message?.includes('rejected')||e.message?.includes('denied')?t('txCancelled'):t('errTx')+(e.shortMessage||e.message||''))
+    // ✅ Понятное сообщение при отмене
+    if(e.message?.includes('rejected')||e.message?.includes('denied')||e.message?.includes('User rejected')){
+      setMsg(t('txCancelled'))
+    }else{
+      setMsg(t('errTx')+(e.shortMessage||e.message||''))
+    }
   }finally{setLoadingTx(false)}
 }
 
 const handleJoinMatch=async()=>{
   if(!isConnected||!pendingJoin||!address){setMsg('🦊 '+t('c'));return}
   if(CHESS_CONTRACT==='0x0000000000000000000000000000000000000000'){setMsg('⚠️ Contract not set');return}
-  if(grokBalance!==undefined&&Number(formatUnits(grokBalance,18))<pendingJoin.stake){setMsg(t('errBal'));return}
+  if(userGrokBalance!==undefined&&Number(formatUnits(userGrokBalance,18))<pendingJoin.stake){setMsg(t('errBal'));return}
   setLoadingTx(true)
   try{
     setMsg(t('step1'))
@@ -172,6 +243,7 @@ const handleJoinMatch=async()=>{
     setGameState('playing');setIsPvP(true)
     setupGameSubscription(pendingJoin.id);setMsg(t('successJoin'));setPendingJoin(null)
     loadActiveGames();loadAvailableGames();setTimeout(()=>startGame(),500)
+    setTimeout(()=>refetchUserBalance?.(),2000)
   }catch(e){console.error('Join error:',e);setMsg(e.message?.includes('rejected')?t('txCancelled'):t('errTx')+(e.shortMessage||e.message||''))}finally{setLoadingTx(false)}
 }
 
@@ -208,7 +280,7 @@ return(<div style={{minHeight:'100vh',background:COLORS.bg,color:COLORS.text,fon
 
 {view==='profile'&&<div style={{maxWidth:'600px',width:'100%',display:'flex',flexDirection:'column',gap:'1rem'}}>
 <div style={{background:COLORS.cardBg,padding:'1rem',borderRadius:'12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-<div style={{display:'flex',alignItems:'center',gap:'0.8rem'}}>{profile.avatar&&<img src={profile.avatar} alt="av" style={{width:40,height:40,borderRadius:'50%',objectFit:'cover',border:'2px solid '+COLORS.accent}}/>}<div><div style={{fontWeight:'bold'}}>{profile.name||address?.slice(0,6)+'...'+address?.slice(-4)}</div><div style={{color:COLORS.textSec,fontSize:'0.9rem'}}>{t('bal')} <span style={{color:COLORS.accent}}>{userBalance.toLocaleString()} GROK</span></div></div></div>
+<div style={{display:'flex',alignItems:'center',gap:'0.8rem'}}>{profile.avatar&&<img src={profile.avatar} alt="av" style={{width:40,height:40,borderRadius:'50%',objectFit:'cover',border:'2px solid '+COLORS.accent}}/>}<div><div style={{fontWeight:'bold'}}>{profile.name||address?.slice(0,6)+'...'+address?.slice(-4)}</div><div style={{color:COLORS.textSec,fontSize:'0.9rem'}}>{t('bal')} <span style={{color:COLORS.accent}}>{userBalance?.toLocaleString()||'0'} GROK</span></div></div></div>
 <button onClick={()=>{disconnect();setView('menu')}}style={{...BtnStyle('#b71c1c'),width:'auto',padding:'8px 16px',marginTop:0}}>{t('l')}</button>
 </div>
 
