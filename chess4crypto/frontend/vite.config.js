@@ -12,7 +12,7 @@ export default defineConfig({
       protocolImports: true,
     }),
   ],
-  // ✅ КРИТИЧЕСКИ ВАЖНО: Заставляет Vite использовать ТОЛЬКО ОДНУ копию React
+  // ✅ КРИТИЧЕСКИ: Одна копия React + правильные алиасы
   resolve: {
     dedupe: ['react', 'react-dom'],
     alias: {
@@ -24,25 +24,42 @@ export default defineConfig({
   },
   define: {
     'process.env': {},
-    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
   },
+  // ✅ Оптимизация зависимостей
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react/jsx-runtime'],
-    esbuildOptions: { define: { global: 'globalThis' } },
+    include: ['react', 'react-dom', 'react/jsx-runtime', 'wagmi', 'viem', '@web3modal/wagmi'],
+    esbuildOptions: {
+      define: { global: 'globalThis' },
+    },
   },
+  // ✅ Настройки сборки для Web3-приложений
   build: {
     outDir: 'dist',
     sourcemap: false,
-    chunkSizeWarningLimit: 1000,
+    minify: 'terser', // ✅ Более надёжная минификация чем esbuild
+    terserOptions: {
+      compress: {
+        drop_console: false, // ✅ Не удалять console.log для отладки
+        passes: 2,
+      },
+      mangle: {
+        safari10: true, // ✅ Совместимость с разными браузерами
+      },
+    },
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
+        // ✅ Упрощённое разделение чанков (без агрессивного сплиттинга)
         manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
-          'chess-vendor': ['chess.js', 'react-chessboard'],
-          'web3-vendor': ['wagmi', 'viem', '@tanstack/react-query'],
-          'web3modal-vendor': ['@web3modal/wagmi'],
-          'supabase-vendor': ['@supabase/supabase-js'],
+          'react-core': ['react', 'react-dom'],
+          'chess-lib': ['chess.js', 'react-chessboard'],
+          'web3-core': ['wagmi', 'viem', '@tanstack/react-query'],
+          'web3-modal': ['@web3modal/wagmi'],
+          'supabase': ['@supabase/supabase-js'],
         },
+        // ✅ Исправление проблемы с инициализацией переменных
+        hoistTransitiveImports: false,
       },
     },
   },
