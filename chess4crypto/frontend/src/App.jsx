@@ -8,7 +8,7 @@ import { supabase, createGameRecord, updateGameStatus, subscribeToGame, getProfi
 
 const COLORS = { bg: '#00695c', cardBg: '#004d40', btnBlue: '#1a237e', btnOrange: '#f57c00', text: '#ffffff', textSec: '#b2dfdb', accent: '#ffb74d' }
 
-// ✅ 7 ЯЗЫКОВ (сокращено для экономии места - используйте полную версию из предыдущего ответа)
+// ✅ 7 ЯЗЫКОВ
 const LANG = {
   ru: { t: '♟️ Chess4Crypto', s: 'PvP ставки в GROK', g: '👤 Гостевой', c: '🦊 Войти', k: '💰 Купить GROK', p: '👤 Профиль', l: '🚪 Выйти', y: '👤 Вы', b: '🤖 Бот', yt: '♟️ Ваш ход!', bt: '🤖 Бот думает (3с)...', w: '🏆 ПОБЕДА!', x: '😔 Поражение', d: '🤝 Ничья', tp: '⏰ Бот выиграл', tb: '⏰ Вы выиграли', cn: '✅ Подключено', cl: 'Закрыть', cp: '📋 Копировать', cd: '✅ Скопировано!', gt: '💰 Как купить GROK', g1: '1. Перейдите по ссылке и подключите кошелёк в сети BNB.', g2: '2. Купите монету GROK.', g3: '3. Адрес контракта:', ln: '🇷🇺 RU', th: '🎨 Тема', tm: { c: '🏛️ Классика', w: '🪵 Дерево', n: '💜 Неон', o: '🌊 Океан', s: '🌅 Закат', m: '⚪ Минимал' }, tc: 'Время:', st: 'Ставка:', cr: '➕ Создать матч', jn: '🤝 Присоединиться', mv: 'Ходы:', newG: '🔄 В лобби', botG: '🤖 С ботом', select: 'Время', bal: 'Баланс:', games: 'Игры:', noG: 'Нет игр', myG: 'Мои игры', join: 'Войти', copy: 'Ссылка скопирована!', invite: '🔗 Приглашение', dep: '💰 Внести', claim: '🏆 Забрать', approve: '✅ Разрешить', waiting: '⏳ Ожидание соперника...', playing: '♟️ Игра идёт', sync: '🔄 Синхронизация...', review: '🔍 Просмотр', live: '▶️ В реальном времени', prev: '⏪ Назад', next: '⏩ Вперёд', pot: 'Банк игры:', payout: 'Выплата:', refund: 'Возврат', drawRefund: '🤝 Ничья — ставки возвращены', winnerGets: '🏆 Победитель забирает весь банк', needDep: 'Нужно внести', toJoin: 'для присоединения', yourStake: 'Ваша ставка:', oppStake: 'Ставка соперника:', totalPot: 'Общий банк:', setTime: 'Выберите время:', approveTx: '1️⃣ Разрешаем контракт тратить GROK...', depositTx: '2️⃣ Переводим ставку в пул игры...', confirmingTx: '⏳ Ожидание подтверждения блокчейна...', successDep: '✅ Депозит подтверждён! Игра создана.', successJoin: '✅ Депозит внесён! Игра начинается.', errTx: '❌ Ошибка: ', errBal: '❌ Недостаточно GROK', claimBtn: '💰 Забрать выигрыш', victoryTitle: '🏆 Победа!', defeatTitle: '😔 Поражение', drawTitle: '🤝 Ничья', noMetaMask: '⚠️ Установите MetaMask/TrustWallet', playerProfile: '👤 Профиль', avatar: '🖼️ Аватар', name: '👤 Имя', bio: '📝 О себе', website: '🌐 Сайт', social: '🔗 Соцсеть', save: '💾 Сохранить', availableGames: '🎮 Доступные игры', guestInfo: '⏱️ Гостевой режим: бесплатно с ботом. Выберите время для игры.', guestInstructions: '📖 Гостевой режим:\n• Выберите время партии выше.\n• Нажмите "🤖 С ботом".\n• Играйте бесплатно без блокчейна.', grokInstructions: '📖 Создание игры на GROK:\n1️⃣ Нажмите "➕ Создать матч".\n2️⃣ Выберите ставку и время.\n3️⃣ Подтвердите в кошельке ДВЕ транзакции:\n   • Approve: разрешить тратить GROK\n   • Deposit: перевести ставку в контракт 0xB77ED...3a5b\n4️⃣ Дождитесь подтверждения (~15 сек).\n5️⃣ Скопируйте ссылку и отправьте сопернику.\n6️⃣ Когда соперник внесёт депозит — игра начнётся!\n7️⃣ Победитель забирает весь банк (минус 2% комиссия).', txCancelled: '⚠️ Транзакция отменена', step1: 'Шаг 1/2: Разрешение', step2: 'Шаг 2/2: Депозит', clickToCopy: '📋 Нажмите для копирования', checkBalance: '🔍 Проверить баланс контракта', profileSaved: '✅ Профиль сохранён!', profileError: '❌ Ошибка сохранения профиля', pvpMode: '👥 PvP режим', botMode: '🤖 Режим с ботом' },
   en: { t: '♟️ Chess4Crypto', s: 'GROK PvP Betting', g: '👤 Guest', c: '🦊 Connect', k: '💰 GROK', p: '👤 Profile', l: '🚪 Logout', y: '👤 You', b: '🤖 Bot', yt: '♟️ Your turn!', bt: '🤖 Bot thinks (3s)...', w: '🏆 YOU WIN!', x: '😔 Lost', d: '🤝 Draw', tp: '⏰ Bot wins', tb: '⏰ You win', cn: '✅ Connected', cl: 'Close', cp: '📋 Copy', cd: '✅ Copied!', gt: '💰 Buy GROK', g1: '1. Follow link, connect BNB wallet.', g2: '2. Buy GROK.', g3: '3. Contract address:', ln: '🇬🇧 EN', th: '🎨 Theme', tm: { c: '🏛️ Classic', w: '🪵 Wood', n: '💜 Neon', o: '🌊 Ocean', s: '🌅 Sunset', m: '⚪ Minimal' }, tc: 'Time:', st: 'Stake:', cr: '➕ Create Match', jn: '🤝 Join', mv: 'Moves:', newG: '🔄 Lobby', botG: '🤖 Vs Bot', select: 'Time', bal: 'Balance:', games: 'Games:', noG: 'No games', myG: 'My Games', join: 'Join', copy: 'Copied!', invite: '🔗 Invite', dep: '💰 Deposit', claim: '🏆 Claim Win', approve: '✅ Approve', waiting: '⏳ Waiting opponent...', playing: '♟️ Game in progress', sync: '🔄 Syncing...', review: '🔍 Review', live: '▶️ Live', prev: '⏪ Prev', next: '⏩ Next', pot: 'Game Pot:', payout: 'Payout:', refund: 'Refund', drawRefund: '🤝 Draw — stakes refunded', winnerGets: '🏆 Winner takes entire pot', needDep: 'Need to deposit', toJoin: 'to join', yourStake: 'Your stake:', oppStake: 'Opponent stake:', totalPot: 'Total pot:', setTime: 'Select Time:', approveTx: '1️⃣ Approve GROK...', depositTx: '2️⃣ Deposit to pool...', confirmingTx: '⏳ Waiting for blockchain confirmation...', successDep: '✅ Deposit confirmed! Game created.', successJoin: '✅ Deposit paid! Game started.', errTx: '❌ Error: ', errBal: '❌ Insufficient GROK', claimBtn: '💰 Claim Winnings', victoryTitle: '🏆 Victory!', defeatTitle: '😔 Defeat', drawTitle: '🤝 Draw', noMetaMask: '⚠️ Install MetaMask/TrustWallet', playerProfile: '👤 Profile', avatar: '🖼️ Avatar', name: '👤 Name', bio: '📝 Bio', website: '🌐 Website', social: '🔗 Social', save: '💾 Save', availableGames: '🎮 Available Games', guestInfo: '⏱️ Guest mode: free vs bot. Select game time.', guestInstructions: '📖 Guest Mode:\n• Select time control above.\n• Click "🤖 Vs Bot".\n• Play for free, no blockchain.', grokInstructions: '📖 Create GROK game:\n1️⃣ Click "➕ Create Match".\n2️⃣ Select stake & time.\n3️⃣ Confirm TWO transactions in wallet:\n   • Approve: allow spending GROK\n   • Deposit: send stake to contract 0xB77ED...3a5b\n4️⃣ Wait for confirmation (~15s).\n5️⃣ Copy link & send to opponent.\n6️⃣ When opponent deposits — game starts!\n7️⃣ Winner takes entire pot (minus 2% fee).', txCancelled: '⚠️ Transaction cancelled', step1: 'Step 1/2: Approve', step2: 'Step 2/2: Deposit', clickToCopy: '📋 Tap to copy', checkBalance: '🔍 Check contract balance', profileSaved: '✅ Profile saved!', profileError: '❌ Failed to save profile', pvpMode: '👥 PvP Mode', botMode: '🤖 Bot Mode' },
@@ -33,7 +33,7 @@ const ERC20_ABI = [{"inputs": [{"internalType": "address", "name": "spender", "t
 export default function App() {
   console.log('🟢 App.jsx: Component rendering start')
   
-  // ✅ 1. STATE (все объявления в начале)
+  // ✅ 1. STATE
   const [lang, setLang] = useState('ru')
   const [view, setView] = useState('menu')
   const [profileTab, setProfileTab] = useState('lobby')
@@ -100,25 +100,121 @@ export default function App() {
 
   // ✅ 6. CALLBACKS (ОБЪЯВЛЯЕМ ПЕРЕД useEffect!)
   const loadProfile = useCallback(async () => { if (!address) return; try { setProfileLoading(true); const d = await getProfile(address); if (d) setProfile(d) } catch (e) { console.warn('Profile:', e.message) } finally { setProfileLoading(false) } }, [address])
-  
   const loadAvailableGames = useCallback(async () => { try { const g = await listAvailableGames(); setAvailableGames(g || []) } catch (e) { console.warn('Games:', e.message) } }, [])
-  
   const loadActiveGames = useCallback(async () => { if (!address) return; try { const { data, error } = await supabase.from('games').select('*').or(`creator.eq.${address},challenger.eq.${address}`).order('created_at', { ascending: false }).limit(10); if (!error) setActiveGames(data || []) } catch (e) { console.warn('Active:', e.message) } }, [address])
-  
   const guest = () => { setMsg(t('g')); resetGame(); startGame() }
   const buyGrok = () => setGrok(true)
   const langNext = () => setLang(l => ({ ru: 'en', en: 'de', de: 'fr', fr: 'es', es: 'zh', zh: 'hi', hi: 'ru' })[l])
-  
   const copyToClipboard = async (text) => { try { if (document.hasFocus() && navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); setCop(true); setTimeout(() => setCop(false), 2000); return true } } catch (e) { } try { const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; ta.style.left = '-9999px'; document.body.appendChild(ta); ta.focus(); ta.select(); const ok = document.execCommand('copy'); document.body.removeChild(ta); if (ok) { setCop(true); setTimeout(() => setCop(false), 2000); return true } } catch (e) { } setMsg(t('clickToCopy') + ': ' + text.slice(0, 30) + '...'); return false }
   const copyAddr = () => copyToClipboard(GROK_ADDR)
   const connectWallet = async () => { try { await open() } catch (e) { console.error('Connect error:', e); setMsg(t('noMetaMask')) } }
-  
   const resetGame = () => { gameRef.current.reset(); setFen(gameRef.current.fen()); setHist([gameRef.current.fen()]); setMi(0); setIsPlayerTurn(true); setGameOver(false); setWinner(null); setMoveHistory([]); setSelectedSq(null); setPossibleMoves([]); setIsDeposited(false); setGameState('idle'); setIsPvP(false); setRemoteFen(null); setIsRemoteTurn(false); setCurrentMoveIdx(-1); setIsReviewMode(false); setLiveFen(null); setTxHash(null); if (botTimerRef.current) clearTimeout(botTimerRef.current); if (unsubscribeRef.current) { unsubscribeRef.current(); unsubscribeRef.current = null } }
   const startGame = () => { setPTime(timeCtrl * 60); setBTime(timeCtrl * 60); setTimerActive('player'); setView('game'); setGameState('playing') }
   
-  const handleCreateMatch = async () => { if (!isConnected || !address) { setMsg('🦊 ' + t('c')); return } if (CHESS_CONTRACT === '0x0000000000000000000000000000000000000000') { setMsg('⚠️ Contract not set'); return } if (userGrokBalance !== undefined && userGrokBalance !== null && Number(formatUnits(userGrokBalance, 18)) < createStake) { setMsg(t('errBal')); return } setLoadingTx(true); try { console.log('=== DEBUG: Creating game ==='); console.log('Contract balance BEFORE:', contractBalance); console.log('User balance:', userGrokBalance ? formatUnits(userGrokBalance, 18) : 'loading'); setMsg(t('step1')); const approveTx = await writeContractAsync({ address: GROK_ADDR, abi: ERC20_ABI, functionName: 'approve', args: [CHESS_CONTRACT, parseUnits(createStake.toString(), 18)] }); console.log('Approve TX:', approveTx); const rawId = 'game_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); const bytes32Id = keccak256(stringToBytes(rawId)); console.log('Game ID (raw):', rawId, '(bytes32):', bytes32Id); setMsg(t('step2')); const createTx = await writeContractAsync({ address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'create', args: [bytes32Id] }); console.log('Create TX:', createTx); const depositTx = await writeContractAsync({ address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'deposit', args: [bytes32Id] }); console.log('Deposit TX:', depositTx); setTxHash(depositTx); await createGameRecord(rawId, address, createStake, timeCtrl); setGameId(rawId); setIsDeposited(true); setIsPvP(false); const link = `${window.location.origin}${window.location.pathname}?game=${rawId}&stake=${createStake}&time=${timeCtrl}`; setInviteLink(link); await copyToClipboard(link); setMsg(t('confirmingTx')); setupGameSubscription(rawId); await loadActiveGames(); await loadAvailableGames(); setProfileTab('my'); setTimeout(() => refetchUserBalance?.(), 2000) } catch (e) { console.error('Create error:', e); if (e.message?.includes('rejected') || e.message?.includes('denied') || e.message?.includes('User rejected')) { setMsg(t('txCancelled')) } else { setMsg(t('errTx') + (e.shortMessage || e.message || '')) } } finally { setLoadingTx(false) } }
+  // ✅ ИСПРАВЛЕННАЯ ФУНКЦИЯ СОЗДАНИЯ ИГРЫ С ОТЛАДКОЙ
+  const handleCreateMatch = async () => {
+    if (!isConnected || !address) { setMsg('🦊 ' + t('c')); return }
+    if (CHESS_CONTRACT === '0x0000000000000000000000000000000000000000') { setMsg('⚠️ Contract not set'); return }
+    const currentBalance = userGrokBalance !== undefined && userGrokBalance !== null ? Number(formatUnits(userGrokBalance, 18)) : 0
+    if (currentBalance < createStake) { setMsg(t('errBal')); return }
+    
+    setLoadingTx(true)
+    try {
+      console.log('=== 🎮 DEBUG: Creating game ===')
+      console.log('User address:', address)
+      console.log('Contract address:', CHESS_CONTRACT)
+      console.log('Token address:', GROK_ADDR)
+      console.log('Stake:', createStake)
+      console.log('User balance:', currentBalance)
+      
+      // 🔹 ШАГ 1: APPROVE
+      setMsg(t('step1'))
+      console.log('📤 Step 1: Calling approve()...')
+      const approveAmount = parseUnits(createStake.toString(), 18)
+      console.log('Approve amount (wei):', approveAmount.toString())
+      
+      const approveTx = await writeContractAsync({
+        address: GROK_ADDR, abi: ERC20_ABI, functionName: 'approve',
+        args: [CHESS_CONTRACT, approveAmount], gas: BigInt(100000),
+      })
+      console.log('✅ Approve TX sent:', approveTx)
+      
+      // 🔹 ШАГ 2: Генерация gameId
+      const rawId = 'game_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)
+      const bytes32Id = keccak256(stringToBytes(rawId))
+      console.log('🆔 Game ID (raw):', rawId)
+      console.log('🆔 Game ID (bytes32):', bytes32Id)
+      
+      // 🔹 ШАГ 3: CREATE
+      setMsg(t('step2') + ' (create)')
+      console.log('📤 Step 3: Calling create()...')
+      const createTx = await writeContractAsync({
+        address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'create',
+        args: [bytes32Id], gas: BigInt(200000),
+      })
+      console.log('✅ Create TX sent:', createTx)
+      
+      // 🔹 ШАГ 4: DEPOSIT
+      setMsg(t('step2') + ' (deposit)')
+      console.log('📤 Step 4: Calling deposit()...')
+      const depositTx = await writeContractAsync({
+        address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'deposit',
+        args: [bytes32Id], gas: BigInt(300000),
+      })
+      console.log('✅ Deposit TX sent:', depositTx)
+      setTxHash(depositTx)
+      
+      // 🔹 ШАГ 5: Запись в Supabase
+      console.log('📝 Saving game record to Supabase...')
+      await createGameRecord(rawId, address, createStake, timeCtrl)
+      
+      // 🔹 ШАГ 6: Обновление состояния
+      setGameId(rawId); setIsDeposited(true); setIsPvP(false)
+      const link = `${window.location.origin}${window.location.pathname}?game=${rawId}&stake=${createStake}&time=${timeCtrl}`
+      setInviteLink(link)
+      await copyToClipboard(link)
+      setMsg(t('confirmingTx'))
+      setupGameSubscription(rawId)
+      await loadActiveGames(); await loadAvailableGames(); setProfileTab('my')
+      setTimeout(() => refetchUserBalance?.(), 2000)
+      console.log('🎉 Game created successfully!')
+      
+    } catch (e) {
+      console.error('❌ Create error details:', { name: e.name, message: e.message, shortMessage: e.shortMessage, details: e.details, cause: e.cause })
+      if (e.message?.includes('reverted') || e.message?.includes('execution reverted')) {
+        setMsg('❌ Контракт отклонил транзакцию. Проверьте:\n• Уникальный gameId\n• Достаточно ли газа\n• Токен одобрен?')
+      } else if (e.message?.includes('rejected') || e.message?.includes('denied') || e.message?.includes('User rejected')) {
+        setMsg(t('txCancelled'))
+      } else if (e.message?.includes('insufficient')) {
+        setMsg(t('errBal'))
+      } else {
+        setMsg(t('errTx') + (e.shortMessage || e.message || 'Unknown error'))
+      }
+    } finally { setLoadingTx(false) }
+  }
 
-  const handleJoinMatch = async () => { if (!isConnected || !pendingJoin || !address) { setMsg('🦊 ' + t('c')); return } if (CHESS_CONTRACT === '0x0000000000000000000000000000000000000000') { setMsg('⚠️ Contract not set'); return } if (userGrokBalance !== undefined && userGrokBalance !== null && Number(formatUnits(userGrokBalance, 18)) < pendingJoin.stake) { setMsg(t('errBal')); return } setLoadingTx(true); try { setMsg(t('step1')); await writeContractAsync({ address: GROK_ADDR, abi: ERC20_ABI, functionName: 'approve', args: [CHESS_CONTRACT, parseUnits(pendingJoin.stake.toString(), 18)] }); const bytes32Id = keccak256(stringToBytes(pendingJoin.id)); setMsg(t('step2')); const depositTx = await writeContractAsync({ address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'deposit', args: [bytes32Id] }); setTxHash(depositTx); await updateGameStatus(pendingJoin.id, { challenger: address, hpaid: true, status: 'playing', updated_at: new Date().toISOString() }); setGameId(pendingJoin.id); setCreateStake(pendingJoin.stake); setTimeCtrl(pendingJoin.time); setGameState('playing'); setIsPvP(true); setupGameSubscription(pendingJoin.id); setMsg(t('successJoin')); setPendingJoin(null); loadActiveGames(); loadAvailableGames(); setTimeout(() => startGame(), 500); setTimeout(() => refetchUserBalance?.(), 2000) } catch (e) { console.error('Join error:', e); setMsg(e.message?.includes('rejected') ? t('txCancelled') : t('errTx') + (e.shortMessage || e.message || '')) } finally { setLoadingTx(false) } }
+  const handleJoinMatch = async () => {
+    if (!isConnected || !pendingJoin || !address) { setMsg('🦊 ' + t('c')); return }
+    if (CHESS_CONTRACT === '0x0000000000000000000000000000000000000000') { setMsg('⚠️ Contract not set'); return }
+    const currentBalance = userGrokBalance !== undefined && userGrokBalance !== null ? Number(formatUnits(userGrokBalance, 18)) : 0
+    if (currentBalance < pendingJoin.stake) { setMsg(t('errBal')); return }
+    setLoadingTx(true)
+    try {
+      setMsg(t('step1'))
+      await writeContractAsync({ address: GROK_ADDR, abi: ERC20_ABI, functionName: 'approve', args: [CHESS_CONTRACT, parseUnits(pendingJoin.stake.toString(), 18)] })
+      const bytes32Id = keccak256(stringToBytes(pendingJoin.id))
+      setMsg(t('step2'))
+      const depositTx = await writeContractAsync({ address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'deposit', args: [bytes32Id] })
+      setTxHash(depositTx)
+      await updateGameStatus(pendingJoin.id, { challenger: address, hpaid: true, status: 'playing', updated_at: new Date().toISOString() })
+      setGameId(pendingJoin.id); setCreateStake(pendingJoin.stake); setTimeCtrl(pendingJoin.time)
+      setGameState('playing'); setIsPvP(true)
+      setupGameSubscription(pendingJoin.id); setMsg(t('successJoin')); setPendingJoin(null)
+      loadActiveGames(); loadAvailableGames(); setTimeout(() => startGame(), 500)
+      setTimeout(() => refetchUserBalance?.(), 2000)
+    } catch (e) { console.error('Join error:', e); setMsg(e.message?.includes('rejected') ? t('txCancelled') : t('errTx') + (e.shortMessage || e.message || '')) }
+    finally { setLoadingTx(false) }
+  }
 
   const setupGameSubscription = (id) => { if (unsubscribeRef.current) unsubscribeRef.current(); unsubscribeRef.current = subscribeToGame(id, { onGameUpdate: (g) => { if (g.status === 'playing' && !g.hpaid) setMsg(t('waiting')); else if (g.status === 'playing' && g.hpaid && !isPvP) setIsPvP(true) }, onMove: (m) => { if (m.player !== address && !isReviewMode) { setSyncStatus('🔄...'); setTimeout(() => { try { gameRef.current.move({ from: m.from_sq, to: m.to_sq, promotion: 'q' }); const nf = gameRef.current.fen(); setFen(nf); setLiveFen(nf); setHist(h => [...h, nf]); setMoveHistory(mh => [...mh, { san: m.san, from: m.from_sq, to: m.to_sq }]); setMi(i => i + 1); setCurrentMoveIdx(i => i + 1); setIsPlayerTurn(true); setTimerActive('player'); setSyncStatus(''); if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner(address); handleClaim(false) } else if (gameRef.current.isDraw()) { setGameOver(true); setWinner(null); handleClaim(true) } else setMsg(t('yt')) } catch (e) { console.warn(e) } }, 300) } } }) }
 
@@ -140,7 +236,7 @@ export default function App() {
 
   const handleSaveProfile = async () => { if (!address) { setMsg('❌ ' + t('noMetaMask')); return } if (profile.bio?.length > 500) { setMsg('❌ Био макс. 500 символов'); return } setProfileLoading(true); try { console.log('Saving profile for:', address); const ok = await updateProfile(address, profile); if (ok) { setMsg(t('profileSaved')); setIsEditingProfile(false); loadProfile() } else { setMsg(t('profileError')) } } catch (e) { console.error('Save profile error:', e); if (e.message?.includes('401') || e.message?.includes('Unauthorized')) { setMsg('❌ Нет прав. Выполните миграцию RLS в Supabase') } else if (e.message?.includes('406')) { setMsg('❌ Ошибка формата. Проверьте схему таблицы') } else { setMsg(t('profileError') + ': ' + e.message) } } finally { setProfileLoading(false) } }
 
-  // ✅ 7. EFFECTS (теперь все функции уже объявлены выше)
+  // ✅ 7. EFFECTS
   useEffect(() => { if (userGrokBalance !== undefined && userGrokBalance !== null) setUserBalance(Number(formatUnits(userGrokBalance, 18))) }, [userGrokBalance])
   useEffect(() => { if (contractGrokBalance !== undefined && contractGrokBalance !== null) setContractBalance(Number(formatUnits(contractGrokBalance, 18))) }, [contractGrokBalance])
   useEffect(() => { const r = () => setBs(Math.min(window.innerWidth - 40, 400)); r(); window.addEventListener('resize', r); return () => window.removeEventListener('resize', r) }, [])
@@ -153,7 +249,6 @@ export default function App() {
   // ✅ 8. RENDER
   return (
     <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text, fontFamily: 'system-ui', padding: '1rem', display: 'flex', justifyContent: 'center', overflowX: 'hidden' }}>
-      {/* Меню */}
       {view === 'menu' && <div style={{ maxWidth: '400px', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
         <h1 style={{ color: COLORS.accent, marginBottom: 0 }}>{t('t')}</h1>
         {!pendingJoin && <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '12px', width: '100%', marginBottom: '0.5rem' }}><label style={{ color: COLORS.textSec, display: 'block', marginBottom: '0.3rem' }}>{t('setTime')}</label><select value={timeCtrl} onChange={e => setTimeCtrl(Number(e.target.value))} style={{ width: '100%', padding: '10px', background: COLORS.cardBg, color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', fontSize: '1rem' }}>{TIME_OPTIONS.map(m => (<option key={m} value={m}>{m === 1440 ? '24 часа' : `${m} мин`}</option>))}</select></div>}
@@ -165,8 +260,6 @@ export default function App() {
         <button onClick={langNext} disabled={loadingTx} style={BtnStyle(COLORS.btnBlue, loadingTx)}>{t('ln')}</button>
         {msg && <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.4)', borderRadius: '8px', color: COLORS.accent, textAlign: 'center', width: '100%' }}>{msg}</div>}
       </div>}
-
-      {/* Профиль */}
       {view === 'profile' && <div style={{ maxWidth: '600px', width: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div style={{ background: COLORS.cardBg, padding: '1rem', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>{profile.avatar && <img src={profile.avatar} alt="av" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid ' + COLORS.accent }} />}<div><div style={{ fontWeight: 'bold' }}>{profile.name || address?.slice(0, 6) + '...' + address?.slice(-4)}</div><div style={{ color: COLORS.textSec, fontSize: '0.9rem' }}>{t('bal')} <span style={{ color: COLORS.accent }}>{userBalance?.toLocaleString() || '0'} GROK</span></div></div></div>
@@ -179,8 +272,6 @@ export default function App() {
         {profileTab === 'create' && <div style={{ background: COLORS.cardBg, padding: '1rem', borderRadius: '12px' }}><div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.8rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.85rem', lineHeight: '1.4', color: COLORS.textSec, whiteSpace: 'pre-line', border: '1px solid ' + COLORS.accent }}>{t('grokInstructions')}</div><div style={{ marginBottom: '0.8rem' }}><label style={{ color: COLORS.textSec }}>{t('setTime')}</label><select value={timeCtrl} onChange={e => setTimeCtrl(Number(e.target.value))} style={{ width: '100%', padding: '10px', background: '#00332e', color: '#fff', border: '1px solid #00897b', borderRadius: '8px', marginTop: '4px' }}>{TIME_OPTIONS.map(m => (<option key={m} value={m}>{m === 1440 ? '24ч' : `${m}м`}</option>))}</select></div><div style={{ marginBottom: '0.5rem' }}><label>{t('st')}</label><div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>{STAKE_OPTIONS.map(a => (<button key={a} onClick={() => setCreateStake(a)} style={{ ...BtnStyle(createStake === a ? '#10b981' : '#334155', loadingTx), flex: '1', minWidth: '70px', padding: '10px 0', fontSize: '0.9rem', marginTop: 4 }}>{a.toLocaleString()}</button>))}</div></div><button onClick={handleCreateMatch} disabled={loadingTx} style={BtnStyle('#10b981', loadingTx)}>{loadingTx ? (txHash ? t('confirmingTx') : t('approveTx')) : t('cr')}</button>{inviteLink && <div style={{ marginTop: '1rem', padding: '0.8rem', background: '#00332e', border: `1px solid ${COLORS.accent}`, borderRadius: '8px', wordBreak: 'break-all', fontSize: '0.8rem' }}><div style={{ color: COLORS.accent, marginBottom: '4px', fontWeight: 'bold' }}>{t('invite')}:</div><div style={{ color: COLORS.textSec, marginBottom: '8px', cursor: 'pointer' }} onClick={() => copyToClipboard(inviteLink)}>{inviteLink}<br /><small style={{ color: COLORS.textSec }}>{cop ? t('cd') : t('clickToCopy')}</small></div></div>}</div>}
         {profileTab === 'my' && <div style={{ background: COLORS.cardBg, padding: '1rem', borderRadius: '12px' }}><p>Game ID: {gameId || '-'}</p><p>Status: {gameState} {syncStatus && <span style={{ color: COLORS.accent }}>{syncStatus}</span>}</p>{txHash && <p style={{ color: COLORS.accent, fontSize: '0.8rem' }}>🔗 TX: {txHash.slice(0, 10)}...{txHash.slice(-8)}</p>}{contractBalance !== null && <p style={{ color: COLORS.textSec, fontSize: '0.8rem' }}>🏦 {t('pot')} {contractBalance.toLocaleString()} GROK</p>}{gameState === 'playing' && <button onClick={() => setView('game')} disabled={loadingTx} style={BtnStyle('#8b5cf6', loadingTx)}>🎮 Play</button>}{gameState === 'waiting_funds' && <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.8rem', borderRadius: '8px', marginTop: '0.5rem' }}><p style={{ color: '#fbbf24', margin: 0 }}>{t('waiting')} ⏱️ {timeCtrl} мин</p>{inviteLink && <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}><input readOnly value={inviteLink} style={{ flex: 1, background: '#00221a', border: '1px solid #004d40', color: '#fff', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem' }} /><button onClick={() => copyToClipboard(inviteLink)} style={{ padding: '4px 10px', background: COLORS.btnBlue, color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>{cop ? t('cd') : t('cp')}</button></div>}</div>}</div>}
       </div>}
-
-      {/* Игра */}
       {view === 'game' && <div style={{ maxWidth: '100%', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <div style={{ display: 'flex', justifyContent: 'space-around', width: '100%', maxWidth: '420px', marginBottom: '0.5rem' }}><div style={{ background: '#004d40', padding: '10px 20px', borderRadius: '10px', color: '#fff', textAlign: 'center', border: '1px solid #00897b', width: '45%' }}><div style={{ fontSize: '0.85rem', opacity: 0.8 }}>{t('y')}</div><div style={{ fontSize: '1.6rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{fmtTime(pTime)}</div></div><div style={{ background: '#004d40', padding: '10px 20px', borderRadius: '10px', color: '#fff', textAlign: 'center', border: '1px solid #00897b', width: '45%' }}><div style={{ fontSize: '0.85rem', opacity: 0.8 }}>{t('b')}</div><div style={{ fontSize: '1.6rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{fmtTime(bTime)}</div></div></div>
         {syncStatus && <div style={{ textAlign: 'center', color: COLORS.accent, fontSize: '0.9rem', marginBottom: '0.3rem' }}>{syncStatus}</div>}{msg && <div style={{ color: '#38bdf8', textAlign: 'center', marginBottom: '0.3rem' }}>{msg}</div>}
@@ -190,8 +281,6 @@ export default function App() {
         {moveHistory.length > 0 && <div style={{ marginTop: '0.5rem', background: COLORS.cardBg, padding: '0.5rem', borderRadius: '8px', maxHeight: '100px', overflowY: 'auto', fontSize: '0.8rem' }}>{moveHistory.map((m, i) => (<span key={i} style={{ marginRight: '0.5rem', background: currentMoveIdx === i ? COLORS.btnBlue : 'rgba(0,0,0,0.3)', padding: '0.2rem 0.4rem', borderRadius: '4px' }}>{i + 1}.{m.san}</span>))}</div>}
         {gameOver && <div style={{ marginTop: '1.5rem', background: '#1e293b', padding: '1.5rem', borderRadius: '12px', textAlign: 'center', border: `2px solid ${winner === address ? '#10b981' : '#ef4444'}`, maxWidth: '400px', width: '100%' }}><h2 style={{ color: COLORS.accent, margin: '0 0 1rem' }}>{winner === address ? t('victoryTitle') : winner === 'bot' ? t('defeatTitle') : t('drawTitle')}</h2>{winner === address && gameId && <button onClick={() => handleClaim(false)} disabled={loadingTx} style={{ ...BtnStyle('#10b981', loadingTx), fontSize: '1.2rem', marginBottom: '1rem' }}>{loadingTx ? '⏳...' : t('claimBtn')}</button>}<button onClick={() => { resetGame(); setView('profile') }} style={BtnStyle(COLORS.btnBlue)}>{t('newG')}</button></div>}
       </div>}
-
-      {/* Модалка GROK */}
       {grok && <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }} onClick={() => setGrok(false)}><div style={{ background: COLORS.cardBg, padding: '1.5rem', borderRadius: '16px', maxWidth: '360px' }} onClick={e => e.stopPropagation()}><h3 style={{ color: COLORS.accent }}>{t('gt')}</h3><ol style={{ color: COLORS.textSec, margin: '1rem 0', paddingLeft: '1.2rem' }}><li style={{ marginBottom: '0.5rem' }}>{t('g1')}<br /><a href={GROK_LINK} target="_blank" rel="noopener" style={{ color: '#60a5fa', wordBreak: 'break-all' }}>{GROK_LINK}</a></li><li style={{ marginBottom: '0.5rem' }}>{t('g2')}</li><li>{t('g3')}<br /><code style={{ background: '#00332e', padding: '0.3rem', borderRadius: '4px', display: 'block', margin: '0.3rem 0', fontSize: '0.8rem' }}>{GROK_ADDR}</code><button onClick={copyAddr} style={{ ...BtnStyle(COLORS.btnBlue, loadingTx), marginTop: '0.5rem', padding: '8px' }}>{cop ? t('cd') : t('cp')}</button></li></ol><a href={GROK_LINK} target="_blank" style={{ display: 'block', background: '#f57c00', color: '#000', padding: '0.6rem', borderRadius: '8px', textAlign: 'center', textDecoration: 'none', marginTop: '0.5rem' }}>🔗 four.meme</a><button onClick={() => setGrok(false)} style={{ ...BtnStyle('#334155'), marginTop: '0.5rem' }}>{t('cl')}</button></div></div>}
       {msg && <div style={{ position: 'fixed', bottom: '1rem', left: '50%', transform: 'translateX(-50%)', background: COLORS.btnBlue, color: '#fff', padding: '0.6rem 1rem', borderRadius: '8px', zIndex: 1000 }}>{msg}</div>}
     </div>
