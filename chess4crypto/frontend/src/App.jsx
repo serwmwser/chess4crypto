@@ -109,6 +109,9 @@ export default function App() {
   const [timerActive, setTimerActive] = useState(null)
   const [gameOver, setGameOver] = useState(false)
   const [winner, setWinner] = useState(null)
+  
+  // ✅ НОВЫЙ: Флаг для предотвращения повторных подключений к MetaMask
+  const [isConnectingWallet, setIsConnectingWallet] = useState(false)
 
   const gameRef = useRef(new Chess())
   const timerRef = useRef(null)
@@ -151,7 +154,48 @@ export default function App() {
   const copyToClipboard = async (text) => { try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); setCop(true); setTimeout(() => setCop(false), 2000); return true } } catch (e) { } setMsg(t('clickToCopy') + ': ' + text.slice(0, 30) + '...'); return false }
   const copyAddr = () => copyToClipboard(C4C_ADDR)
   
-  const connectWallet = async () => { try { const connector = connectors.find(c => c.id === 'metaMask') || connectors[0]; if (connector) await connect({ connector }); else setMsg(t('noMetaMask')) } catch (e) { console.error('Connect error:', e); setMsg(t('noMetaMask')) } }
+  // ✅ ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОДКЛЮЧЕНИЯ — С ЗАЩИТОЙ ОТ ДУБЛИРУЮЩИХ ЗАПРОСОВ
+  const connectWallet = async () => { 
+    if (isConnectingWallet || isConnecting) {
+      console.log('⏳ Connection already in progress')
+      return
+    }
+    
+    try { 
+      setIsConnectingWallet(true)
+      setMsg('🔄 Подключение кошелька...')
+      
+      const connector = connectors.find(c => c.id === 'metaMask') || connectors[0]
+      
+      if (connector) {
+        const connectPromise = connect({ connector })
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Connection timeout')), 30000)
+        )
+        
+        await Promise.race([connectPromise, timeoutPromise])
+        setMsg(t('cn'))
+        console.log('✅ Wallet connected:', address)
+      } else {
+        setMsg(t('noMetaMask'))
+        console.warn('⚠️ No wallet connector found')
+      }
+    } catch (e) { 
+      console.error('❌ Connect error:', e)
+      
+      if (e.message?.includes('already pending')) {
+        setMsg('⏳ Запрос уже в обработке. Пожалуйста, подождите...')
+      } else if (e.message?.includes('rejected') || e.message?.includes('denied')) {
+        setMsg('❌ Подключение отменено пользователем')
+      } else if (e.message?.includes('timeout')) {
+        setMsg('⏱️ Таймаут подключения. Проверьте соединение.')
+      } else {
+        setMsg(t('noMetaMask'))
+      }
+    } finally { 
+      setTimeout(() => setIsConnectingWallet(false), 500)
+    } 
+  }
   
   const resetGame = () => { gameRef.current.reset(); setFen(gameRef.current.fen()); setHist([gameRef.current.fen()]); setMi(0); setIsPlayerTurn(true); setGameOver(false); setWinner(null); setMoveHistory([]); setSelectedSq(null); setPossibleMoves([]); setIsDeposited(false); setGameState('idle'); setIsPvP(false); setRemoteFen(null); setIsRemoteTurn(false); setCurrentMoveIdx(-1); setIsReviewMode(false); setLiveFen(null); setTxHash(null); if (botTimerRef.current) clearTimeout(botTimerRef.current); if (unsubscribeRef.current) { unsubscribeRef.current(); unsubscribeRef.current = null } }
   const startGame = () => { setPTime(timeCtrl * 60); setBTime(timeCtrl * 60); setTimerActive('player'); setView('game'); setGameState('playing') }
@@ -236,7 +280,17 @@ export default function App() {
           <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '12px', width: '100%', marginBottom: '0.5rem', fontSize: '0.85rem', lineHeight: '1.4', color: COLORS.textSec, whiteSpace: 'pre-line' }}>{t('guestInstructions')}</div>
           <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '12px', width: '100%' }}><p style={{ color: COLORS.textSec, fontSize: '0.85rem', margin: 0, lineHeight: '1.4' }}>{t('guestInfo')}</p></div>
           <button onClick={guest} disabled={loadingTx} style={BtnStyle(COLORS.btnBlue, loadingTx)}>{t('g')}</button>
-          {isConnected ? (<button onClick={() => { disconnect(); setView('menu') }} disabled={loadingTx} style={BtnStyle('#b71c1c', loadingTx)}>{t('l')}</button>) : (<button onClick={connectWallet} disabled={loadingTx || isConnecting} style={BtnStyle(COLORS.btnOrange, loadingTx || isConnecting)}>{isConnecting ? '⏳...' : t('c')}</button>)}
+          {isConnected ? (
+            <button onClick={() => { disconnect(); setView('menu') }} disabled={loadingTx} style={BtnStyle('#b71c1c', loadingTx)}>{t('l')}</button>
+          ) : (
+            <button 
+              onClick={connectWallet} 
+              disabled={loadingTx || isConnecting || isConnectingWallet} 
+              style={BtnStyle(COLORS.btnOrange, loadingTx || isConnecting || isConnectingWallet)}
+            >
+              {isConnecting || isConnectingWallet ? '⏳...' : t('c')}
+            </button>
+          )}
           <button onClick={buyC4C} disabled={loadingTx} style={BtnStyle(COLORS.btnOrange, loadingTx)}>{t('k')}</button>
           <button onClick={langNext} disabled={loadingTx} style={BtnStyle(COLORS.btnBlue, loadingTx)}>{t('ln')}</button>
           {msg && <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.4)', borderRadius: '8px', color: COLORS.accent, textAlign: 'center', width: '100%' }}>{msg}</div>}
