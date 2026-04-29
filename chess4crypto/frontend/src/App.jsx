@@ -164,7 +164,18 @@ export default function App() {
     }
   }, [contractBalanceData])
 
-  useEffect(() => { if (isConnected && address) { loadProfile(); setTimeout(() => refetchBalance?.(), 1000) } }, [isConnected, address, refetchBalance])
+  // ✅ НОВЫЙ ЭФФЕКТ: Обновляем баланс и профиль, когда address появляется
+  useEffect(() => {
+    if (isConnected && address) {
+      console.log('✅ Address received:', address)
+      loadProfile()
+      // Небольшая задержка, чтобы контракт успел обработать подключение
+      setTimeout(() => {
+        refetchBalance?.()
+        console.log('🔄 Balance refetched after connect')
+      }, 800)
+    }
+  }, [isConnected, address, loadProfile, refetchBalance])
 
   const loadProfile = useCallback(async () => { 
     if (!address) return; try { setProfileLoading(true); const d = await getProfile(address); if (d) setProfile(d) } catch (e) { console.warn('Profile:', e.message) } finally { setProfileLoading(false) } 
@@ -180,7 +191,7 @@ export default function App() {
   const copyToClipboard = async (text) => { try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); setCop(true); setTimeout(() => setCop(false), 2000); return true } } catch (e) { } setMsg(t('clickToCopy') + ': ' + text.slice(0, 30) + '...'); return false }
   const copyAddr = () => copyToClipboard(C4C_ADDR)
   
-  // ✅ ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОДКЛЮЧЕНИЯ — С useRef ДЛЯ МГНОВЕННОЙ БЛОКИРОВКИ
+  // ✅ ПРОСТАЯ ФУНКЦИЯ ПОДКЛЮЧЕНИЯ — БЕЗ ОЖИДАНИЯ ADDRESS ВНУТРИ
   const connectWallet = async () => { 
     if (connectingRef.current || isConnecting) {
       console.log('⏳ Connection already in progress')
@@ -194,28 +205,10 @@ export default function App() {
       const connector = connectors.find(c => c.id === 'metaMask') || connectors[0]
       
       if (connector) {
-        const connectPromise = connect({ connector })
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Connection timeout')), 30000)
-        )
-        
-        await Promise.race([connectPromise, timeoutPromise])
-        
-        // Ждём появления address
-        let retries = 0
-        while (!address && retries < 10) {
-          await new Promise(res => setTimeout(res, 300))
-          retries++
-        }
-        
-        if (address) {
-          setMsg(t('cn'))
-          console.log('✅ Wallet connected:', address)
-          setTimeout(() => refetchBalance?.(), 500)
-        } else {
-          setMsg('⚠️ Кошелёк подключён, но адрес не получен')
-          console.warn('⚠️ No address after connect')
-        }
+        // 🔹 Просто вызываем connect() — useEffect сработает, когда address появится
+        await connect({ connector })
+        // 🔹 НЕ ждём address здесь — это бесполезно из-за замыкания
+        setMsg('⏳ Ожидание подтверждения...')
       } else {
         setMsg(t('noMetaMask'))
         console.warn('⚠️ No wallet connector found')
@@ -226,15 +219,11 @@ export default function App() {
         setMsg('⏳ Запрос уже в обработке. Пожалуйста, подождите...')
       } else if (e.message?.includes('rejected') || e.message?.includes('denied')) {
         setMsg('❌ Подключение отменено пользователем')
-      } else if (e.message?.includes('timeout')) {
-        setMsg('⏱️ Таймаут подключения. Проверьте соединение.')
       } else {
         setMsg(t('noMetaMask'))
       }
     } finally { 
-      setTimeout(() => {
-        connectingRef.current = false
-      }, 1000)
+      setTimeout(() => { connectingRef.current = false }, 1000)
     } 
   }
   
