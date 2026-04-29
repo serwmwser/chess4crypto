@@ -1,12 +1,9 @@
-*{box-sizing:border-box;margin:0;padding:0}
-html,body {
-  font-family:system-ui,sans-serif;
-  background:#00695c;
-  color:#ffffff;
-  overflow-x: hidden;
-  width: 100%;
-}
-button{font-family:inherit;cursor:pointer}
-select,textarea,input{font-family:inherit;padding:0.5rem;background:#004d40;color:#fff;border:1px solid #00897b;border-radius:6px}
-* { -webkit-tap-highlight-color: transparent; }
-textarea{resize:vertical;min-height:80px}
+/* Базовые стили */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #00695c; color: #fff; }
+button { cursor: pointer; transition: opacity 0.2s; }
+button:hover { opacity: 0.9; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+input, textarea, select { background: #00332e; border: 1px solid #00897b; color: #fff; padding: 8px; border-radius: 6px; }
+a { color: #60a5fa; text-decoration: none; }
+a:hover { text-decoration: underline; }

@@ -3,67 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    
-    <!-- ✅ SEO и мета-теги -->
-    <title>♟️ Chess4Crypto — PvP шахматы на GROK</title>
-    <meta name="description" content="Играйте в шахматы на криптовалюту GROK. PvP режим, ставки, мгновенные выплаты." />
+    <title>♟️ Chess4Crypto — PvP на токене C4C</title>
+    <meta name="description" content="Играйте в шахматы на криптовалюту C4C. PvP режим, мгновенные выплаты." />
     <meta name="theme-color" content="#00695c" />
-    
-    <!-- ✅ Иконки (опционально) -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     
-    <!-- ✅ Полифилы для Web3-библиотек (КРИТИЧЕСКИ ВАЖНО) -->
     <script>
-      // ✅ Определяем process.env для браузера
       window.process = window.process || { env: { NODE_ENV: 'production' } }
-      // ✅ Определяем global для совместимости с крипто-библиотеками
       window.global = window.global || window
-      // ✅ Определяем Buffer для совместимости
       window.Buffer = window.Buffer || { isBuffer: function() { return false } }
     </script>
     
-    <!-- ✅ Стили (если есть глобальные) -->
     <style>
-      /* ✅ Базовые стили для предотвращения скачков контента */
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      html, body, #root { 
-        width: 100%; 
-        height: 100%; 
-        min-height: 100vh;
-        font-family: system-ui, -apple-system, sans-serif;
-      }
-      /* ✅ Цвет фона совпадает с COLORS.bg в App.jsx */
-      body { 
-        background: #00695c; 
-        color: #ffffff;
-        overflow-x: hidden;
-      }
-      /* ✅ Скрытие скроллбара для лучшего вида */
+      html, body, #root { width: 100%; height: 100%; min-height: 100vh; font-family: system-ui, -apple-system, sans-serif; }
+      body { background: #00695c; color: #ffffff; overflow-x: hidden; }
       ::-webkit-scrollbar { width: 8px; }
       ::-webkit-scrollbar-track { background: #004d40; }
       ::-webkit-scrollbar-thumb { background: #00897b; border-radius: 4px; }
     </style>
   </head>
-  
   <body>
-    <!-- ✅ КРИТИЧЕСКИ: id должен быть "root" (точно как в main.jsx) -->
     <div id="root"></div>
-    
-    <!-- ✅ Подключение основного JS-файла (Vite автоматически подставит правильный путь после сборки) -->
     <script type="module" src="/src/main.jsx"></script>
-    
-    <!-- ✅ Отладочный скрипт (можно удалить после того, как всё заработает) -->
-    <script>
-      // ✅ Проверка, что приложение загрузилось
-      window.addEventListener('load', function() {
-        console.log('✅ Page loaded, root element:', document.getElementById('root'))
-        setTimeout(function() {
-          if (document.getElementById('root').children.length === 0) {
-            console.warn('⚠️ Root is empty — check App.jsx for render errors')
-          }
-        }, 2000)
-      })
-    </script>
   </body>
 </html>
