@@ -110,8 +110,8 @@ export default function App() {
   const [gameOver, setGameOver] = useState(false)
   const [winner, setWinner] = useState(null)
   
-  // ✅ НОВЫЙ: Флаг для предотвращения повторных подключений к MetaMask
-  const [isConnectingWallet, setIsConnectingWallet] = useState(false)
+  // ✅ Ref для мгновенной блокировки повторных подключений
+  const connectingRef = useRef(false)
 
   const gameRef = useRef(new Chess())
   const timerRef = useRef(null)
@@ -124,20 +124,46 @@ export default function App() {
   const { writeContractAsync } = useWriteContract()
   const { depositReceipt, isSuccess: depositConfirmed } = useWaitForTransactionReceipt({ hash: txHash })
 
-  const { data: balanceData, refetch: refetchBalance, isLoading: balanceLoading, isError: balanceError } = useReadContract({
-    address: C4C_ADDR, abi: ERC20_ABI, functionName: 'balanceOf', args: [address],
-    query: { enabled: !!address, refetchInterval: 3000, staleTime: 0 }
+  // ✅ ЗАПРОС БАЛАНСА — ИСПРАВЛЕННЫЙ
+  const {  balanceData, refetch: refetchBalance, isLoading: balanceLoading, isError: balanceError } = useReadContract({
+    address: C4C_ADDR,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: [address],
+    query: { 
+      enabled: !!address && isConnected,
+      refetchInterval: 5000,
+      staleTime: 0,
+      retry: 1,
+      retryDelay: 1000
+    }
   })
   
-  const { data: contractBalanceData } = useReadContract({
-    address: C4C_ADDR, abi: ERC20_ABI, functionName: 'balanceOf', args: [CHESS_CONTRACT],
+  const {  contractBalanceData } = useReadContract({
+    address: C4C_ADDR,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: [CHESS_CONTRACT],
     query: { enabled: true }
   })
 
   const t = useCallback(k => LANG[lang]?.[k] || LANG['en']?.[k] || k, [lang])
 
-  useEffect(() => { if (balanceData != null) setUserBalance(Number(formatUnits(balanceData, 18))) }, [balanceData])
-  useEffect(() => { if (contractBalanceData != null) setContractBalance(Number(formatUnits(contractBalanceData, 18))) }, [contractBalanceData])
+  // ✅ Обновление баланса — с проверкой на валидность данных
+  useEffect(() => {
+    if (balanceData != null && typeof balanceData === 'bigint') {
+      const formatted = Number(formatUnits(balanceData, 18))
+      setUserBalance(formatted)
+      console.log('💰 Balance updated:', formatted, 'C4C')
+    }
+  }, [balanceData])
+
+  useEffect(() => {
+    if (contractBalanceData != null && typeof contractBalanceData === 'bigint') {
+      setContractBalance(Number(formatUnits(contractBalanceData, 18)))
+    }
+  }, [contractBalanceData])
+
   useEffect(() => { if (isConnected && address) { loadProfile(); setTimeout(() => refetchBalance?.(), 1000) } }, [isConnected, address, refetchBalance])
 
   const loadProfile = useCallback(async () => { 
@@ -154,15 +180,15 @@ export default function App() {
   const copyToClipboard = async (text) => { try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); setCop(true); setTimeout(() => setCop(false), 2000); return true } } catch (e) { } setMsg(t('clickToCopy') + ': ' + text.slice(0, 30) + '...'); return false }
   const copyAddr = () => copyToClipboard(C4C_ADDR)
   
-  // ✅ ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОДКЛЮЧЕНИЯ — С ЗАЩИТОЙ ОТ ДУБЛИРУЮЩИХ ЗАПРОСОВ
+  // ✅ ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОДКЛЮЧЕНИЯ — С useRef ДЛЯ МГНОВЕННОЙ БЛОКИРОВКИ
   const connectWallet = async () => { 
-    if (isConnectingWallet || isConnecting) {
+    if (connectingRef.current || isConnecting) {
       console.log('⏳ Connection already in progress')
       return
     }
     
     try { 
-      setIsConnectingWallet(true)
+      connectingRef.current = true
       setMsg('🔄 Подключение кошелька...')
       
       const connector = connectors.find(c => c.id === 'metaMask') || connectors[0]
@@ -174,15 +200,28 @@ export default function App() {
         )
         
         await Promise.race([connectPromise, timeoutPromise])
-        setMsg(t('cn'))
-        console.log('✅ Wallet connected:', address)
+        
+        // Ждём появления address
+        let retries = 0
+        while (!address && retries < 10) {
+          await new Promise(res => setTimeout(res, 300))
+          retries++
+        }
+        
+        if (address) {
+          setMsg(t('cn'))
+          console.log('✅ Wallet connected:', address)
+          setTimeout(() => refetchBalance?.(), 500)
+        } else {
+          setMsg('⚠️ Кошелёк подключён, но адрес не получен')
+          console.warn('⚠️ No address after connect')
+        }
       } else {
         setMsg(t('noMetaMask'))
         console.warn('⚠️ No wallet connector found')
       }
     } catch (e) { 
       console.error('❌ Connect error:', e)
-      
       if (e.message?.includes('already pending')) {
         setMsg('⏳ Запрос уже в обработке. Пожалуйста, подождите...')
       } else if (e.message?.includes('rejected') || e.message?.includes('denied')) {
@@ -193,7 +232,9 @@ export default function App() {
         setMsg(t('noMetaMask'))
       }
     } finally { 
-      setTimeout(() => setIsConnectingWallet(false), 500)
+      setTimeout(() => {
+        connectingRef.current = false
+      }, 1000)
     } 
   }
   
@@ -285,10 +326,10 @@ export default function App() {
           ) : (
             <button 
               onClick={connectWallet} 
-              disabled={loadingTx || isConnecting || isConnectingWallet} 
-              style={BtnStyle(COLORS.btnOrange, loadingTx || isConnecting || isConnectingWallet)}
+              disabled={loadingTx || isConnecting || connectingRef.current} 
+              style={BtnStyle(COLORS.btnOrange, loadingTx || isConnecting || connectingRef.current)}
             >
-              {isConnecting || isConnectingWallet ? '⏳...' : t('c')}
+              {isConnecting || connectingRef.current ? '⏳...' : t('c')}
             </button>
           )}
           <button onClick={buyC4C} disabled={loadingTx} style={BtnStyle(COLORS.btnOrange, loadingTx)}>{t('k')}</button>
