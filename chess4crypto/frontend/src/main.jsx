@@ -9,18 +9,13 @@ import './index.css'
 // ✅ Настройка wagmi для BNB Smart Chain
 const config = createConfig({
   chains: [bsc],
-  transports: {
-    [bsc.id]: http(),
-  },
+  transports: { [bsc.id]: http() },
 })
 
-// ✅ QueryClient для React Query (требуется wagmi)
+// ✅ QueryClient для React Query
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
+    queries: { retry: 1, refetchOnWindowFocus: false },
   },
 })
 
@@ -33,7 +28,6 @@ if (!rootElement) {
   try {
     ReactDOM.createRoot(rootElement).render(
       <React.StrictMode>
-        {/* ✅ Оборачиваем App в провайдеры wagmi и react-query */}
         <WagmiProvider config={config}>
           <QueryClientProvider client={queryClient}>
             <App />
