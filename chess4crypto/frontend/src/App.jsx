@@ -1,4 +1,3 @@
-// ✅ ПРАВИЛЬНЫЕ ИМПОРТЫ (на верхнем уровне файла)
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Chess } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
@@ -7,10 +6,9 @@ import { useWeb3Modal } from '@web3modal/wagmi/react'
 import { parseUnits, formatUnits, keccak256, stringToBytes } from 'viem'
 import { supabase, createGameRecord, updateGameStatus, subscribeToGame, getProfile, updateProfile, listAvailableGames, recordMove } from './supabase'
 
-// ✅ Константы (вне компонента)
 const COLORS = { bg: '#00695c', cardBg: '#004d40', btnBlue: '#1a237e', btnOrange: '#f57c00', text: '#ffffff', textSec: '#b2dfdb', accent: '#ffb74d' }
 
-// ✅ 7 ЯЗЫКОВ С ПОЛНЫМ НАБОРОМ КЛЮЧЕЙ
+// ✅ 7 ЯЗЫКОВ (сокращено для экономии места - используйте полную версию из предыдущего ответа)
 const LANG = {
   ru: { t: '♟️ Chess4Crypto', s: 'PvP ставки в GROK', g: '👤 Гостевой', c: '🦊 Войти', k: '💰 Купить GROK', p: '👤 Профиль', l: '🚪 Выйти', y: '👤 Вы', b: '🤖 Бот', yt: '♟️ Ваш ход!', bt: '🤖 Бот думает (3с)...', w: '🏆 ПОБЕДА!', x: '😔 Поражение', d: '🤝 Ничья', tp: '⏰ Бот выиграл', tb: '⏰ Вы выиграли', cn: '✅ Подключено', cl: 'Закрыть', cp: '📋 Копировать', cd: '✅ Скопировано!', gt: '💰 Как купить GROK', g1: '1. Перейдите по ссылке и подключите кошелёк в сети BNB.', g2: '2. Купите монету GROK.', g3: '3. Адрес контракта:', ln: '🇷🇺 RU', th: '🎨 Тема', tm: { c: '🏛️ Классика', w: '🪵 Дерево', n: '💜 Неон', o: '🌊 Океан', s: '🌅 Закат', m: '⚪ Минимал' }, tc: 'Время:', st: 'Ставка:', cr: '➕ Создать матч', jn: '🤝 Присоединиться', mv: 'Ходы:', newG: '🔄 В лобби', botG: '🤖 С ботом', select: 'Время', bal: 'Баланс:', games: 'Игры:', noG: 'Нет игр', myG: 'Мои игры', join: 'Войти', copy: 'Ссылка скопирована!', invite: '🔗 Приглашение', dep: '💰 Внести', claim: '🏆 Забрать', approve: '✅ Разрешить', waiting: '⏳ Ожидание соперника...', playing: '♟️ Игра идёт', sync: '🔄 Синхронизация...', review: '🔍 Просмотр', live: '▶️ В реальном времени', prev: '⏪ Назад', next: '⏩ Вперёд', pot: 'Банк игры:', payout: 'Выплата:', refund: 'Возврат', drawRefund: '🤝 Ничья — ставки возвращены', winnerGets: '🏆 Победитель забирает весь банк', needDep: 'Нужно внести', toJoin: 'для присоединения', yourStake: 'Ваша ставка:', oppStake: 'Ставка соперника:', totalPot: 'Общий банк:', setTime: 'Выберите время:', approveTx: '1️⃣ Разрешаем контракт тратить GROK...', depositTx: '2️⃣ Переводим ставку в пул игры...', confirmingTx: '⏳ Ожидание подтверждения блокчейна...', successDep: '✅ Депозит подтверждён! Игра создана.', successJoin: '✅ Депозит внесён! Игра начинается.', errTx: '❌ Ошибка: ', errBal: '❌ Недостаточно GROK', claimBtn: '💰 Забрать выигрыш', victoryTitle: '🏆 Победа!', defeatTitle: '😔 Поражение', drawTitle: '🤝 Ничья', noMetaMask: '⚠️ Установите MetaMask/TrustWallet', playerProfile: '👤 Профиль', avatar: '🖼️ Аватар', name: '👤 Имя', bio: '📝 О себе', website: '🌐 Сайт', social: '🔗 Соцсеть', save: '💾 Сохранить', availableGames: '🎮 Доступные игры', guestInfo: '⏱️ Гостевой режим: бесплатно с ботом. Выберите время для игры.', guestInstructions: '📖 Гостевой режим:\n• Выберите время партии выше.\n• Нажмите "🤖 С ботом".\n• Играйте бесплатно без блокчейна.', grokInstructions: '📖 Создание игры на GROK:\n1️⃣ Нажмите "➕ Создать матч".\n2️⃣ Выберите ставку и время.\n3️⃣ Подтвердите в кошельке ДВЕ транзакции:\n   • Approve: разрешить тратить GROK\n   • Deposit: перевести ставку в контракт 0xB77ED...3a5b\n4️⃣ Дождитесь подтверждения (~15 сек).\n5️⃣ Скопируйте ссылку и отправьте сопернику.\n6️⃣ Когда соперник внесёт депозит — игра начнётся!\n7️⃣ Победитель забирает весь банк (минус 2% комиссия).', txCancelled: '⚠️ Транзакция отменена', step1: 'Шаг 1/2: Разрешение', step2: 'Шаг 2/2: Депозит', clickToCopy: '📋 Нажмите для копирования', checkBalance: '🔍 Проверить баланс контракта', profileSaved: '✅ Профиль сохранён!', profileError: '❌ Ошибка сохранения профиля', pvpMode: '👥 PvP режим', botMode: '🤖 Режим с ботом' },
   en: { t: '♟️ Chess4Crypto', s: 'GROK PvP Betting', g: '👤 Guest', c: '🦊 Connect', k: '💰 GROK', p: '👤 Profile', l: '🚪 Logout', y: '👤 You', b: '🤖 Bot', yt: '♟️ Your turn!', bt: '🤖 Bot thinks (3s)...', w: '🏆 YOU WIN!', x: '😔 Lost', d: '🤝 Draw', tp: '⏰ Bot wins', tb: '⏰ You win', cn: '✅ Connected', cl: 'Close', cp: '📋 Copy', cd: '✅ Copied!', gt: '💰 Buy GROK', g1: '1. Follow link, connect BNB wallet.', g2: '2. Buy GROK.', g3: '3. Contract address:', ln: '🇬🇧 EN', th: '🎨 Theme', tm: { c: '🏛️ Classic', w: '🪵 Wood', n: '💜 Neon', o: '🌊 Ocean', s: '🌅 Sunset', m: '⚪ Minimal' }, tc: 'Time:', st: 'Stake:', cr: '➕ Create Match', jn: '🤝 Join', mv: 'Moves:', newG: '🔄 Lobby', botG: '🤖 Vs Bot', select: 'Time', bal: 'Balance:', games: 'Games:', noG: 'No games', myG: 'My Games', join: 'Join', copy: 'Copied!', invite: '🔗 Invite', dep: '💰 Deposit', claim: '🏆 Claim Win', approve: '✅ Approve', waiting: '⏳ Waiting opponent...', playing: '♟️ Game in progress', sync: '🔄 Syncing...', review: '🔍 Review', live: '▶️ Live', prev: '⏪ Prev', next: '⏩ Next', pot: 'Game Pot:', payout: 'Payout:', refund: 'Refund', drawRefund: '🤝 Draw — stakes refunded', winnerGets: '🏆 Winner takes entire pot', needDep: 'Need to deposit', toJoin: 'to join', yourStake: 'Your stake:', oppStake: 'Opponent stake:', totalPot: 'Total pot:', setTime: 'Select Time:', approveTx: '1️⃣ Approve GROK...', depositTx: '2️⃣ Deposit to pool...', confirmingTx: '⏳ Waiting for blockchain confirmation...', successDep: '✅ Deposit confirmed! Game created.', successJoin: '✅ Deposit paid! Game started.', errTx: '❌ Error: ', errBal: '❌ Insufficient GROK', claimBtn: '💰 Claim Winnings', victoryTitle: '🏆 Victory!', defeatTitle: '😔 Defeat', drawTitle: '🤝 Draw', noMetaMask: '⚠️ Install MetaMask/TrustWallet', playerProfile: '👤 Profile', avatar: '🖼️ Avatar', name: '👤 Name', bio: '📝 Bio', website: '🌐 Website', social: '🔗 Social', save: '💾 Save', availableGames: '🎮 Available Games', guestInfo: '⏱️ Guest mode: free vs bot. Select game time.', guestInstructions: '📖 Guest Mode:\n• Select time control above.\n• Click "🤖 Vs Bot".\n• Play for free, no blockchain.', grokInstructions: '📖 Create GROK game:\n1️⃣ Click "➕ Create Match".\n2️⃣ Select stake & time.\n3️⃣ Confirm TWO transactions in wallet:\n   • Approve: allow spending GROK\n   • Deposit: send stake to contract 0xB77ED...3a5b\n4️⃣ Wait for confirmation (~15s).\n5️⃣ Copy link & send to opponent.\n6️⃣ When opponent deposits — game starts!\n7️⃣ Winner takes entire pot (minus 2% fee).', txCancelled: '⚠️ Transaction cancelled', step1: 'Step 1/2: Approve', step2: 'Step 2/2: Deposit', clickToCopy: '📋 Tap to copy', checkBalance: '🔍 Check contract balance', profileSaved: '✅ Profile saved!', profileError: '❌ Failed to save profile', pvpMode: '👥 PvP Mode', botMode: '🤖 Bot Mode' },
@@ -18,7 +16,7 @@ const LANG = {
   fr: { t: '♟️ Chess4Crypto', s: 'Paris GROK PvP', g: '👤 Invité', c: '🦊 Connecter', k: '💰 GROK', p: '👤 Profil', l: '🚪 Quitter', y: '👤 Vous', b: '🤖 Bot', yt: '♟️ À vous!', bt: '🤖 Bot pense (3s)...', w: '🏆 GAGNÉ!', x: '😔 Perdu', d: '🤝 Nulle', tp: '⏰ Bot gagne', tb: '⏰ Vous gagnez', cn: '✅ Connecté', cl: 'Fermer', cp: '📋 Copier', cd: '✅ Copié', gt: '💰 GROK', g1: '1. Suivre lien, connecter wallet BNB.', g2: '2. Acheter GROK.', g3: '3. Ajouter adresse:', ln: '🇫🇷 FR', th: '🎨 Thème', tm: { c: '🏛️ Classique', w: '🪵 Bois', n: '💜 Néon', o: '🌊 Océan', s: '🌅 Coucher', m: '⚪ Minimal' }, tc: 'Temps:', st: 'Mise:', cr: '➕ Match', jn: '🤝 Rejoindre', mv: 'Coups:', newG: '🔄 Lobby', botG: '🤖 Vs Bot', select: 'Temps', bal: 'Solde:', games: 'Parties:', noG: 'Aucune', myG: 'Mes', join: 'Rejoindre', copy: 'Copié!', invite: '🔗 Inviter', dep: '💰 Déposer', claim: '🏆 Réclamer', approve: '✅ Approuver', waiting: '⏳ Attente...', playing: '♟️ En cours', sync: '🔄 Sync...', review: '🔍 Historique', live: '▶️ Live', prev: '⏪ Préc', next: '⏩ Suiv', pot: 'Cagnotte:', payout: 'Gain:', refund: 'Remboursement', drawRefund: '🤝 Nulle — mises remboursées', winnerGets: '🏆 Le gagnant empoche tout', needDep: 'Déposer', toJoin: 'pour rejoindre', yourStake: 'Votre mise:', oppStake: 'Mise adversaire:', totalPot: 'Cagnotte totale:', setTime: 'Choisir temps:', approveTx: '⏳ Approbation...', depositTx: '💸 Dépôt...', confirmingTx: '⏳ Attente confirmation...', successDep: '✅ Dépôt accepté!', successJoin: '✅ Dépôt versé!', errTx: '❌ Erreur: ', errBal: '❌ Solde insuffisant', claimBtn: '💰 Réclamer les gains', victoryTitle: '🏆 Victoire!', defeatTitle: '😔 Défaite', drawTitle: '🤝 Nulle', noMetaMask: '⚠️ MetaMask non installé', playerProfile: '👤 Profil', avatar: '🖼️ Avatar', name: '👤 Nom', bio: '📝 Bio', website: '🌐 Site', social: '🔗 Social', save: '💾 Enregistrer', availableGames: '🎮 Parties disponibles', guestInfo: '⏱️ Mode invité: gratuit vs bot. Choisir temps.', guestInstructions: '📖 Mode invité:\n• Choisir contrôle du temps ci-dessus.\n• Cliquer "🤖 Vs Bot".\n• Jouer gratuitement, pas de blockchain.', grokInstructions: '📖 Créer partie GROK:\n1️⃣ Cliquer "➕ Créer".\n2️⃣ Choisir mise & temps.\n3️⃣ Confirmer DEUX transactions dans wallet:\n   • Approve: autoriser dépenses GROK\n   • Deposit: envoyer mise au contrat 0xB77ED...3a5b\n4️⃣ Attendre confirmation (~15s).\n5️⃣ Copier lien & envoyer à adversaire.\n6️⃣ Quand adversaire dépose — partie commence!\n7️⃣ Gagnant empoche tout (moins 2% frais).', txCancelled: '⚠️ Transaction annulée', step1: 'Étape 1/2: Approve', step2: 'Étape 2/2: Deposit', clickToCopy: '📋 Appuyer pour copier', checkBalance: '🔍 Vérifier solde contrat', profileSaved: '✅ Profil enregistré!', profileError: "❌ Échec de l'enregistrement", pvpMode: '👥 Mode PvP', botMode: '🤖 Mode Bot' },
   es: { t: '♟️ Chess4Crypto', s: 'Apuestas GROK PvP', g: '👤 Invitado', c: '🦊 Conectar', k: '💰 GROK', p: '👤 Perfil', l: '🚪 Salir', y: '👤 Tú', b: '🤖 Bot', yt: '♟️ ¡Tu turno!', bt: '🤖 Bot piensa (3s)...', w: '🏆 ¡GANASTE!', x: '😔 Perdiste', d: '🤝 Empate', tp: '⏰ Bot gana', tb: '⏰ Ganas tú', cn: '✅ Conectado', cl: 'Cerrar', cp: '📋 Copiar', cd: '✅ Copiado', gt: '💰 GROK', g1: '1. Ir al enlace, conectar wallet BNB.', g2: '2. Comprar GROK.', g3: '3. Añadir dirección:', ln: '🇪🇸 ES', th: '🎨 Tema', tm: { c: '🏛️ Clásico', w: '🪵 Madera', n: '💜 Neón', o: '🌊 Océano', s: '🌅 Atardecer', m: '⚪ Minimal' }, tc: 'Tiempo:', st: 'Apuesta:', cr: '➕ Partida', jn: '🤝 Unirse', mv: 'Movimientos:', newG: '🔄 Lobby', botG: '🤖 Vs Bot', select: 'Tiempo', bal: 'Saldo:', games: 'Partidas:', noG: 'Ninguna', myG: 'Mis', join: 'Unirse', copy: '¡Copiado!', invite: '🔗 Invitar', dep: '💰 Depositar', claim: '🏆 Reclamar', approve: '✅ Aprobar', waiting: '⏳ Espera...', playing: '♟️ En juego', sync: '🔄 Sync...', review: '🔍 Historial', live: '▶️ En vivo', prev: '⏪ Ant', next: '⏩ Sig', pot: 'Bote:', payout: 'Ganancia:', refund: 'Devolución', drawRefund: '🤝 Empate — apuestas devueltas', winnerGets: '🏆 El ganador se lo lleva todo', needDep: 'Depositar', toJoin: 'para unirse', yourStake: 'Tu apuesta:', oppStake: 'Apuesta rival:', totalPot: 'Bote total:', setTime: 'Elegir tiempo:', approveTx: '⏳ Aprobando...', depositTx: '💸 Depositando...', confirmingTx: '⏳ Esperando confirmación...', successDep: '✅ Depósito aceptado!', successJoin: '✅ Depósito pagado!', errTx: '❌ Error: ', errBal: '❌ Saldo insuficiente', claimBtn: '💰 Reclamar premio', victoryTitle: '🏆 ¡Victoria!', defeatTitle: '😔 Derrota', drawTitle: '🤝 Empate', noMetaMask: '⚠️ MetaMask no instalado', playerProfile: '👤 Perfil', avatar: '🖼️ Avatar', name: '👤 Nombre', bio: '📝 Bio', website: '🌐 Web', social: '🔗 Social', save: '💾 Guardar', availableGames: '🎮 Partidas disponibles', guestInfo: '⏱️ Modo invitado: gratis vs bot. Elegir tiempo.', guestInstructions: '📖 Modo invitado:\n• Elegir control de tiempo arriba.\n• Click "🤖 Vs Bot".\n• Jugar gratis, sin blockchain.', grokInstructions: '📖 Crear partida GROK:\n1️⃣ Click "➕ Crear".\n2️⃣ Elegir apuesta & tiempo.\n3️⃣ Confirmar DOS transacciones en wallet:\n   • Approve: autorizar gastos GROK\n   • Deposit: enviar apuesta al contrato 0xB77ED...3a5b\n4️⃣ Esperar confirmación (~15s).\n5️⃣ Copiar enlace & enviar a oponente.\n6️⃣ Cuando oponente deposita — ¡partida comienza!\n7️⃣ Ganador se lleva todo (menos 2% comisión).', txCancelled: '⚠️ Transacción cancelada', step1: 'Paso 1/2: Approve', step2: 'Paso 2/2: Deposit', clickToCopy: '📋 Toca para copiar', checkBalance: '🔍 Verificar saldo contrato', profileSaved: '✅ Perfil guardado!', profileError: '❌ Error al guardar', pvpMode: '👥 Modo PvP', botMode: '🤖 Modo Bot' },
   zh: { t: '♟️ Chess4Crypto', s: 'GROK PvP投注', g: '👤 访客', c: '🦊 连接', k: '💰 GROK', p: '👤 资料', l: '🚪 退出', y: '👤 你', b: '🤖 机器人', yt: '♟️ 轮到你!', bt: '🤖 机器人思考中 (3秒)...', w: '🏆 你赢了!', x: '😔 你输了', d: '🤝 平局', tp: '⏰ 机器人赢', tb: '⏰ 你赢了', cn: '✅ 已连接', cl: '关闭', cp: '📋 复制', cd: '✅ 已复制', gt: '💰 购买GROK', g1: '1. 点击链接连接BNB钱包。', g2: '2. 购买GROK。', g3: '3. 添加地址:', ln: '🇨🇳 中文', th: '🎨 主题', tm: { c: '🏛️ 经典', w: '🪵 木质', n: '💜 霓虹', o: '🌊 海洋', s: '🌅 日落', m: '⚪ 简约' }, tc: '时间:', st: 'GROK赌注:', cr: '➕ 创建比赛', jn: '🤝 加入', mv: '走法:', newG: '🔄 大厅', botG: '🤖 对战机器人', select: '选择时间', bal: '余额:', games: '游戏:', noG: '无游戏', myG: '我的游戏', join: '加入', copy: '链接已复制!', invite: '🔗 邀请', dep: '💰 存入', claim: '🏆 领取', approve: '✅ 授权', waiting: '⏳ 等待对手...', playing: '♟️ 游戏中', sync: '🔄 同步中...', review: '🔍 回顾', live: '▶️ 实时', prev: '⏪ 上一步', next: '⏩ 下一步', pot: '奖池:', payout: '奖金:', refund: '退款', drawRefund: '🤝 平局 — 赌注退还', winnerGets: '🏆 赢家通吃', needDep: '需存入', toJoin: '以加入', yourStake: '你的赌注:', oppStake: '对手赌注:', totalPot: '总奖池:', setTime: '选择时间:', approveTx: '⏳ 授权中...', depositTx: '💸 存入中...', confirmingTx: '⏳ 等待确认...', successDep: '✅ 存入成功！', successJoin: '✅ 赌注已支付！', errTx: '❌ 错误: ', errBal: '❌ GROK余额不足', claimBtn: '💰 领取奖金', victoryTitle: '🏆 胜利!', defeatTitle: '😔 失败', drawTitle: '🤝 平局', noMetaMask: '⚠️ 未安装 MetaMask', playerProfile: '👤 资料', avatar: '🖼️ 头像', name: '👤 名字', bio: '📝 简介', website: '🌐 网站', social: '🔗 社交', save: '💾 保存', availableGames: '🎮 可加入的游戏', guestInfo: '⏱️ 访客模式：免费对战机器人。选择游戏时间。', guestInstructions: '📖 访客模式:\n• 在上方选择时间控制。\n• 点击"🤖 对战机器人"。\n• 免费游戏，无区块链。', grokInstructions: '📖 创建GROK对局:\n1️⃣ 点击"➕ 创建比赛"。\n2️⃣ 选择赌注和时间。\n3️⃣ 在钱包确认两笔交易:\n   • Approve: 授权花费 GROK\n   • Deposit: 发送赌注到合约 0xB77ED...3a5b\n4️⃣ 等待确认 (~15秒)。\n5️⃣ 复制链接发送给对手。\n6️⃣ 对手存入后 — 游戏开始！\n7️⃣ 胜者赢得全部奖池 (扣除2%手续费)。', txCancelled: '⚠️ 交易已取消', step1: '步骤 1/2: Approve', step2: '步骤 2/2: Deposit', clickToCopy: '📋 点击复制', checkBalance: '🔍 检查合约余额', profileSaved: '✅ 资料已保存！', profileError: '❌ 保存失败', pvpMode: '👥 PvP 模式', botMode: '🤖 机器人模式' },
-  hi: { t: '♟️ Chess4Crypto', s: 'GROK PvP दांव', g: '👤 अतिथि', c: '🦊 कनेक्ट', k: '💰 GROK', p: '👤 प्रोफ़ाइल', l: '🚪 बाहर', y: '👤 आप', b: '🤖 बॉट', yt: '♟️ आपकी बारी!', bt: '🤖 बॉट सोच रहा (3से)...', w: '🏆 आप जीते!', x: '😔 आप हारे', d: '🤝 ड्रॉ', tp: '⏰ बॉट जीता', tb: '⏰ आप जीते', cn: '✅ कनेक्ट', cl: 'बंद', cp: '📋 कॉपी', cd: '✅ कॉपी', gt: '💰 GROK खरीदें', g1: '1. लिंक पर जाएं, BNB वॉलेट कनेक्ट करें।', g2: '2. GROK खरीदें।', g3: '3. एड्रेस जोड़ें:', ln: '🇮🇳 हिंदी', th: '🎨 थीम', tm: { c: '🏛️ क्लासिक', w: '🪵 लकड़ी', n: '💜 नियॉन', o: '🌊 महासागर', s: '🌅 सूर्यास्त', m: '⚪ मिनिमल' }, tc: 'समय:', st: 'GROK दांव:', cr: '➕ मैच बनाएं', jn: '🤝 जुड़ें', mv: 'चाल:', newG: '🔄 लॉबी', botG: '🤖 बॉट से', select: 'समय', bal: 'शेष:', games: 'गेम्स:', noG: 'कोई नहीं', myG: 'मेरे', join: 'जुड़ें', copy: 'कॉपी!', invite: '🔗 आमंत्रण', dep: '💰 जमा', claim: '🏆 क्लेम', approve: '✅ मंजूरी', waiting: '⏳ प्रतीक्षा...', playing: '♟️ खेल चल रहा', sync: '🔄 सिंक...', review: '🔍 इतिहास', live: '▶️ लाइव', prev: '⏪ पीछे', next: '⏩ आगे', pot: 'पॉट:', payout: 'जीत:', refund: 'वापसी', drawRefund: '🤝 ड्रॉ — दांव वापस', winnerGets: '🏆 विजेता सब ले जाता है', needDep: 'जमा करें', toJoin: 'शामिल होने के लिए', yourStake: 'आपका दांव:', oppStake: 'प्रतिद्वंदी दांव:', totalPot: 'कुल पॉट:', setTime: 'समय चुनें:', approveTx: '⏳ मंजूरी...', depositTx: '💸 जमा...', confirmingTx: '⏳ पुष्टि की प्रतीक्षा...', successDep: '✅ जमा स्वीकार!', successJoin: '✅ दांव जमा!', errTx: '❌ त्रुटि: ', errBal: '❌ अपर्याप्त शेष', claimBtn: '💰 इनाम लें', victoryTitle: '🏆 जीत!', defeatTitle: '😔 हार', drawTitle: '🤝 ड्रॉ', noMetaMask: '⚠️ MetaMask स्थापित नहीं', playerProfile: '👤 प्रोफ़ाइल', avatar: '🖼️ अवतार', name: '👤 नाम', bio: '📝 बारे में', website: '🌐 वेबसाइट', social: '🔗 सोशल', save: '💾 सहेजें', availableGames: '🎮 उपलब्ध गेम्स', guestInfo: '⏱️ अतिथि मोड: बॉट के खिलाफ मुफ्त। समय चुनें।', guestInstructions: '📖 अतिथि मोड:\n• ऊपर समय नियंत्रण चुनें。\n• "🤖 बॉट से" क्लिक करें。\n• मुफ्त खेलें, कोई ब्लॉकचेन नहीं。', grokInstructions: '📖 GROK गेम बनाएं:\n1️⃣ "➕ मैच बनाएं" क्लिक करें。\n2️⃣ दांव और समय चुनें。\n3️⃣ वॉलेट में दो ट्रांजेक्शन पुष्टि करें:\n   • Approve: GROK खर्च करने की अनुमति दें\n   • Deposit: दांव कॉन्ट्रैक्ट 0xB77ED...3a5b को भेजें\n4️⃣ पुष्टि की प्रतीक्षा करें (~15s)。\n5️⃣ लिंक कॉपी करें और प्रतिद्वंदी को भेजें。\n6️⃣ जब प्रतिद्वंदी जमा करता है — गेम शुरू!\n7️⃣ विजेता पूरा पॉट ले जाता है (2% फीस घटाकर)।', txCancelled: '⚠️ ट्रांजेक्शन रद्द', step1: 'चरण 1/2: Approve', step2: 'चरण 2/2: Deposit', clickToCopy: '📋 कॉपी करने के लिए टैप करें', checkBalance: '🔍 कॉन्ट्रैक्ट शेष जाँचें', profileSaved: '✅ प्रोफ़ाइल सहेजी गई!', profileError: '❌ सहेजने में त्रुटि', pvpMode: '👥 PvP मोड', botMode: '🤖 बॉट मोड' }
+  hi: { t: '♟️ Chess4Crypto', s: 'GROK PvP दांव', g: '👤 अतिथि', c: '🦊 कनेक्ट', k: '💰 GROK', p: '👤 प्रोफ़ाइल', l: '🚪 बाहर', y: '👤 आप', b: '🤖 बॉट', yt: '♟️ आपकी बारी!', bt: '🤖 बॉट सोच रहा (3से)...', w: '🏆 आप जीते!', x: '😔 आप हारे', d: '🤝 ड्रॉ', tp: '⏰ बॉट जीता', tb: '⏰ आप जीते', cn: '✅ कनेक्ट', cl: 'बंद', cp: '📋 कॉपी', cd: '✅ कॉपी', gt: '💰 GROK खरीदें', g1: '1. लिंक पर जाएं, BNB वॉलेट कनेक्ट करें।', g2: '2. GROK खरीदें।', g3: '3. एड्रेस जोड़ें:', ln: '🇮🇳 हिंदी', th: '🎨 थीम', tm: { c: '🏛️ क्लासिक', w: '🪵 लकड़ी', n: '💜 नियॉन', o: '🌊 महासागर', s: '🌅 सूर्यास्त', m: '⚪ मिनिमल' }, tc: 'समय:', st: 'GROK दांव:', cr: '➕ मैच बनाएं', jn: '🤝 जुड़ें', mv: 'चाल:', newG: '🔄 लॉबी', botG: '🤖 बॉट से', select: 'समय', bal: 'शेष:', games: 'गेम्स:', noG: 'कोई नहीं', myG: 'मेरे', join: 'जुड़ें', copy: 'कॉपी!', invite: '🔗 आमंत्रण', dep: '💰 जमा', claim: '🏆 क्लेम', approve: '✅ मंजूरी', waiting: '⏳ प्रतीक्षा...', playing: '♟️ खेल चल रहा', sync: '🔄 सिंक...', review: '🔍 इतिहास', live: '▶️ लाइव', prev: '⏪ पीछे', next: '⏩ आगे', pot: 'पॉट:', payout: 'जीत:', refund: 'वापसी', drawRefund: '🤝 ड्रॉ — दांव वापस', winnerGets: '🏆 विजेता सब ले जाता है', needDep: 'जमा करें', toJoin: 'शामिल होने के लिए', yourStake: 'आपका दांव:', oppStake: 'प्रतिद्वंदी दांव:', totalPot: 'कुल पॉट:', setTime: 'समय चुनें:', approveTx: '⏳ मंजूरी...', depositTx: '💸 जमा...', confirmingTx: '⏳ पुष्टि की प्रतीक्षा...', successDep: '✅ जमा स्वीकार!', successJoin: '✅ दांव जमा!', errTx: '❌ त्रुटि: ', errBal: '❌ अपर्याप्त शेष', claimBtn: '💰 इनाम लें', victoryTitle: '🏆 जीत!', defeatTitle: '😔 हार', drawTitle: '🤝 ड्रॉ', noMetaMask: '⚠️ MetaMask स्थापित नहीं', playerProfile: '👤 प्रोफ़ाइल', avatar: '🖼️ अवतार', name: '👤 नाम', bio: '📝 बारे में', website: '🌐 वेबसाइट', social: '🔗 सोशल', save: '💾 सहेजें', availableGames: '🎮 उपलब्ध गेम्स', guestInfo: '⏱️ अतिथि मोड: बॉट के खिलाफ मुफ्त। समय चुनें।', guestInstructions: '📖 अतिथि मोड:\n• ऊपर समय नियंत्रण चुनें।\n• "🤖 बॉट से" क्लिक करें।\n• मुफ्त खेलें, कोई ब्लॉकचेन नहीं।', grokInstructions: '📖 GROK गेम बनाएं:\n1️⃣ "➕ मैच बनाएं" क्लिक करें।\n2️⃣ दांव और समय चुनें।\n3️⃣ वॉलेट में दो ट्रांजेक्शन पुष्टि करें:\n   • Approve: GROK खर्च करने की अनुमति दें\n   • Deposit: दांव कॉन्ट्रैक्ट 0xB77ED...3a5b को भेजें\n4️⃣ पुष्टि की प्रतीक्षा करें (~15s)。\n5️⃣ लिंक कॉपी करें और प्रतिद्वंदी को भेजें।\n6️⃣ जब प्रतिद्वंदी जमा करता है — गेम शुरू!\n7️⃣ विजेता पूरा पॉट ले जाता है (2% फीस घटाकर)।', txCancelled: '⚠️ ट्रांजेक्शन रद्द', step1: 'चरण 1/2: Approve', step2: 'चरण 2/2: Deposit', clickToCopy: '📋 कॉपी करने के लिए टैप करें', checkBalance: '🔍 कॉन्ट्रैक्ट शेष जाँचें', profileSaved: '✅ प्रोफ़ाइल सहेजी गई!', profileError: '❌ सहेजने में त्रुटि', pvpMode: '👥 PvP मोड', botMode: '🤖 बॉट मोड' }
 }
 
 const THEMES = { c: { l: '#eeeed2', d: '#769656', n: '🏛️ Classic' }, w: { l: '#f0d9b5', d: '#b58863', n: '🪵 Wood' }, n: { l: '#1a1a2e', d: '#16213e', n: '💜 Neon' }, o: { l: '#e0f7fa', d: '#006064', n: '🌊 Ocean' }, s: { l: '#fff3e0', d: '#e65100', n: '🌅 Sunset' }, m: { l: '#e0e0e0', d: '#757575', n: '⚪ Minimal' } }
@@ -31,9 +29,11 @@ const CHESS_CONTRACT = '0xB77ED8144d328A270994B157700Ee28AfD8A3a5b'
 const CHESS_ABI = [{"inputs": [{"internalType": "address", "name": "_grokToken", "type": "address"}], "stateMutability": "nonpayable", "type": "constructor"}, {"inputs": [], "name": "grokToken", "outputs": [{"internalType": "contract IERC20", "name": "", "type": "address"}], "stateMutability": "view", "type": "function"}, {"inputs": [{"internalType": "bytes32", "name": "gameId", "type": "bytes32"}], "name": "create", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "bytes32", "name": "gameId", "type": "bytes32"}], "name": "deposit", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "bytes32", "name": "gameId", "type": "bytes32"}, {"internalType": "address", "name": "winner", "type": "address"}, {"internalType": "bool", "name": "isDraw", "type": "bool"}], "name": "finish", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "bytes32", "name": "", "type": "bytes32"}], "name": "games", "outputs": [{"internalType": "address", "name": "creator", "type": "address"}, {"internalType": "address", "name": "challenger", "type": "address"}, {"internalType": "uint256", "name": "stake", "type": "uint256"}, {"internalType": "bool", "name": "cpaid", "type": "bool"}, {"internalType": "bool", "name": "hpaid", "type": "bool"}, {"internalType": "address", "name": "winner", "type": "address"}, {"internalType": "bool", "name": "done", "type": "bool"}, {"internalType": "bool", "name": "is_draw", "type": "bool"}, {"internalType": "uint256", "name": "createdAt", "type": "uint256"}], "stateMutability": "view", "type": "function"}]
 const ERC20_ABI = [{"inputs": [{"internalType": "address", "name": "spender", "type": "address"}, {"internalType": "uint256", "name": "amount", "type": "uint256"}], "name": "approve", "outputs": [{"internalType": "bool", "name": "", "type": "bool"}], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [{"internalType": "address", "name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}], "stateMutability": "view", "type": "function"}]
 
-// ✅ КОМПОНЕНТ: Все хуки объявлены на верхнем уровне
+// ✅ КОМПОНЕНТ
 export default function App() {
-  // ✅ ХУКИ НА ВЕРХНЕМ УРОВНЕ (никогда не внутри условий или циклов)
+  console.log('🟢 App.jsx: Component rendering start')
+  
+  // ✅ 1. STATE (все объявления в начале)
   const [lang, setLang] = useState('ru')
   const [view, setView] = useState('menu')
   const [profileTab, setProfileTab] = useState('lobby')
@@ -68,372 +68,8 @@ export default function App() {
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [profileLoading, setProfileLoading] = useState(false)
   const [isPvP, setIsPvP] = useState(false)
-
-  // ✅ Refs
-  const gameRef = useRef(new Chess())
-  const timerRef = useRef(null)
-  const unsubscribeRef = useRef(null)
-  const botTimerRef = useRef(null)
-
-  // ✅ Wagmi hooks
-  const { address, isConnected } = useAccount()
-  const { disconnect } = useDisconnect()
-  const { open } = useWeb3Modal()
-  const { writeContractAsync } = useWriteContract()
-  const { depositReceipt, isSuccess: depositConfirmed } = useWaitForTransactionReceipt({ hash: txHash })
-
-  // ✅ Баланс пользователя
-  const { userGrokBalance, refetch: refetchUserBalance } = useReadContract({
-    address: GROK_ADDR,
-    abi: ERC20_ABI,
-    functionName: 'balanceOf',
-    args: [address],
-    watch: true,
-    query: { enabled: !!address }
-  })
-
-  // ✅ Баланс контракта
-  const { contractGrokBalance } = useReadContract({
-    address: GROK_ADDR,
-    abi: ERC20_ABI,
-    functionName: 'balanceOf',
-    args: [CHESS_CONTRACT],
-    watch: true
-  })
-
-  // ✅ Функция перевода
-  const t = useCallback(k => LANG[lang]?.[k] || LANG['en']?.[k] || k, [lang])
-
-  // ✅ Обновление баланса
-  useEffect(() => {
-    if (userGrokBalance !== undefined && userGrokBalance !== null) {
-      setUserBalance(Number(formatUnits(userGrokBalance, 18)))
-    }
-  }, [userGrokBalance])
-
-  useEffect(() => {
-    if (contractGrokBalance !== undefined && contractGrokBalance !== null) {
-      setContractBalance(Number(formatUnits(contractGrokBalance, 18)))
-    }
-  }, [contractGrokBalance])
-
-  // ✅ Размер доски
-  useEffect(() => {
-    const r = () => setBs(Math.min(window.innerWidth - 40, 400))
-    r()
-    window.addEventListener('resize', r)
-    return () => window.removeEventListener('resize', r)
-  }, [])
-
-  // ✅ Подтверждение депозита
-  useEffect(() => {
-    if (depositConfirmed && gameId) {
-      setMsg(t('successDep'))
-      setGameState('waiting_funds')
-      setTxHash(null)
-    }
-  }, [depositConfirmed, gameId, t])
-
-  // ✅ Таймер игры
-  useEffect(() => {
-    if (timerRef.current) clearInterval(timerRef.current)
-    if (!timerActive || gameOver || gameState !== 'playing' || isReviewMode) return
-    timerRef.current = setInterval(() => {
-      if (timerActive === 'player') {
-        setPTime(p => {
-          if (p <= 1) { clearInterval(timerRef.current); setGameOver(true); setWinner('bot'); setMsg(t('tp')); return 0 }
-          return p - 1
-        })
-      } else {
-        setBTime(p => {
-          if (p <= 1) { clearInterval(timerRef.current); setGameOver(true); setWinner('player'); setMsg(t('tb')); return 0 }
-          return p - 1
-        })
-      }
-    }, 1000)
-    return () => clearInterval(timerRef.current)
-  }, [timerActive, gameOver, t, gameState, isReviewMode])
-
-  // ✅ При подключении кошелька
-  useEffect(() => {
-    if (isConnected && address) {
-      setMsg(t('cn'))
-      setView('profile')
-      loadProfile()
-      setTimeout(() => refetchUserBalance?.(), 1000)
-    }
-  }, [isConnected, address, t, refetchUserBalance])
-
-  // ✅ Загрузка профиля
-  const loadProfile = useCallback(async () => {
-    if (!address) return
-    try {
-      setProfileLoading(true)
-      const d = await getProfile(address)
-      if (d) setProfile(d)
-    } catch (e) { console.warn('Profile:', e.message) }
-    finally { setProfileLoading(false) }
-  }, [address])
-
-  const loadAvailableGames = useCallback(async () => {
-    try { const g = await listAvailableGames(); setAvailableGames(g || []) }
-    catch (e) { console.warn('Games:', e.message) }
-  }, [])
-
-  const loadActiveGames = useCallback(async () => {
-    if (!address) return
-    try {
-      const { data, error } = await supabase.from('games').select('*').or(`creator.eq.${address},challenger.eq.${address}`).order('created_at', { ascending: false }).limit(10)
-      if (!error) setActiveGames(data || [])
-    } catch (e) { console.warn('Active:', e.message) }
-  }, [address])
-
-  // ✅ Обработка параметров URL
-  useEffect(() => {
-    const p = new URLSearchParams(window.location.search)
-    const gid = p.get('game')
-    if (gid) {
-      setPendingJoin({ id: gid, stake: parseInt(p.get('stake')) || 5000, time: parseInt(p.get('time')) || 15 })
-      setView('profile')
-      setProfileTab('lobby')
-      setMsg(`${t('needDep')} ${parseInt(p.get('stake')) || 5000} GROK ${t('toJoin')}`)
-    }
-  }, [])
-
-  // ✅ Авто-обновление списка игр
-  useEffect(() => {
-    loadActiveGames()
-    loadAvailableGames()
-    const i = setInterval(() => { loadActiveGames(); loadAvailableGames() }, 15000)
-    return () => clearInterval(i)
-  }, [address, loadActiveGames, loadAvailableGames])
-
-  // ✅ Гостевой режим
-  const guest = () => { setMsg(t('g')); resetGame(); startGame() }
-  const buyGrok = () => setGrok(true)
-  const langNext = () => setLang(l => ({ ru: 'en', en: 'de', de: 'fr', fr: 'es', es: 'zh', zh: 'hi', hi: 'ru' })[l])
-
-  // ✅ Копирование в буфер
-  const copyToClipboard = async (text) => {
-    try { if (document.hasFocus() && navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); setCop(true); setTimeout(() => setCop(false), 2000); return true } } catch (e) { }
-    try { const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; ta.style.left = '-9999px'; document.body.appendChild(ta); ta.focus(); ta.select(); const ok = document.execCommand('copy'); document.body.removeChild(ta); if (ok) { setCop(true); setTimeout(() => setCop(false), 2000); return true } } catch (e) { }
-    setMsg(t('clickToCopy') + ': ' + text.slice(0, 30) + '...'); return false
-  }
-  const copyAddr = () => copyToClipboard(GROK_ADDR)
-  const connectWallet = async () => { try { await open() } catch (e) { console.error('Connect error:', e); setMsg(t('noMetaMask')) } }
-
-  // ✅ Сброс игры
-  const resetGame = () => {
-    gameRef.current.reset()
-    setFen(gameRef.current.fen())
-    setHist([gameRef.current.fen()])
-    setMi(0)
-    setIsPlayerTurn(true)
-    setGameOver(false)
-    setWinner(null)
-    setMoveHistory([])
-    setSelectedSq(null)
-    setPossibleMoves([])
-    setIsDeposited(false)
-    setGameState('idle')
-    setIsPvP(false)
-    setRemoteFen(null)
-    setIsRemoteTurn(false)
-    setCurrentMoveIdx(-1)
-    setIsReviewMode(false)
-    setLiveFen(null)
-    setTxHash(null)
-    if (botTimerRef.current) clearTimeout(botTimerRef.current)
-    if (unsubscribeRef.current) { unsubscribeRef.current(); unsubscribeRef.current = null }
-  }
-
-  const startGame = () => { setPTime(timeCtrl * 60); setBTime(timeCtrl * 60); setTimerActive('player'); setView('game'); setGameState('playing') }
-
-  // ✅ Создание игры
-  const handleCreateMatch = async () => {
-    if (!isConnected || !address) { setMsg('🦊 ' + t('c')); return }
-    if (CHESS_CONTRACT === '0x0000000000000000000000000000000000000000') { setMsg('⚠️ Contract not set'); return }
-    if (userGrokBalance !== undefined && userGrokBalance !== null && Number(formatUnits(userGrokBalance, 18)) < createStake) { setMsg(t('errBal')); return }
-    setLoadingTx(true)
-    try {
-      console.log('=== DEBUG: Creating game ===')
-      console.log('Contract balance BEFORE:', contractBalance)
-      console.log('User balance:', userGrokBalance ? formatUnits(userGrokBalance, 18) : 'loading')
-      setMsg(t('step1'))
-      const approveTx = await writeContractAsync({ address: GROK_ADDR, abi: ERC20_ABI, functionName: 'approve', args: [CHESS_CONTRACT, parseUnits(createStake.toString(), 18)] })
-      console.log('Approve TX:', approveTx)
-      const rawId = 'game_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)
-      const bytes32Id = keccak256(stringToBytes(rawId))
-      console.log('Game ID (raw):', rawId, '(bytes32):', bytes32Id)
-      setMsg(t('step2'))
-      const createTx = await writeContractAsync({ address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'create', args: [bytes32Id] })
-      console.log('Create TX:', createTx)
-      const depositTx = await writeContractAsync({ address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'deposit', args: [bytes32Id] })
-      console.log('Deposit TX:', depositTx)
-      setTxHash(depositTx)
-      await createGameRecord(rawId, address, createStake, timeCtrl)
-      setGameId(rawId); setIsDeposited(true); setIsPvP(false)
-      const link = `${window.location.origin}${window.location.pathname}?game=${rawId}&stake=${createStake}&time=${timeCtrl}`
-      setInviteLink(link)
-      await copyToClipboard(link)
-      setMsg(t('confirmingTx'))
-      setupGameSubscription(rawId); await loadActiveGames(); await loadAvailableGames(); setProfileTab('my')
-      setTimeout(() => refetchUserBalance?.(), 2000)
-    } catch (e) {
-      console.error('Create error:', e)
-      if (e.message?.includes('rejected') || e.message?.includes('denied') || e.message?.includes('User rejected')) { setMsg(t('txCancelled')) }
-      else { setMsg(t('errTx') + (e.shortMessage || e.message || '')) }
-    } finally { setLoadingTx(false) }
-  }
-
-  // ✅ Присоединение к игре
-  const handleJoinMatch = async () => {
-    if (!isConnected || !pendingJoin || !address) { setMsg('🦊 ' + t('c')); return }
-    if (CHESS_CONTRACT === '0x0000000000000000000000000000000000000000') { setMsg('⚠️ Contract not set'); return }
-    if (userGrokBalance !== undefined && userGrokBalance !== null && Number(formatUnits(userGrokBalance, 18)) < pendingJoin.stake) { setMsg(t('errBal')); return }
-    setLoadingTx(true)
-    try {
-      setMsg(t('step1'))
-      await writeContractAsync({ address: GROK_ADDR, abi: ERC20_ABI, functionName: 'approve', args: [CHESS_CONTRACT, parseUnits(pendingJoin.stake.toString(), 18)] })
-      const bytes32Id = keccak256(stringToBytes(pendingJoin.id))
-      setMsg(t('step2'))
-      const depositTx = await writeContractAsync({ address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'deposit', args: [bytes32Id] })
-      setTxHash(depositTx)
-      await updateGameStatus(pendingJoin.id, { challenger: address, hpaid: true, status: 'playing', updated_at: new Date().toISOString() })
-      setGameId(pendingJoin.id); setCreateStake(pendingJoin.stake); setTimeCtrl(pendingJoin.time)
-      setGameState('playing'); setIsPvP(true)
-      setupGameSubscription(pendingJoin.id); setMsg(t('successJoin')); setPendingJoin(null)
-      loadActiveGames(); loadAvailableGames(); setTimeout(() => startGame(), 500)
-      setTimeout(() => refetchUserBalance?.(), 2000)
-    } catch (e) { console.error('Join error:', e); setMsg(e.message?.includes('rejected') ? t('txCancelled') : t('errTx') + (e.shortMessage || e.message || '')) }
-    finally { setLoadingTx(false) }
-  }
-
-  // ✅ Подписка на игру
-  const setupGameSubscription = (id) => {
-    if (unsubscribeRef.current) unsubscribeRef.current()
-    unsubscribeRef.current = subscribeToGame(id, {
-      onGameUpdate: (g) => {
-        if (g.status === 'playing' && !g.hpaid) setMsg(t('waiting'))
-        else if (g.status === 'playing' && g.hpaid && !isPvP) setIsPvP(true)
-      },
-      onMove: (m) => {
-        if (m.player !== address && !isReviewMode) {
-          setSyncStatus('🔄...')
-          setTimeout(() => {
-            try {
-              gameRef.current.move({ from: m.from_sq, to: m.to_sq, promotion: 'q' })
-              const nf = gameRef.current.fen()
-              setFen(nf); setLiveFen(nf); setHist(h => [...h, nf])
-              setMoveHistory(mh => [...mh, { san: m.san, from: m.from_sq, to: m.to_sq }])
-              setMi(i => i + 1); setCurrentMoveIdx(i => i + 1); setIsPlayerTurn(true); setTimerActive('player'); setSyncStatus('')
-              if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner(address); handleClaim(false) }
-              else if (gameRef.current.isDraw()) { setGameOver(true); setWinner(null); handleClaim(true) }
-              else setMsg(t('yt'))
-            } catch (e) { console.warn(e) }
-          }, 300)
-        }
-      }
-    })
-  }
-
-  // ✅ Забрать выигрыш
-  const handleClaim = (isDraw) => {
-    if (!gameId) return
-    if (!isConnected || !address) { setMsg(isDraw ? t('drawRefund') : t('winnerGets')); return }
-    const bytes32Id = keccak256(stringToBytes(gameId))
-    writeContractAsync({ address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'finish', args: [bytes32Id, address, isDraw] })
-      .then(() => { setMsg(isDraw ? t('drawRefund') : t('winnerGets')); setGameState('idle') })
-      .catch(e => setMsg(e.message?.includes('rejected') ? t('txCancelled') : t('errTx')))
-  }
-
-  // ✅ Ход бота (только если не PvP)
-  const botMove = useCallback(() => {
-    if (gameOver || gameRef.current.isGameOver() || gameState !== 'playing' || isRemoteTurn || isReviewMode || isPvP) return
-    const moves = gameRef.current.moves({ verbose: true }); if (!moves.length) return
-    let c; const r = Math.random()
-    if (r < 0.7) c = moves[Math.floor(Math.random() * moves.length)]
-    else { const caps = moves.filter(m => m.captured); c = caps.length ? caps[Math.floor(Math.random() * caps.length)] : moves[Math.floor(Math.random() * moves.length)] }
-    gameRef.current.move(c)
-    const san = gameRef.current.history({ verbose: true }).pop()?.san || `${c.from}${c.to}`
-    const nf = gameRef.current.fen()
-    setFen(nf); setLiveFen(nf); setHist(h => [...h, nf])
-    setMoveHistory(mh => [...mh, { san, from: c.from, to: c.to }])
-    setMi(i => i + 1); setCurrentMoveIdx(i => i + 1); setIsPlayerTurn(true); setTimerActive('player')
-    if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner('bot'); setMsg(t('x')) }
-    else if (gameRef.current.isDraw()) { setGameOver(true); setWinner(null); handleClaim(true) }
-    else setMsg(t('yt'))
-  }, [gameOver, t, gameState, isRemoteTurn, isReviewMode, isPvP])
-
-  // ✅ Клик по клетке
-  const onSqClick = useCallback((sq) => {
-    if (gameOver || gameState !== 'playing' || !isPlayerTurn || isRemoteTurn || isReviewMode) return
-    const p = gameRef.current.get(sq)
-    if (p && p.color === (isPlayerTurn ? 'w' : 'b')) { setSelectedSq(sq); setPossibleMoves(gameRef.current.moves({ square: sq, verbose: true }).map(m => m.to)); return }
-    if (selectedSq && possibleMoves.includes(sq)) { onDrop(selectedSq, sq); setSelectedSq(null); setPossibleMoves([]); return }
-    setSelectedSq(null); setPossibleMoves([])
-  }, [gameOver, isPlayerTurn, selectedSq, possibleMoves, gameState, isRemoteTurn, isReviewMode])
-
-  // ✅ Ход игрока
-  const onDrop = useCallback((src, tgt) => {
-    if (!isPlayerTurn || gameOver || gameState !== 'playing' || isRemoteTurn || isReviewMode) return false
-    try {
-      const r = gameRef.current.move({ from: src, to: tgt, promotion: 'q' }); if (!r) return false
-      const san = gameRef.current.history({ verbose: true }).pop()?.san || `${src}${tgt}`
-      const nf = gameRef.current.fen()
-      setFen(nf); setLiveFen(nf); setHist(h => [...h, nf])
-      setMoveHistory(mh => [...mh, { san, from: src, to: tgt }])
-      setMi(i => i + 1); setCurrentMoveIdx(i => i + 1); setIsPlayerTurn(false); setTimerActive('bot'); setSelectedSq(null); setPossibleMoves([])
-      if (gameId && address) { setSyncStatus('🔄...'); recordMove(gameId, address, src, tgt, san, nf).then(() => setSyncStatus('')).catch(() => setSyncStatus('')) }
-      if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner(address); handleClaim(false) }
-      else if (gameRef.current.isDraw()) { setGameOver(true); setWinner(null); handleClaim(true) }
-      else {
-        setMsg(t('bt'))
-        if (!isPvP && botTimerRef.current) clearTimeout(botTimerRef.current)
-        if (!isPvP) botTimerRef.current = setTimeout(() => { botMove() }, 3000)
-      }
-      return true
-    } catch { return false }
-  }, [isPlayerTurn, gameOver, gameState, isRemoteTurn, isReviewMode, gameId, address, botMove, t, isPvP])
-
-  // ✅ Навигация по истории ходов
-  const goToMove = (i) => { if (i < 0 || i >= hist.length) return; setCurrentMoveIdx(i); setFen(hist[i]); setIsReviewMode(i < hist.length - 1); setIsPlayerTurn(i % 2 === 0) }
-  const prevMove = () => { if (currentMoveIdx > 0) goToMove(currentMoveIdx - 1) }
-  const nextMove = () => { if (currentMoveIdx < hist.length - 1) goToMove(currentMoveIdx + 1); else resumeLive() }
-  const resumeLive = () => { if (liveFen) { setFen(liveFen); setCurrentMoveIdx(hist.length - 1); setIsReviewMode(false); setIsPlayerTurn(hist.length % 2 === 1); setMsg(t('live')) } }
-
-  // ✅ Стили клеток
-  const sqStyles = useMemo(() => {
-    const s = {}
-    if (selectedSq && !isReviewMode) s[selectedSq] = { backgroundColor: 'rgba(255,255,0,0.4)' }
-    possibleMoves.forEach(q => { if (!isReviewMode) s[q] = { backgroundColor: 'rgba(20,85,30,0.5)', backgroundImage: 'radial-gradient(circle,rgba(255,255,255,0.9) 25%,transparent 25%)', backgroundSize: '14px 14px', backgroundPosition: 'center' } })
-    return s
-  }, [selectedSq, possibleMoves, isReviewMode])
-
-  // ✅ Стили кнопок
-  const BtnStyle = (c, d) => ({ width: '100%', padding: '12px', background: c || COLORS.btnBlue, color: '#fff', border: 'none', borderRadius: '10px', fontSize: '1rem', fontWeight: '600', cursor: d ? 'not-allowed' : 'pointer', marginTop: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', opacity: d ? 0.5 : 1 })
-
-  // ✅ Сохранение профиля
-  const handleSaveProfile = async () => {
-    if (!address) { setMsg('❌ ' + t('noMetaMask')); return }
-    if (profile.bio?.length > 500) { setMsg('❌ Био макс. 500 символов'); return }
-    setProfileLoading(true)
-    try {
-      console.log('Saving profile for:', address)
-      const ok = await updateProfile(address, profile)
-      if (ok) { setMsg(t('profileSaved')); setIsEditingProfile(false); loadProfile() }
-      else { setMsg(t('profileError')) }
-    } catch (e) {
-      console.error('Save profile error:', e)
-      if (e.message?.includes('401') || e.message?.includes('Unauthorized')) { setMsg('❌ Нет прав. Выполните миграцию RLS в Supabase') }
-      else if (e.message?.includes('406')) { setMsg('❌ Ошибка формата. Проверьте схему таблицы') }
-      else { setMsg(t('profileError') + ': ' + e.message) }
-    } finally { setProfileLoading(false) }
-  }
-
-  // ✅ Состояния доски и таймеров (после всех хуков)
-  const [fen, setFen] = useState(gameRef.current.fen())
-  const [hist, setHist] = useState([gameRef.current.fen()])
+  const [fen, setFen] = useState('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+  const [hist, setHist] = useState(['rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'])
   const [mi, setMi] = useState(0)
   const [isPlayerTurn, setIsPlayerTurn] = useState(true)
   const [pTime, setPTime] = useState(15 * 60)
@@ -442,7 +78,79 @@ export default function App() {
   const [gameOver, setGameOver] = useState(false)
   const [winner, setWinner] = useState(null)
 
-  // ✅ РЕНДЕР
+  // ✅ 2. REFS
+  const gameRef = useRef(new Chess())
+  const timerRef = useRef(null)
+  const unsubscribeRef = useRef(null)
+  const botTimerRef = useRef(null)
+
+  // ✅ 3. WAGMI HOOKS
+  const { address, isConnected } = useAccount()
+  const { disconnect } = useDisconnect()
+  const { open } = useWeb3Modal()
+  const { writeContractAsync } = useWriteContract()
+  const { depositReceipt, isSuccess: depositConfirmed } = useWaitForTransactionReceipt({ hash: txHash })
+
+  // ✅ 4. READ CONTRACTS
+  const { userGrokBalance, refetch: refetchUserBalance } = useReadContract({ address: GROK_ADDR, abi: ERC20_ABI, functionName: 'balanceOf', args: [address], watch: true, query: { enabled: !!address } })
+  const { contractGrokBalance } = useReadContract({ address: GROK_ADDR, abi: ERC20_ABI, functionName: 'balanceOf', args: [CHESS_CONTRACT], watch: true })
+
+  // ✅ 5. TRANSLATE
+  const t = useCallback(k => LANG[lang]?.[k] || LANG['en']?.[k] || k, [lang])
+
+  // ✅ 6. CALLBACKS (ОБЪЯВЛЯЕМ ПЕРЕД useEffect!)
+  const loadProfile = useCallback(async () => { if (!address) return; try { setProfileLoading(true); const d = await getProfile(address); if (d) setProfile(d) } catch (e) { console.warn('Profile:', e.message) } finally { setProfileLoading(false) } }, [address])
+  
+  const loadAvailableGames = useCallback(async () => { try { const g = await listAvailableGames(); setAvailableGames(g || []) } catch (e) { console.warn('Games:', e.message) } }, [])
+  
+  const loadActiveGames = useCallback(async () => { if (!address) return; try { const { data, error } = await supabase.from('games').select('*').or(`creator.eq.${address},challenger.eq.${address}`).order('created_at', { ascending: false }).limit(10); if (!error) setActiveGames(data || []) } catch (e) { console.warn('Active:', e.message) } }, [address])
+  
+  const guest = () => { setMsg(t('g')); resetGame(); startGame() }
+  const buyGrok = () => setGrok(true)
+  const langNext = () => setLang(l => ({ ru: 'en', en: 'de', de: 'fr', fr: 'es', es: 'zh', zh: 'hi', hi: 'ru' })[l])
+  
+  const copyToClipboard = async (text) => { try { if (document.hasFocus() && navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); setCop(true); setTimeout(() => setCop(false), 2000); return true } } catch (e) { } try { const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; ta.style.left = '-9999px'; document.body.appendChild(ta); ta.focus(); ta.select(); const ok = document.execCommand('copy'); document.body.removeChild(ta); if (ok) { setCop(true); setTimeout(() => setCop(false), 2000); return true } } catch (e) { } setMsg(t('clickToCopy') + ': ' + text.slice(0, 30) + '...'); return false }
+  const copyAddr = () => copyToClipboard(GROK_ADDR)
+  const connectWallet = async () => { try { await open() } catch (e) { console.error('Connect error:', e); setMsg(t('noMetaMask')) } }
+  
+  const resetGame = () => { gameRef.current.reset(); setFen(gameRef.current.fen()); setHist([gameRef.current.fen()]); setMi(0); setIsPlayerTurn(true); setGameOver(false); setWinner(null); setMoveHistory([]); setSelectedSq(null); setPossibleMoves([]); setIsDeposited(false); setGameState('idle'); setIsPvP(false); setRemoteFen(null); setIsRemoteTurn(false); setCurrentMoveIdx(-1); setIsReviewMode(false); setLiveFen(null); setTxHash(null); if (botTimerRef.current) clearTimeout(botTimerRef.current); if (unsubscribeRef.current) { unsubscribeRef.current(); unsubscribeRef.current = null } }
+  const startGame = () => { setPTime(timeCtrl * 60); setBTime(timeCtrl * 60); setTimerActive('player'); setView('game'); setGameState('playing') }
+  
+  const handleCreateMatch = async () => { if (!isConnected || !address) { setMsg('🦊 ' + t('c')); return } if (CHESS_CONTRACT === '0x0000000000000000000000000000000000000000') { setMsg('⚠️ Contract not set'); return } if (userGrokBalance !== undefined && userGrokBalance !== null && Number(formatUnits(userGrokBalance, 18)) < createStake) { setMsg(t('errBal')); return } setLoadingTx(true); try { console.log('=== DEBUG: Creating game ==='); console.log('Contract balance BEFORE:', contractBalance); console.log('User balance:', userGrokBalance ? formatUnits(userGrokBalance, 18) : 'loading'); setMsg(t('step1')); const approveTx = await writeContractAsync({ address: GROK_ADDR, abi: ERC20_ABI, functionName: 'approve', args: [CHESS_CONTRACT, parseUnits(createStake.toString(), 18)] }); console.log('Approve TX:', approveTx); const rawId = 'game_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); const bytes32Id = keccak256(stringToBytes(rawId)); console.log('Game ID (raw):', rawId, '(bytes32):', bytes32Id); setMsg(t('step2')); const createTx = await writeContractAsync({ address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'create', args: [bytes32Id] }); console.log('Create TX:', createTx); const depositTx = await writeContractAsync({ address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'deposit', args: [bytes32Id] }); console.log('Deposit TX:', depositTx); setTxHash(depositTx); await createGameRecord(rawId, address, createStake, timeCtrl); setGameId(rawId); setIsDeposited(true); setIsPvP(false); const link = `${window.location.origin}${window.location.pathname}?game=${rawId}&stake=${createStake}&time=${timeCtrl}`; setInviteLink(link); await copyToClipboard(link); setMsg(t('confirmingTx')); setupGameSubscription(rawId); await loadActiveGames(); await loadAvailableGames(); setProfileTab('my'); setTimeout(() => refetchUserBalance?.(), 2000) } catch (e) { console.error('Create error:', e); if (e.message?.includes('rejected') || e.message?.includes('denied') || e.message?.includes('User rejected')) { setMsg(t('txCancelled')) } else { setMsg(t('errTx') + (e.shortMessage || e.message || '')) } } finally { setLoadingTx(false) } }
+
+  const handleJoinMatch = async () => { if (!isConnected || !pendingJoin || !address) { setMsg('🦊 ' + t('c')); return } if (CHESS_CONTRACT === '0x0000000000000000000000000000000000000000') { setMsg('⚠️ Contract not set'); return } if (userGrokBalance !== undefined && userGrokBalance !== null && Number(formatUnits(userGrokBalance, 18)) < pendingJoin.stake) { setMsg(t('errBal')); return } setLoadingTx(true); try { setMsg(t('step1')); await writeContractAsync({ address: GROK_ADDR, abi: ERC20_ABI, functionName: 'approve', args: [CHESS_CONTRACT, parseUnits(pendingJoin.stake.toString(), 18)] }); const bytes32Id = keccak256(stringToBytes(pendingJoin.id)); setMsg(t('step2')); const depositTx = await writeContractAsync({ address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'deposit', args: [bytes32Id] }); setTxHash(depositTx); await updateGameStatus(pendingJoin.id, { challenger: address, hpaid: true, status: 'playing', updated_at: new Date().toISOString() }); setGameId(pendingJoin.id); setCreateStake(pendingJoin.stake); setTimeCtrl(pendingJoin.time); setGameState('playing'); setIsPvP(true); setupGameSubscription(pendingJoin.id); setMsg(t('successJoin')); setPendingJoin(null); loadActiveGames(); loadAvailableGames(); setTimeout(() => startGame(), 500); setTimeout(() => refetchUserBalance?.(), 2000) } catch (e) { console.error('Join error:', e); setMsg(e.message?.includes('rejected') ? t('txCancelled') : t('errTx') + (e.shortMessage || e.message || '')) } finally { setLoadingTx(false) } }
+
+  const setupGameSubscription = (id) => { if (unsubscribeRef.current) unsubscribeRef.current(); unsubscribeRef.current = subscribeToGame(id, { onGameUpdate: (g) => { if (g.status === 'playing' && !g.hpaid) setMsg(t('waiting')); else if (g.status === 'playing' && g.hpaid && !isPvP) setIsPvP(true) }, onMove: (m) => { if (m.player !== address && !isReviewMode) { setSyncStatus('🔄...'); setTimeout(() => { try { gameRef.current.move({ from: m.from_sq, to: m.to_sq, promotion: 'q' }); const nf = gameRef.current.fen(); setFen(nf); setLiveFen(nf); setHist(h => [...h, nf]); setMoveHistory(mh => [...mh, { san: m.san, from: m.from_sq, to: m.to_sq }]); setMi(i => i + 1); setCurrentMoveIdx(i => i + 1); setIsPlayerTurn(true); setTimerActive('player'); setSyncStatus(''); if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner(address); handleClaim(false) } else if (gameRef.current.isDraw()) { setGameOver(true); setWinner(null); handleClaim(true) } else setMsg(t('yt')) } catch (e) { console.warn(e) } }, 300) } } }) }
+
+  const handleClaim = (isDraw) => { if (!gameId) return; if (!isConnected || !address) { setMsg(isDraw ? t('drawRefund') : t('winnerGets')); return } const bytes32Id = keccak256(stringToBytes(gameId)); writeContractAsync({ address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'finish', args: [bytes32Id, address, isDraw] }).then(() => { setMsg(isDraw ? t('drawRefund') : t('winnerGets')); setGameState('idle') }).catch(e => setMsg(e.message?.includes('rejected') ? t('txCancelled') : t('errTx'))) }
+
+  const botMove = useCallback(() => { if (gameOver || gameRef.current.isGameOver() || gameState !== 'playing' || isRemoteTurn || isReviewMode || isPvP) return; const moves = gameRef.current.moves({ verbose: true }); if (!moves.length) return; let c; const r = Math.random(); if (r < 0.7) c = moves[Math.floor(Math.random() * moves.length)]; else { const caps = moves.filter(m => m.captured); c = caps.length ? caps[Math.floor(Math.random() * caps.length)] : moves[Math.floor(Math.random() * moves.length)] } gameRef.current.move(c); const san = gameRef.current.history({ verbose: true }).pop()?.san || `${c.from}${c.to}`; const nf = gameRef.current.fen(); setFen(nf); setLiveFen(nf); setHist(h => [...h, nf]); setMoveHistory(mh => [...mh, { san, from: c.from, to: c.to }]); setMi(i => i + 1); setCurrentMoveIdx(i => i + 1); setIsPlayerTurn(true); setTimerActive('player'); if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner('bot'); setMsg(t('x')) } else if (gameRef.current.isDraw()) { setGameOver(true); setWinner(null); handleClaim(true) } else setMsg(t('yt')) }, [gameOver, t, gameState, isRemoteTurn, isReviewMode, isPvP])
+
+  const onSqClick = useCallback((sq) => { if (gameOver || gameState !== 'playing' || !isPlayerTurn || isRemoteTurn || isReviewMode) return; const p = gameRef.current.get(sq); if (p && p.color === (isPlayerTurn ? 'w' : 'b')) { setSelectedSq(sq); setPossibleMoves(gameRef.current.moves({ square: sq, verbose: true }).map(m => m.to)); return } if (selectedSq && possibleMoves.includes(sq)) { onDrop(selectedSq, sq); setSelectedSq(null); setPossibleMoves([]); return } setSelectedSq(null); setPossibleMoves([]) }, [gameOver, isPlayerTurn, selectedSq, possibleMoves, gameState, isRemoteTurn, isReviewMode])
+
+  const onDrop = useCallback((src, tgt) => { if (!isPlayerTurn || gameOver || gameState !== 'playing' || isRemoteTurn || isReviewMode) return false; try { const r = gameRef.current.move({ from: src, to: tgt, promotion: 'q' }); if (!r) return false; const san = gameRef.current.history({ verbose: true }).pop()?.san || `${src}${tgt}`; const nf = gameRef.current.fen(); setFen(nf); setLiveFen(nf); setHist(h => [...h, nf]); setMoveHistory(mh => [...mh, { san, from: src, to: tgt }]); setMi(i => i + 1); setCurrentMoveIdx(i => i + 1); setIsPlayerTurn(false); setTimerActive('bot'); setSelectedSq(null); setPossibleMoves([]); if (gameId && address) { setSyncStatus('🔄...'); recordMove(gameId, address, src, tgt, san, nf).then(() => setSyncStatus('')).catch(() => setSyncStatus('')) } if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner(address); handleClaim(false) } else if (gameRef.current.isDraw()) { setGameOver(true); setWinner(null); handleClaim(true) } else { setMsg(t('bt')); if (!isPvP && botTimerRef.current) clearTimeout(botTimerRef.current); if (!isPvP) botTimerRef.current = setTimeout(() => { botMove() }, 3000) } return true } catch { return false } }, [isPlayerTurn, gameOver, gameState, isRemoteTurn, isReviewMode, gameId, address, botMove, t, isPvP])
+
+  const goToMove = (i) => { if (i < 0 || i >= hist.length) return; setCurrentMoveIdx(i); setFen(hist[i]); setIsReviewMode(i < hist.length - 1); setIsPlayerTurn(i % 2 === 0) }
+  const prevMove = () => { if (currentMoveIdx > 0) goToMove(currentMoveIdx - 1) }
+  const nextMove = () => { if (currentMoveIdx < hist.length - 1) goToMove(currentMoveIdx + 1); else resumeLive() }
+  const resumeLive = () => { if (liveFen) { setFen(liveFen); setCurrentMoveIdx(hist.length - 1); setIsReviewMode(false); setIsPlayerTurn(hist.length % 2 === 1); setMsg(t('live')) } }
+
+  const sqStyles = useMemo(() => { const s = {}; if (selectedSq && !isReviewMode) s[selectedSq] = { backgroundColor: 'rgba(255,255,0,0.4)' }; possibleMoves.forEach(q => { if (!isReviewMode) s[q] = { backgroundColor: 'rgba(20,85,30,0.5)', backgroundImage: 'radial-gradient(circle,rgba(255,255,255,0.9) 25%,transparent 25%)', backgroundSize: '14px 14px', backgroundPosition: 'center' } }); return s }, [selectedSq, possibleMoves, isReviewMode])
+  const BtnStyle = (c, d) => ({ width: '100%', padding: '12px', background: c || COLORS.btnBlue, color: '#fff', border: 'none', borderRadius: '10px', fontSize: '1rem', fontWeight: '600', cursor: d ? 'not-allowed' : 'pointer', marginTop: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', opacity: d ? 0.5 : 1 })
+
+  const handleSaveProfile = async () => { if (!address) { setMsg('❌ ' + t('noMetaMask')); return } if (profile.bio?.length > 500) { setMsg('❌ Био макс. 500 символов'); return } setProfileLoading(true); try { console.log('Saving profile for:', address); const ok = await updateProfile(address, profile); if (ok) { setMsg(t('profileSaved')); setIsEditingProfile(false); loadProfile() } else { setMsg(t('profileError')) } } catch (e) { console.error('Save profile error:', e); if (e.message?.includes('401') || e.message?.includes('Unauthorized')) { setMsg('❌ Нет прав. Выполните миграцию RLS в Supabase') } else if (e.message?.includes('406')) { setMsg('❌ Ошибка формата. Проверьте схему таблицы') } else { setMsg(t('profileError') + ': ' + e.message) } } finally { setProfileLoading(false) } }
+
+  // ✅ 7. EFFECTS (теперь все функции уже объявлены выше)
+  useEffect(() => { if (userGrokBalance !== undefined && userGrokBalance !== null) setUserBalance(Number(formatUnits(userGrokBalance, 18))) }, [userGrokBalance])
+  useEffect(() => { if (contractGrokBalance !== undefined && contractGrokBalance !== null) setContractBalance(Number(formatUnits(contractGrokBalance, 18))) }, [contractGrokBalance])
+  useEffect(() => { const r = () => setBs(Math.min(window.innerWidth - 40, 400)); r(); window.addEventListener('resize', r); return () => window.removeEventListener('resize', r) }, [])
+  useEffect(() => { if (depositConfirmed && gameId) { setMsg(t('successDep')); setGameState('waiting_funds'); setTxHash(null) } }, [depositConfirmed, gameId, t])
+  useEffect(() => { if (timerRef.current) clearInterval(timerRef.current); if (!timerActive || gameOver || gameState !== 'playing' || isReviewMode) return; timerRef.current = setInterval(() => { if (timerActive === 'player') { setPTime(p => { if (p <= 1) { clearInterval(timerRef.current); setGameOver(true); setWinner('bot'); setMsg(t('tp')); return 0 } return p - 1 }) } else { setBTime(p => { if (p <= 1) { clearInterval(timerRef.current); setGameOver(true); setWinner('player'); setMsg(t('tb')); return 0 } return p - 1 }) } }, 1000); return () => clearInterval(timerRef.current) }, [timerActive, gameOver, t, gameState, isReviewMode])
+  useEffect(() => { if (isConnected && address) { setMsg(t('cn')); setView('profile'); loadProfile(); setTimeout(() => refetchUserBalance?.(), 1000) } }, [isConnected, address, t, refetchUserBalance, loadProfile])
+  useEffect(() => { const p = new URLSearchParams(window.location.search); const gid = p.get('game'); if (gid) { setPendingJoin({ id: gid, stake: parseInt(p.get('stake')) || 5000, time: parseInt(p.get('time')) || 15 }); setView('profile'); setProfileTab('lobby'); setMsg(`${t('needDep')} ${parseInt(p.get('stake')) || 5000} GROK ${t('toJoin')}`) } }, [t])
+  useEffect(() => { loadActiveGames(); loadAvailableGames(); const i = setInterval(() => { loadActiveGames(); loadAvailableGames() }, 15000); return () => clearInterval(i) }, [address, loadActiveGames, loadAvailableGames])
+
+  // ✅ 8. RENDER
   return (
     <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text, fontFamily: 'system-ui', padding: '1rem', display: 'flex', justifyContent: 'center', overflowX: 'hidden' }}>
       {/* Меню */}
