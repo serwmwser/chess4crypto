@@ -5,14 +5,12 @@ import { useAccount, useDisconnect, useWriteContract, useReadContract, useWaitFo
 import { parseUnits, formatUnits, keccak256, stringToBytes } from 'viem'
 import { supabase, createGameRecord, updateGameStatus, subscribeToGame, getProfile, updateProfile, listAvailableGames, recordMove } from './supabase'
 
-// ✅ ВАШИ АДРЕСА — НЕ МЕНЯЙТЕ
 const C4C_ADDR = '0xaac20575371de01b4d10c4e7566d5453d72d56e7'
 const CHESS_CONTRACT = '0xCf5E5d01ADd5e2Ba62B2f6747E5CFC43e36D5005'
 const PINK_LINK = 'https://www.pink.meme/token/bsc/0xaac20575371de01b4d10c4e7566d5453d72d56e7'
 
 const COLORS = { bg: '#00695c', cardBg: '#004d40', btnBlue: '#1a237e', btnOrange: '#f57c00', text: '#ffffff', textSec: '#b2dfdb', accent: '#ffb74d' }
 
-// ✅ 10 ЯЗЫКОВ
 const LANG = {
   ru: { t: '♟️ Chess4Crypto', s: 'PvP на токене C4C', g: '👤 Гостевой', c: '🦊 Войти', k: '💰 Купить C4C', p: '👤 Профиль', l: '🚪 Выйти', y: '👤 Вы', b: '🤖 Бот', yt: '♟️ Ваш ход!', bt: '🤖 Бот думает (3с)...', w: '🏆 ПОБЕДА!', x: '😔 Поражение', d: '🤝 Ничья', tp: '⏰ Бот выиграл', tb: '⏰ Вы выиграли', cn: '✅ Подключено', cl: 'Закрыть', cp: '📋 Копировать', cd: '✅ Скопировано!', gt: '💰 Как купить C4C', g1: '1. Перейдите на pink.meme и подключите кошелёк в сети BNB.', g2: '2. Обменяйте BNB на токен C4C.', g3: '3. Адрес токена:', ln: '🇷🇺 RU', th: '🎨 Тема', tm: { c: '🏛️ Классика', w: '🪵 Дерево', n: '💜 Неон', o: '🌊 Океан', s: '🌅 Закат', m: '⚪ Минимал' }, tc: 'Время:', st: 'Ставка (C4C):', cr: '➕ Создать матч', jn: '🤝 Присоединиться', mv: 'Ходы:', newG: '🔄 В лобби', botG: '🤖 С ботом', select: 'Время', bal: 'Баланс:', games: 'Игры:', noG: 'Нет игр', myG: 'Мои игры', join: 'Войти', copy: 'Ссылка скопирована!', invite: '🔗 Приглашение', dep: '💰 Внести', claim: '🏆 Забрать', approve: '✅ Разрешить', waiting: '⏳ Ожидание соперника...', playing: '♟️ Игра идёт', sync: '🔄 Синхронизация...', review: '🔍 Просмотр', live: '▶️ В реальном времени', prev: '⏪ Назад', next: '⏩ Вперёд', pot: 'Банк игры:', payout: 'Выплата:', refund: 'Возврат', drawRefund: '🤝 Ничья — ставки возвращены', winnerGets: '🏆 Победитель забирает 98% банка', needDep: 'Нужно внести', toJoin: 'C4C для присоединения', yourStake: 'Ваша ставка:', oppStake: 'Ставка соперника:', totalPot: 'Общий банк:', setTime: 'Выберите время:', approveTx: '1️⃣ Разрешаем контракт тратить C4C...', depositTx: '2️⃣ Переводим ставку в пул игры...', confirmingTx: '⏳ Ожидание подтверждения блокчейна...', successDep: '✅ Депозит подтверждён! Игра создана.', successJoin: '✅ Депозит внесён! Игра начинается.', errTx: '❌ Ошибка: ', errBal: '❌ Недостаточно C4C', claimBtn: '💰 Забрать выигрыш', victoryTitle: '🏆 Победа!', defeatTitle: '😔 Поражение', drawTitle: '🤝 Ничья', noMetaMask: '⚠️ Установите MetaMask/TrustWallet', playerProfile: '👤 Профиль', avatar: '🖼️ Аватар', name: '👤 Имя', bio: '📝 О себе', website: '🌐 Сайт', social: '🔗 Соцсеть', save: '💾 Сохранить', availableGames: '🎮 Доступные игры', guestInfo: '⏱️ Гостевой режим: бесплатно с ботом. Выберите время для игры.', guestInstructions: '📖 Гостевой режим:\n• Выберите время партии выше.\n• Нажмите "🤖 С ботом".\n• Играйте бесплатно без блокчейна.', grokInstructions: `📖 Создание игры на C4C:\n1️⃣ Нажмите "➕ Создать матч".\n2️⃣ Выберите ставку и время.\n3️⃣ Подтвердите в кошельке ДВЕ транзакции:\n   • Approve: разрешить тратить C4C\n   • Create/Deposit: перевести ставку в контракт ${CHESS_CONTRACT.slice(0,10)}...${CHESS_CONTRACT.slice(-4)}\n4️⃣ Дождитесь подтверждения (~15 сек).\n5️⃣ Скопируйте ссылку и отправьте сопернику.\n6️⃣ Когда соперник внесёт депозит — игра начнётся!\n7️⃣ Победитель забирает 98% банка (2% комиссия платформы).`, txCancelled: '⚠️ Транзакция отменена', step1: 'Шаг 1/2: Разрешение', step2: 'Шаг 2/2: Депозит', clickToCopy: '📋 Нажмите для копирования', checkBalance: '🔍 Проверить баланс контракта', profileSaved: '✅ Профиль сохранён!', profileError: '❌ Ошибка сохранения профиля', pvpMode: '👥 PvP режим', botMode: '🤖 Режим с ботом' },
   en: { t: '♟️ Chess4Crypto', s: 'C4C PvP Betting', g: '👤 Guest', c: '🦊 Connect', k: '💰 Buy C4C', p: '👤 Profile', l: '🚪 Logout', y: '👤 You', b: '🤖 Bot', yt: '♟️ Your turn!', bt: '🤖 Bot thinks (3s)...', w: '🏆 YOU WIN!', x: '😔 Lost', d: '🤝 Draw', tp: '⏰ Bot wins', tb: '⏰ You win', cn: '✅ Connected', cl: 'Close', cp: '📋 Copy', cd: '✅ Copied!', gt: '💰 Buy C4C', g1: '1. Go to pink.meme, connect BNB wallet.', g2: '2. Swap BNB for C4C token.', g3: '3. Token address:', ln: '🇬🇧 EN', th: '🎨 Theme', tm: { c: '🏛️ Classic', w: '🪵 Wood', n: '💜 Neon', o: '🌊 Ocean', s: '🌅 Sunset', m: '⚪ Minimal' }, tc: 'Time:', st: 'Stake (C4C):', cr: '➕ Create Match', jn: '🤝 Join', mv: 'Moves:', newG: '🔄 Lobby', botG: '🤖 Vs Bot', select: 'Time', bal: 'Balance:', games: 'Games:', noG: 'No games', myG: 'My Games', join: 'Join', copy: 'Copied!', invite: '🔗 Invite', dep: '💰 Deposit', claim: '🏆 Claim Win', approve: '✅ Approve', waiting: '⏳ Waiting opponent...', playing: '♟️ Game in progress', sync: '🔄 Syncing...', review: '🔍 Review', live: '▶️ Live', prev: '⏪ Prev', next: '⏩ Next', pot: 'Game Pot:', payout: 'Payout:', refund: 'Refund', drawRefund: '🤝 Draw — stakes refunded', winnerGets: '🏆 Winner takes 98% of pot', needDep: 'Need to deposit', toJoin: 'C4C to join', yourStake: 'Your stake:', oppStake: 'Opponent stake:', totalPot: 'Total pot:', setTime: 'Select Time:', approveTx: '1️⃣ Approve C4C...', depositTx: '2️⃣ Deposit to pool...', confirmingTx: '⏳ Waiting for blockchain confirmation...', successDep: '✅ Deposit confirmed! Game created.', successJoin: '✅ Deposit paid! Game started.', errTx: '❌ Error: ', errBal: '❌ Insufficient C4C', claimBtn: '💰 Claim Winnings', victoryTitle: '🏆 Victory!', defeatTitle: '😔 Defeat', drawTitle: '🤝 Draw', noMetaMask: '⚠️ Install MetaMask/TrustWallet', playerProfile: '👤 Profile', avatar: '🖼️ Avatar', name: '👤 Name', bio: '📝 Bio', website: '🌐 Website', social: '🔗 Social', save: '💾 Save', availableGames: '🎮 Available Games', guestInfo: '⏱️ Guest mode: free vs bot. Select game time.', guestInstructions: '📖 Guest Mode:\n• Select time control above.\n• Click "🤖 Vs Bot".\n• Play for free, no blockchain.', grokInstructions: `📖 Create C4C game:\n1️⃣ Click "➕ Create Match".\n2️⃣ Select stake & time.\n3️⃣ Confirm TWO transactions in wallet:\n   • Approve: allow spending C4C\n   • Create/Deposit: send stake to contract ${CHESS_CONTRACT.slice(0,10)}...${CHESS_CONTRACT.slice(-4)}\n4️⃣ Wait for confirmation (~15s).\n5️⃣ Copy link & send to opponent.\n6️⃣ When opponent deposits — game starts!\n7️⃣ Winner takes 98% of pot (2% platform fee).`, txCancelled: '⚠️ Transaction cancelled', step1: 'Step 1/2: Approve', step2: 'Step 2/2: Deposit', clickToCopy: '📋 Tap to copy', checkBalance: '🔍 Check contract balance', profileSaved: '✅ Profile saved!', profileError: '❌ Failed to save profile', pvpMode: '👥 PvP Mode', botMode: '🤖 Bot Mode' },
@@ -26,7 +24,6 @@ const LANG = {
   pt: { t: '♟️ Chess4Crypto', s: 'Apostas C4C PvP', g: '👤 Convidado', c: '🦊 Conectar', k: '💰 Comprar C4C', p: '👤 Perfil', l: '🚪 Sair', y: '👤 Você', b: '🤖 Bot', yt: '♟️ Sua vez!', bt: '🤖 Bot pensando (3s)...', w: '🏆 VOCÊ GANHOU!', x: '😔 Perdeu', d: '🤝 Empate', tp: '⏰ Bot ganha', tb: '⏰ Você ganha', cn: '✅ Conectado', cl: 'Fechar', cp: '📋 Copiar', cd: '✅ Copiado', gt: '💰 Comprar C4C', g1: '1. Acesse pink.meme, conecte carteira BNB.', g2: '2. Troque BNB por token C4C.', g3: '3. Endereço do token:', ln: '🇵🇹 PT', th: '🎨 Tema', tm: { c: '🏛️ Clássico', w: '🪵 Madeira', n: '💜 Néon', o: '🌊 Oceano', s: '🌅 Pôr do sol', m: '⚪ Minimal' }, tc: 'Tempo:', st: 'Aposta (C4C):', cr: '➕ Criar Partida', jn: '🤝 Entrar', mv: 'Jogadas:', newG: '🔄 Lobby', botG: '🤖 Vs Bot', select: 'Tempo', bal: 'Saldo:', games: 'Partidas:', noG: 'Sem partidas', myG: 'Minhas', join: 'Entrar', copy: 'Copiado!', invite: '🔗 Convite', dep: '💰 Depositar', claim: '🏆 Resgatar', approve: '✅ Aprovar', waiting: '⏳ Aguardando oponente...', playing: '♟️ Jogo em andamento', sync: '🔄 Sincronizando...', review: '🔍 Revisão', live: '▶️ Ao vivo', prev: '⏪ Ant', next: '⏩ Próx', pot: 'Pote do jogo:', payout: 'Pagamento:', refund: 'Reembolso', drawRefund: '🤝 Empate — apostas devolvidas', winnerGets: '🏆 Vencedor leva 98% do pote', needDep: 'Precisa depositar', toJoin: 'para entrar', yourStake: 'Sua aposta:', oppStake: 'Aposta do oponente:', totalPot: 'Pote total:', setTime: 'Selecionar tempo:', approveTx: '1️⃣ Aprovar C4C...', depositTx: '2️⃣ Depositar no pool...', confirmingTx: '⏳ Aguardando confirmação blockchain...', successDep: '✅ Depósito confirmado! Jogo criado.', successJoin: '✅ Depósito pago! Jogo iniciado.', errTx: '❌ Erro: ', errBal: '❌ Saldo insuficiente de C4C', claimBtn: '💰 Resgatar ganhos', victoryTitle: '🏆 Vitória!', defeatTitle: '😔 Derrota', drawTitle: '🤝 Empate', noMetaMask: '⚠️ Instale MetaMask/TrustWallet', playerProfile: '👤 Perfil', avatar: '🖼️ Avatar', name: '👤 Nome', bio: '📝 Bio', website: '🌐 Site', social: '🔗 Social', save: '💾 Salvar', availableGames: '🎮 Partidas disponíveis', guestInfo: '⏱️ Modo convidado: grátis vs bot. Selecione o tempo do jogo.', guestInstructions: '📖 Modo Convidado:\n• Selecione controle de tempo acima.\n• Clique "🤖 Vs Bot".\n• Jogue grátis, sem blockchain.', grokInstructions: `📖 Criar jogo C4C:\n1️⃣ Clique "➕ Criar Partida".\n2️⃣ Selecione aposta e tempo.\n3️⃣ Confirme DUAS transações na carteira:\n   • Approve: permitir gastar C4C\n   • Create/Deposit: enviar aposta para contrato ${CHESS_CONTRACT.slice(0,10)}...${CHESS_CONTRACT.slice(-4)}\n4️⃣ Aguarde confirmação (~15s).\n5️⃣ Copie link e envie para oponente.\n6️⃣ Quando oponente depositar — jogo começa!\n7️⃣ Vencedor leva 98% do pote (2% taxa).`, txCancelled: '⚠️ Transação cancelada', step1: 'Passo 1/2: Aprovar', step2: 'Passo 2/2: Depositar', clickToCopy: '📋 Toque para copiar', checkBalance: '🔍 Verificar saldo do contrato', profileSaved: '✅ Perfil salvo!', profileError: '❌ Falha ao salvar perfil', pvpMode: '👥 Modo PvP', botMode: '🤖 Modo Bot' }
 }
 
-// ✅ 6 TEMAS DE TABULEIRO
 const THEMES = {
   c: { l: '#eeeed2', d: '#769656', n: '🏛️ Classic', class: 'chessboard-theme-c' },
   w: { l: '#f0d9b5', d: '#b58863', n: '🪵 Wood', class: 'chessboard-theme-w' },
@@ -40,7 +37,6 @@ const TIME_OPTIONS = [5, 15, 30, 60, 1440]
 const STAKE_OPTIONS = [500, 1000, 5000, 10000, 25000, 50000, 100000, 250000]
 const fmtTime = s => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60; return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}` }
 
-// ✅ ABI DO SEU CONTRATO
 const CHESS_ABI = [
   {"inputs":[{"internalType":"address","name":"_gameToken","type":"address"},{"internalType":"address","name":"_feeRecipient","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},
   {"anonymous":false,"inputs":[{"indexed":true,"internalType":"bytes32","name":"gameId","type":"bytes32"},{"indexed":true,"internalType":"address","name":"creator","type":"address"},{"indexed":false,"internalType":"uint256","name":"stake","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"timeLimit","type":"uint256"}],"name":"GameCreated","type":"event"},
@@ -63,16 +59,13 @@ const CHESS_ABI = [
   {"inputs":[],"name":"platformFeeRecipient","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}
 ]
 
-// ✅ ABI DO TOKEN C4C (ERC20)
 const ERC20_ABI = [
   {"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
   {"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
   {"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"}
 ]
 
-// ✅ COMPONENTE PRINCIPAL
 export default function App() {
-  // ✅ STATE
   const [lang, setLang] = useState('ru')
   const [view, setView] = useState('menu')
   const [profileTab, setProfileTab] = useState('lobby')
@@ -117,466 +110,249 @@ export default function App() {
   const [gameOver, setGameOver] = useState(false)
   const [winner, setWinner] = useState(null)
 
-  // ✅ REFS
   const gameRef = useRef(new Chess())
   const timerRef = useRef(null)
   const unsubscribeRef = useRef(null)
   const botTimerRef = useRef(null)
 
-  // ✅ WAGMI HOOKS
   const { address, isConnected } = useAccount()
   const { disconnect } = useDisconnect()
   const { connectors, connect, isPending: isConnecting } = useConnect()
   const { writeContractAsync } = useWriteContract()
   const { depositReceipt, isSuccess: depositConfirmed } = useWaitForTransactionReceipt({ hash: txHash })
 
-  // ✅ LEITURA DE SALDO — CORREÇÃO PRINCIPAL
   const { data: balanceData, refetch: refetchBalance, isLoading: balanceLoading, isError: balanceError } = useReadContract({
-    address: C4C_ADDR,
-    abi: ERC20_ABI,
-    functionName: 'balanceOf',
-    args: [address],
-    query: { 
-      enabled: !!address, // ✅ Só consulta se tiver endereço
-      refetchInterval: 3000, // ✅ Atualiza a cada 3s
-      staleTime: 0 // ✅ Não usa cache
-    }
+    address: C4C_ADDR, abi: ERC20_ABI, functionName: 'balanceOf', args: [address],
+    query: { enabled: !!address, refetchInterval: 3000, staleTime: 0 }
   })
   
   const { data: contractBalanceData } = useReadContract({
-    address: C4C_ADDR,
-    abi: ERC20_ABI,
-    functionName: 'balanceOf',
-    args: [CHESS_CONTRACT],
+    address: C4C_ADDR, abi: ERC20_ABI, functionName: 'balanceOf', args: [CHESS_CONTRACT],
     query: { enabled: true }
   })
 
-  // ✅ TRADUÇÃO
   const t = useCallback(k => LANG[lang]?.[k] || LANG['en']?.[k] || k, [lang])
 
-  // ✅ ATUALIZAR SALDO NO ESTADO — CORREÇÃO PRINCIPAL
-  useEffect(() => {
-    if (balanceData !== undefined && balanceData !== null) {
-      const formatted = Number(formatUnits(balanceData, 18))
-      setUserBalance(formatted)
-      console.log('💰 Balance updated:', formatted, 'C4C')
-    }
-  }, [balanceData])
+  useEffect(() => { if (balanceData != null) setUserBalance(Number(formatUnits(balanceData, 18))) }, [balanceData])
+  useEffect(() => { if (contractBalanceData != null) setContractBalance(Number(formatUnits(contractBalanceData, 18))) }, [contractBalanceData])
+  useEffect(() => { if (isConnected && address) { loadProfile(); setTimeout(() => refetchBalance?.(), 1000) } }, [isConnected, address, refetchBalance])
 
-  useEffect(() => {
-    if (contractBalanceData !== undefined && contractBalanceData !== null) {
-      setContractBalance(Number(formatUnits(contractBalanceData, 18)))
-    }
-  }, [contractBalanceData])
-
-  // ✅ CARREGAR PERFIL AO CONECTAR
-  useEffect(() => {
-    if (isConnected && address) {
-      loadProfile()
-      // Força refresh do saldo após conectar
-      setTimeout(() => refetchBalance?.(), 1000)
-    }
-  }, [isConnected, address, refetchBalance])
-
-  // ✅ CALLBACKS
   const loadProfile = useCallback(async () => { 
-    if (!address) return
-    try { 
-      setProfileLoading(true)
-      const d = await getProfile(address)
-      if (d) setProfile(d) 
-    } catch (e) { console.warn('Profile:', e.message) } 
-    finally { setProfileLoading(false) } 
+    if (!address) return; try { setProfileLoading(true); const d = await getProfile(address); if (d) setProfile(d) } catch (e) { console.warn('Profile:', e.message) } finally { setProfileLoading(false) } 
   }, [address])
   
-  const loadAvailableGames = useCallback(async () => { 
-    try { 
-      const g = await listAvailableGames()
-      setAvailableGames(g || []) 
-    } catch (e) { console.warn('Games:', e.message) } 
-  }, [])
-  
-  const loadActiveGames = useCallback(async () => { 
-    if (!address) return
-    try { 
-      const { data, error } = await supabase.from('games').select('*').or(`creator.eq.${address},challenger.eq.${address}`).order('created_at', { ascending: false }).limit(10)
-      if (!error) setActiveGames(data || []) 
-    } catch (e) { console.warn('Active:', e.message) } 
-  }, [address])
+  const loadAvailableGames = useCallback(async () => { try { const g = await listAvailableGames(); setAvailableGames(g || []) } catch (e) { console.warn('Games:', e.message) } }, [])
+  const loadActiveGames = useCallback(async () => { if (!address) return; try { const { data, error } = await supabase.from('games').select('*').or(`creator.eq.${address},challenger.eq.${address}`).order('created_at', { ascending: false }).limit(10); if (!error) setActiveGames(data || []) } catch (e) { console.warn('Active:', e.message) } }, [address])
   
   const guest = () => { setMsg(t('g')); resetGame(); startGame() }
   const buyC4C = () => setGrok(true)
   const langNext = () => setLang(l => { const langs = Object.keys(LANG); return langs[(langs.indexOf(l) + 1) % langs.length] })
   
-  const copyToClipboard = async (text) => { 
-    try { 
-      if (navigator.clipboard?.writeText) { 
-        await navigator.clipboard.writeText(text)
-        setCop(true)
-        setTimeout(() => setCop(false), 2000)
-        return true 
-      } 
-    } catch (e) { } 
-    setMsg(t('clickToCopy') + ': ' + text.slice(0, 30) + '...')
-    return false 
-  }
+  const copyToClipboard = async (text) => { try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); setCop(true); setTimeout(() => setCop(false), 2000); return true } } catch (e) { } setMsg(t('clickToCopy') + ': ' + text.slice(0, 30) + '...'); return false }
   const copyAddr = () => copyToClipboard(C4C_ADDR)
   
-  const connectWallet = async () => { 
-    try { 
-      const connector = connectors.find(c => c.id === 'metaMask') || connectors[0]
-      if (connector) await connect({ connector })
-      else setMsg(t('noMetaMask'))
-    } catch (e) { console.error('Connect error:', e); setMsg(t('noMetaMask')) } 
-  }
+  const connectWallet = async () => { try { const connector = connectors.find(c => c.id === 'metaMask') || connectors[0]; if (connector) await connect({ connector }); else setMsg(t('noMetaMask')) } catch (e) { console.error('Connect error:', e); setMsg(t('noMetaMask')) } }
   
-  const resetGame = () => { 
-    gameRef.current.reset()
-    setFen(gameRef.current.fen())
-    setHist([gameRef.current.fen()])
-    setMi(0)
-    setIsPlayerTurn(true)
-    setGameOver(false)
-    setWinner(null)
-    setMoveHistory([])
-    setSelectedSq(null)
-    setPossibleMoves([])
-    setIsDeposited(false)
-    setGameState('idle')
-    setIsPvP(false)
-    setRemoteFen(null)
-    setIsRemoteTurn(false)
-    setCurrentMoveIdx(-1)
-    setIsReviewMode(false)
-    setLiveFen(null)
-    setTxHash(null)
-    if (botTimerRef.current) clearTimeout(botTimerRef.current)
-    if (unsubscribeRef.current) { unsubscribeRef.current(); unsubscribeRef.current = null } 
-  }
-  
+  const resetGame = () => { gameRef.current.reset(); setFen(gameRef.current.fen()); setHist([gameRef.current.fen()]); setMi(0); setIsPlayerTurn(true); setGameOver(false); setWinner(null); setMoveHistory([]); setSelectedSq(null); setPossibleMoves([]); setIsDeposited(false); setGameState('idle'); setIsPvP(false); setRemoteFen(null); setIsRemoteTurn(false); setCurrentMoveIdx(-1); setIsReviewMode(false); setLiveFen(null); setTxHash(null); if (botTimerRef.current) clearTimeout(botTimerRef.current); if (unsubscribeRef.current) { unsubscribeRef.current(); unsubscribeRef.current = null } }
   const startGame = () => { setPTime(timeCtrl * 60); setBTime(timeCtrl * 60); setTimerActive('player'); setView('game'); setGameState('playing') }
   
-  // ✅ CRIAR JOGO — CORREÇÃO PRINCIPAL
   const handleCreateMatch = async () => {
     if (!isConnected || !address) { setMsg('🦊 ' + t('c')); return }
-    
-    // ✅ Verifica saldo atualizado
-    const currentBalance = balanceData !== undefined && balanceData !== null 
-      ? Number(formatUnits(balanceData, 18)) 
-      : userBalance
-      
-    if (currentBalance < createStake) { 
-      setMsg(t('errBal') + ` (нужно: ${createStake}, есть: ${currentBalance})`)
-      return 
-    }
-    
+    const currentBalance = balanceData != null ? Number(formatUnits(balanceData, 18)) : userBalance
+    if (currentBalance < createStake) { setMsg(t('errBal') + ` (нужно: ${createStake}, есть: ${currentBalance})`); return }
     setLoadingTx(true)
     try {
-      console.log('🎮 Creating game:', { address, stake: createStake, time: timeCtrl })
-      
-      // 🔹 PASSO 1: APPROVE
       setMsg(t('step1'))
-      const approveTx = await writeContractAsync({
-        address: C4C_ADDR,
-        abi: ERC20_ABI,
-        functionName: 'approve',
-        args: [CHESS_CONTRACT, parseUnits(createStake.toString(), 18)],
-      })
-      console.log('✅ Approve TX:', approveTx)
-      
-      // 🔹 PASSO 2: CREATE GAME
+      await writeContractAsync({ address: C4C_ADDR, abi: ERC20_ABI, functionName: 'approve', args: [CHESS_CONTRACT, parseUnits(createStake.toString(), 18)] })
       const rawId = 'game_' + Date.now() + '_' + address?.slice(2, 10) + '_' + Math.random().toString(36).slice(2, 10)
       const bytes32Id = keccak256(stringToBytes(rawId))
-      
       setMsg(t('step2') + ' (create)')
-      const createTx = await writeContractAsync({
-        address: CHESS_CONTRACT,
-        abi: CHESS_ABI,
-        functionName: 'createGame',
-        args: [bytes32Id, parseUnits(createStake.toString(), 18), BigInt(timeCtrl)],
-      })
-      console.log('✅ CreateGame TX:', createTx)
-      
-      // 🔹 PASSO 3: DEPOSIT STAKE
+      await writeContractAsync({ address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'createGame', args: [bytes32Id, parseUnits(createStake.toString(), 18), BigInt(timeCtrl)] })
       setMsg(t('step2') + ' (deposit)')
-      const depositTx = await writeContractAsync({
-        address: CHESS_CONTRACT,
-        abi: CHESS_ABI,
-        functionName: 'depositStake',
-        args: [bytes32Id],
-      })
-      console.log('✅ DepositStake TX:', depositTx)
+      const depositTx = await writeContractAsync({ address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'depositStake', args: [bytes32Id] })
       setTxHash(depositTx)
-      
-      // 🔹 PASSO 4: Salvar no banco + atualizar estado
       await createGameRecord(rawId, address, createStake, timeCtrl)
       setGameId(rawId); setIsDeposited(true); setIsPvP(false)
       const link = `${window.location.origin}${window.location.pathname}?game=${rawId}&stake=${createStake}&time=${timeCtrl}`
-      setInviteLink(link); await copyToClipboard(link)
-      setMsg(t('confirmingTx'))
+      setInviteLink(link); await copyToClipboard(link); setMsg(t('confirmingTx'))
       setupGameSubscription(rawId); await loadActiveGames(); await loadAvailableGames(); setProfileTab('my')
-      
-      // ✅ Força refresh do saldo após transação
       setTimeout(() => refetchBalance?.(), 2000)
-      console.log('🎉 Game created!')
-      
     } catch (e) {
-      console.error('❌ Create error:', e)
-      if (e.message?.includes('rejected') || e.message?.includes('denied')) { setMsg(t('txCancelled')) }
-      else if (e.message?.includes('reverted')) { setMsg('❌ Контракт отклонил: проверьте approve и gameId') }
-      else { setMsg(t('errTx') + (e.shortMessage || e.message)) }
+      if (e.message?.includes('rejected') || e.message?.includes('denied')) setMsg(t('txCancelled'))
+      else if (e.message?.includes('reverted')) setMsg('❌ Контракт отклонил: проверьте approve и gameId')
+      else setMsg(t('errTx') + (e.shortMessage || e.message))
     } finally { setLoadingTx(false) }
   }
 
-  // ✅ ENTRAR EM JOGO
   const handleJoinMatch = async () => {
     if (!isConnected || !pendingJoin || !address) { setMsg('🦊 ' + t('c')); return }
-    
-    const currentBalance = balanceData !== undefined && balanceData !== null 
-      ? Number(formatUnits(balanceData, 18)) 
-      : userBalance
-      
+    const currentBalance = balanceData != null ? Number(formatUnits(balanceData, 18)) : userBalance
     if (currentBalance < pendingJoin.stake) { setMsg(t('errBal')); return }
-    
     setLoadingTx(true)
     try {
       setMsg(t('step1'))
-      await writeContractAsync({
-        address: C4C_ADDR,
-        abi: ERC20_ABI,
-        functionName: 'approve',
-        args: [CHESS_CONTRACT, parseUnits(pendingJoin.stake.toString(), 18)],
-      })
-      
+      await writeContractAsync({ address: C4C_ADDR, abi: ERC20_ABI, functionName: 'approve', args: [CHESS_CONTRACT, parseUnits(pendingJoin.stake.toString(), 18)] })
       const bytes32Id = keccak256(stringToBytes(pendingJoin.id))
       setMsg(t('step2'))
-      const depositTx = await writeContractAsync({
-        address: CHESS_CONTRACT,
-        abi: CHESS_ABI,
-        functionName: 'depositStake',
-        args: [bytes32Id],
-      })
+      const depositTx = await writeContractAsync({ address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'depositStake', args: [bytes32Id] })
       setTxHash(depositTx)
-      
       await updateGameStatus(pendingJoin.id, { challenger: address, challengerPaid: true, status: 'playing', updated_at: new Date().toISOString() })
       setGameId(pendingJoin.id); setCreateStake(pendingJoin.stake); setTimeCtrl(pendingJoin.time)
       setGameState('playing'); setIsPvP(true)
       setupGameSubscription(pendingJoin.id); setMsg(t('successJoin')); setPendingJoin(null)
       loadActiveGames(); loadAvailableGames(); setTimeout(() => startGame(), 500)
       setTimeout(() => refetchBalance?.(), 2000)
-    } catch (e) {
-      console.error('Join error:', e)
-      setMsg(e.message?.includes('rejected') ? t('txCancelled') : t('errTx') + (e.shortMessage || e.message))
-    } finally { setLoadingTx(false) }
+    } catch (e) { setMsg(e.message?.includes('rejected') ? t('txCancelled') : t('errTx') + (e.shortMessage || e.message)) } finally { setLoadingTx(false) }
   }
 
-  const setupGameSubscription = (id) => { 
-    if (unsubscribeRef.current) unsubscribeRef.current()
-    unsubscribeRef.current = subscribeToGame(id, { 
-      onGameUpdate: (g) => { 
-        if (g.status === 'playing' && !g.challengerPaid) setMsg(t('waiting'))
-        else if (g.status === 'playing' && g.challengerPaid && !isPvP) setIsPvP(true) 
-      }, 
-      onMove: (m) => { 
-        if (m.player !== address && !isReviewMode) { 
-          setSyncStatus('🔄...')
-          setTimeout(() => { 
-            try { 
-              gameRef.current.move({ from: m.from_sq, to: m.to_sq, promotion: 'q' })
-              const nf = gameRef.current.fen()
-              setFen(nf); setLiveFen(nf); setHist(h => [...h, nf])
-              setMoveHistory(mh => [...mh, { san: m.san, from: m.from_sq, to: m.to_sq }])
-              setMi(i => i + 1); setCurrentMoveIdx(i => i + 1); setIsPlayerTurn(true); setTimerActive('player'); setSyncStatus('')
-              if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner(address); handleClaim(false) } 
-              else if (gameRef.current.isDraw()) { setGameOver(true); setWinner(null); handleClaim(true) } 
-              else setMsg(t('yt')) 
-            } catch (e) { console.warn(e) } 
-          }, 300) 
-        } 
-      } 
-    }) 
-  }
+  const setupGameSubscription = (id) => { if (unsubscribeRef.current) unsubscribeRef.current(); unsubscribeRef.current = subscribeToGame(id, { onGameUpdate: (g) => { if (g.status === 'playing' && !g.challengerPaid) setMsg(t('waiting')); else if (g.status === 'playing' && g.challengerPaid && !isPvP) setIsPvP(true) }, onMove: (m) => { if (m.player !== address && !isReviewMode) { setSyncStatus('🔄...'); setTimeout(() => { try { gameRef.current.move({ from: m.from_sq, to: m.to_sq, promotion: 'q' }); const nf = gameRef.current.fen(); setFen(nf); setLiveFen(nf); setHist(h => [...h, nf]); setMoveHistory(mh => [...mh, { san: m.san, from: m.from_sq, to: m.to_sq }]); setMi(i => i + 1); setCurrentMoveIdx(i => i + 1); setIsPlayerTurn(true); setTimerActive('player'); setSyncStatus(''); if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner(address); handleClaim(false) } else if (gameRef.current.isDraw()) { setGameOver(true); setWinner(null); handleClaim(true) } else setMsg(t('yt')) } catch (e) { console.warn(e) } }, 300) } } }) }
+  const handleClaim = (isDraw) => { if (!gameId) return; if (!isConnected || !address) { setMsg(isDraw ? t('drawRefund') : t('winnerGets')); return } const bytes32Id = keccak256(stringToBytes(gameId)); writeContractAsync({ address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'finishGame', args: [bytes32Id, address, isDraw] }).then(() => { setMsg(isDraw ? t('drawRefund') : t('winnerGets')); setGameState('idle') }).catch(e => setMsg(e.message?.includes('rejected') ? t('txCancelled') : t('errTx'))) }
 
-  const handleClaim = (isDraw) => { 
-    if (!gameId) return
-    if (!isConnected || !address) { setMsg(isDraw ? t('drawRefund') : t('winnerGets')); return } 
-    const bytes32Id = keccak256(stringToBytes(gameId))
-    writeContractAsync({ 
-      address: CHESS_CONTRACT, 
-      abi: CHESS_ABI, 
-      functionName: 'finishGame', 
-      args: [bytes32Id, address, isDraw] 
-    }).then(() => { 
-      setMsg(isDraw ? t('drawRefund') : t('winnerGets'))
-      setGameState('idle') 
-    }).catch(e => setMsg(e.message?.includes('rejected') ? t('txCancelled') : t('errTx'))) 
-  }
-
-  const botMove = useCallback(() => { 
-    if (gameOver || gameRef.current.isGameOver() || gameState !== 'playing' || isRemoteTurn || isReviewMode || isPvP) return
-    const moves = gameRef.current.moves({ verbose: true })
-    if (!moves.length) return
-    let c; const r = Math.random()
-    if (r < 0.7) c = moves[Math.floor(Math.random() * moves.length)]
-    else { const caps = moves.filter(m => m.captured); c = caps.length ? caps[Math.floor(Math.random() * caps.length)] : moves[Math.floor(Math.random() * moves.length)] }
-    gameRef.current.move(c)
-    const san = gameRef.current.history({ verbose: true }).pop()?.san || `${c.from}${c.to}`
-    const nf = gameRef.current.fen()
-    setFen(nf); setLiveFen(nf); setHist(h => [...h, nf])
-    setMoveHistory(mh => [...mh, { san, from: c.from, to: c.to }])
-    setMi(i => i + 1); setCurrentMoveIdx(i => i + 1); setIsPlayerTurn(true); setTimerActive('player')
-    if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner('bot'); setMsg(t('x')) } 
-    else if (gameRef.current.isDraw()) { setGameOver(true); setWinner(null); handleClaim(true) } 
-    else setMsg(t('yt')) 
-  }, [gameOver, t, gameState, isRemoteTurn, isReviewMode, isPvP])
-
-  const onSqClick = useCallback((sq) => { 
-    if (gameOver || gameState !== 'playing' || !isPlayerTurn || isRemoteTurn || isReviewMode) return
-    const p = gameRef.current.get(sq)
-    if (p && p.color === (isPlayerTurn ? 'w' : 'b')) { 
-      setSelectedSq(sq)
-      setPossibleMoves(gameRef.current.moves({ square: sq, verbose: true }).map(m => m.to))
-      return 
-    }
-    if (selectedSq && possibleMoves.includes(sq)) { 
-      onDrop(selectedSq, sq)
-      setSelectedSq(null)
-      setPossibleMoves([])
-      return 
-    }
-    setSelectedSq(null)
-    setPossibleMoves([]) 
-  }, [gameOver, isPlayerTurn, selectedSq, possibleMoves, gameState, isRemoteTurn, isReviewMode])
-
-  const onDrop = useCallback((src, tgt) => { 
-    if (!isPlayerTurn || gameOver || gameState !== 'playing' || isRemoteTurn || isReviewMode) return false
-    try { 
-      const r = gameRef.current.move({ from: src, to: tgt, promotion: 'q' })
-      if (!r) return false
-      const san = gameRef.current.history({ verbose: true }).pop()?.san || `${src}${tgt}`
-      const nf = gameRef.current.fen()
-      setFen(nf); setLiveFen(nf); setHist(h => [...h, nf])
-      setMoveHistory(mh => [...mh, { san, from: src, to: tgt }])
-      setMi(i => i + 1); setCurrentMoveIdx(i => i + 1); setIsPlayerTurn(false); setTimerActive('bot'); setSelectedSq(null); setPossibleMoves([])
-      if (gameId && address) { 
-        setSyncStatus('🔄...')
-        recordMove(gameId, address, src, tgt, san, nf).then(() => setSyncStatus('')).catch(() => setSyncStatus('')) 
-      }
-      if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner(address); handleClaim(false) } 
-      else if (gameRef.current.isDraw()) { setGameOver(true); setWinner(null); handleClaim(true) } 
-      else { 
-        setMsg(t('bt'))
-        if (!isPvP && botTimerRef.current) clearTimeout(botTimerRef.current)
-        if (!isPvP) botTimerRef.current = setTimeout(() => { botMove() }, 3000) 
-      }
-      return true 
-    } catch { return false } 
-  }, [isPlayerTurn, gameOver, gameState, isRemoteTurn, isReviewMode, gameId, address, botMove, t, isPvP])
-
+  const botMove = useCallback(() => { if (gameOver || gameRef.current.isGameOver() || gameState !== 'playing' || isRemoteTurn || isReviewMode || isPvP) return; const moves = gameRef.current.moves({ verbose: true }); if (!moves.length) return; let c; const r = Math.random(); if (r < 0.7) c = moves[Math.floor(Math.random() * moves.length)]; else { const caps = moves.filter(m => m.captured); c = caps.length ? caps[Math.floor(Math.random() * caps.length)] : moves[Math.floor(Math.random() * moves.length)] } gameRef.current.move(c); const san = gameRef.current.history({ verbose: true }).pop()?.san || `${c.from}${c.to}`; const nf = gameRef.current.fen(); setFen(nf); setLiveFen(nf); setHist(h => [...h, nf]); setMoveHistory(mh => [...mh, { san, from: c.from, to: c.to }]); setMi(i => i + 1); setCurrentMoveIdx(i => i + 1); setIsPlayerTurn(true); setTimerActive('player'); if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner('bot'); setMsg(t('x')) } else if (gameRef.current.isDraw()) { setGameOver(true); setWinner(null); handleClaim(true) } else setMsg(t('yt')) }, [gameOver, t, gameState, isRemoteTurn, isReviewMode, isPvP])
+  const onSqClick = useCallback((sq) => { if (gameOver || gameState !== 'playing' || !isPlayerTurn || isRemoteTurn || isReviewMode) return; const p = gameRef.current.get(sq); if (p && p.color === (isPlayerTurn ? 'w' : 'b')) { setSelectedSq(sq); setPossibleMoves(gameRef.current.moves({ square: sq, verbose: true }).map(m => m.to)); return } if (selectedSq && possibleMoves.includes(sq)) { onDrop(selectedSq, sq); setSelectedSq(null); setPossibleMoves([]); return } setSelectedSq(null); setPossibleMoves([]) }, [gameOver, isPlayerTurn, selectedSq, possibleMoves, gameState, isRemoteTurn, isReviewMode])
+  const onDrop = useCallback((src, tgt) => { if (!isPlayerTurn || gameOver || gameState !== 'playing' || isRemoteTurn || isReviewMode) return false; try { const r = gameRef.current.move({ from: src, to: tgt, promotion: 'q' }); if (!r) return false; const san = gameRef.current.history({ verbose: true }).pop()?.san || `${src}${tgt}`; const nf = gameRef.current.fen(); setFen(nf); setLiveFen(nf); setHist(h => [...h, nf]); setMoveHistory(mh => [...mh, { san, from: src, to: tgt }]); setMi(i => i + 1); setCurrentMoveIdx(i => i + 1); setIsPlayerTurn(false); setTimerActive('bot'); setSelectedSq(null); setPossibleMoves([]); if (gameId && address) { setSyncStatus('🔄...'); recordMove(gameId, address, src, tgt, san, nf).then(() => setSyncStatus('')).catch(() => setSyncStatus('')) } if (gameRef.current.isCheckmate()) { setGameOver(true); setWinner(address); handleClaim(false) } else if (gameRef.current.isDraw()) { setGameOver(true); setWinner(null); handleClaim(true) } else { setMsg(t('bt')); if (!isPvP && botTimerRef.current) clearTimeout(botTimerRef.current); if (!isPvP) botTimerRef.current = setTimeout(() => { botMove() }, 3000) } return true } catch { return false } }, [isPlayerTurn, gameOver, gameState, isRemoteTurn, isReviewMode, gameId, address, botMove, t, isPvP])
   const goToMove = (i) => { if (i < 0 || i >= hist.length) return; setCurrentMoveIdx(i); setFen(hist[i]); setIsReviewMode(i < hist.length - 1); setIsPlayerTurn(i % 2 === 0) }
   const prevMove = () => { if (currentMoveIdx > 0) goToMove(currentMoveIdx - 1) }
   const nextMove = () => { if (currentMoveIdx < hist.length - 1) goToMove(currentMoveIdx + 1); else resumeLive() }
   const resumeLive = () => { if (liveFen) { setFen(liveFen); setCurrentMoveIdx(hist.length - 1); setIsReviewMode(false); setIsPlayerTurn(hist.length % 2 === 1); setMsg(t('live')) } }
 
-  const sqStyles = useMemo(() => { 
-    const s = {}
-    if (selectedSq && !isReviewMode) s[selectedSq] = { backgroundColor: 'rgba(255,255,0,0.4)' }
-    possibleMoves.forEach(q => { 
-      if (!isReviewMode) s[q] = { backgroundColor: 'rgba(20,85,30,0.5)', backgroundImage: 'radial-gradient(circle,rgba(255,255,255,0.9) 25%,transparent 25%)', backgroundSize: '14px 14px', backgroundPosition: 'center' } 
-    })
-    return s 
-  }, [selectedSq, possibleMoves, isReviewMode])
-  
+  const sqStyles = useMemo(() => { const s = {}; if (selectedSq && !isReviewMode) s[selectedSq] = { backgroundColor: 'rgba(255,255,0,0.4)' }; possibleMoves.forEach(q => { if (!isReviewMode) s[q] = { backgroundColor: 'rgba(20,85,30,0.5)', backgroundImage: 'radial-gradient(circle,rgba(255,255,255,0.9) 25%,transparent 25%)', backgroundSize: '14px 14px', backgroundPosition: 'center' } }); return s }, [selectedSq, possibleMoves, isReviewMode])
   const BtnStyle = (c, d) => ({ width: '100%', padding: '12px', background: c || COLORS.btnBlue, color: '#fff', border: 'none', borderRadius: '10px', fontSize: '1rem', fontWeight: '600', cursor: d ? 'not-allowed' : 'pointer', marginTop: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', opacity: d ? 0.5 : 1 })
 
-  const handleSaveProfile = async () => { 
-    if (!address) { setMsg('❌ ' + t('noMetaMask')); return } 
-    if (profile.bio?.length > 500) { setMsg('❌ Био макс. 500 символов'); return } 
-    setProfileLoading(true)
-    try { 
-      const ok = await updateProfile(address, profile)
-      if (ok) { setMsg(t('profileSaved')); setIsEditingProfile(false); loadProfile() } 
-      else { setMsg(t('profileError')) } 
-    } catch (e) { 
-      console.error('Save profile error:', e)
-      setMsg(t('profileError') + ': ' + e.message) 
-    } finally { setProfileLoading(false) } 
-  }
+  const handleSaveProfile = async () => { if (!address) { setMsg('❌ ' + t('noMetaMask')); return } if (profile.bio?.length > 500) { setMsg('❌ Био макс. 500 символов'); return } setProfileLoading(true); try { const ok = await updateProfile(address, profile); if (ok) { setMsg(t('profileSaved')); setIsEditingProfile(false); loadProfile() } else { setMsg(t('profileError')) } } catch (e) { setMsg(t('profileError') + ': ' + e.message) } finally { setProfileLoading(false) } }
 
-  // ✅ EFFECTS
   useEffect(() => { const r = () => setBs(Math.min(window.innerWidth - 40, 400)); r(); window.addEventListener('resize', r); return () => window.removeEventListener('resize', r) }, [])
   useEffect(() => { if (depositConfirmed && gameId) { setMsg(t('successDep')); setGameState('waiting_funds'); setTxHash(null) } }, [depositConfirmed, gameId, t])
   useEffect(() => { if (timerRef.current) clearInterval(timerRef.current); if (!timerActive || gameOver || gameState !== 'playing' || isReviewMode) return; timerRef.current = setInterval(() => { if (timerActive === 'player') { setPTime(p => { if (p <= 1) { clearInterval(timerRef.current); setGameOver(true); setWinner('bot'); setMsg(t('tp')); return 0 } return p - 1 }) } else { setBTime(p => { if (p <= 1) { clearInterval(timerRef.current); setGameOver(true); setWinner('player'); setMsg(t('tb')); return 0 } return p - 1 }) } }, 1000); return () => clearInterval(timerRef.current) }, [timerActive, gameOver, t, gameState, isReviewMode])
   useEffect(() => { const p = new URLSearchParams(window.location.search); const gid = p.get('game'); if (gid) { setPendingJoin({ id: gid, stake: parseInt(p.get('stake')) || 5000, time: parseInt(p.get('time')) || 15 }); setView('profile'); setProfileTab('lobby'); setMsg(`${t('needDep')} ${parseInt(p.get('stake')) || 5000} C4C ${t('toJoin')}`) } }, [t])
   useEffect(() => { loadActiveGames(); loadAvailableGames(); const i = setInterval(() => { loadActiveGames(); loadAvailableGames() }, 15000); return () => clearInterval(i) }, [address, loadActiveGames, loadAvailableGames])
 
-  // ✅ RENDER
   return (
     <div className={THEMES[theme]?.class} style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text, fontFamily: 'system-ui', padding: '1rem', display: 'flex', justifyContent: 'center', overflowX: 'hidden' }}>
-      {view === 'menu' && <div style={{ maxWidth: '400px', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
-        <h1 style={{ color: COLORS.accent, marginBottom: 0 }}>{t('t')}</h1>
-        {!pendingJoin && <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '12px', width: '100%', marginBottom: '0.5rem' }}><label style={{ color: COLORS.textSec, display: 'block', marginBottom: '0.3rem' }}>{t('setTime')}</label><select value={timeCtrl} onChange={e => setTimeCtrl(Number(e.target.value))} style={{ width: '100%', padding: '10px', background: COLORS.cardBg, color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', fontSize: '1rem' }}>{TIME_OPTIONS.map(m => (<option key={m} value={m}>{m === 1440 ? '24h' : `${m}m`}</option>))}</select></div>}
-        <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '12px', width: '100%', marginBottom: '0.5rem', fontSize: '0.85rem', lineHeight: '1.4', color: COLORS.textSec, whiteSpace: 'pre-line' }}>{t('guestInstructions')}</div>
-        <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '12px', width: '100%' }}><p style={{ color: COLORS.textSec, fontSize: '0.85rem', margin: 0, lineHeight: '1.4' }}>{t('guestInfo')}</p></div>
-        <button onClick={guest} disabled={loadingTx} style={BtnStyle(COLORS.btnBlue, loadingTx)}>{t('g')}</button>
-        {isConnected ? (
-          <button onClick={() => { disconnect(); setView('menu') }} disabled={loadingTx} style={BtnStyle('#b71c1c', loadingTx)}>{t('l')}</button>
-        ) : (
-          <button onClick={connectWallet} disabled={loadingTx || isConnecting} style={BtnStyle(COLORS.btnOrange, loadingTx || isConnecting)}>
-            {isConnecting ? '⏳...' : t('c')}
-          </button>
-        )}
-        <button onClick={buyC4C} disabled={loadingTx} style={BtnStyle(COLORS.btnOrange, loadingTx)}>{t('k')}</button>
-        <button onClick={langNext} disabled={loadingTx} style={BtnStyle(COLORS.btnBlue, loadingTx)}>{t('ln')}</button>
-        {msg && <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.4)', borderRadius: '8px', color: COLORS.accent, textAlign: 'center', width: '100%' }}>{msg}</div>}
-      </div>}
-
-      {view === 'profile' && <div style={{ maxWidth: '600px', width: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <div style={{ background: COLORS.cardBg, padding: '1rem', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>{profile.avatar && <img src={profile.avatar} alt="av" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid ' + COLORS.accent }} />}<div><div style={{ fontWeight: 'bold' }}>{profile.name || address?.slice(0, 6) + '...' + address?.slice(-4)}</div><div style={{ color: COLORS.textSec, fontSize: '0.9rem' }}>{t('bal')} <span style={{ color: COLORS.accent, fontWeight: 'bold' }}>{balanceLoading ? '⏳...' : balanceError ? '❌' : userBalance?.toLocaleString() || '0'} C4C</span></div></div></div>
-          <button onClick={() => { disconnect(); setView('menu') }} style={{ ...BtnStyle('#b71c1c'), width: 'auto', padding: '8px 16px', marginTop: 0 }}>{t('l')}</button>
+      {view === 'menu' && (
+        <div style={{ maxWidth: '400px', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
+          <h1 style={{ color: COLORS.accent, marginBottom: 0 }}>{t('t')}</h1>
+          {!pendingJoin && <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '12px', width: '100%', marginBottom: '0.5rem' }}><label style={{ color: COLORS.textSec, display: 'block', marginBottom: '0.3rem' }}>{t('setTime')}</label><select value={timeCtrl} onChange={e => setTimeCtrl(Number(e.target.value))} style={{ width: '100%', padding: '10px', background: COLORS.cardBg, color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', fontSize: '1rem' }}>{TIME_OPTIONS.map(m => (<option key={m} value={m}>{m === 1440 ? '24h' : `${m}m`}</option>))}</select></div>}
+          <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '12px', width: '100%', marginBottom: '0.5rem', fontSize: '0.85rem', lineHeight: '1.4', color: COLORS.textSec, whiteSpace: 'pre-line' }}>{t('guestInstructions')}</div>
+          <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '12px', width: '100%' }}><p style={{ color: COLORS.textSec, fontSize: '0.85rem', margin: 0, lineHeight: '1.4' }}>{t('guestInfo')}</p></div>
+          <button onClick={guest} disabled={loadingTx} style={BtnStyle(COLORS.btnBlue, loadingTx)}>{t('g')}</button>
+          {isConnected ? (<button onClick={() => { disconnect(); setView('menu') }} disabled={loadingTx} style={BtnStyle('#b71c1c', loadingTx)}>{t('l')}</button>) : (<button onClick={connectWallet} disabled={loadingTx || isConnecting} style={BtnStyle(COLORS.btnOrange, loadingTx || isConnecting)}>{isConnecting ? '⏳...' : t('c')}</button>)}
+          <button onClick={buyC4C} disabled={loadingTx} style={BtnStyle(COLORS.btnOrange, loadingTx)}>{t('k')}</button>
+          <button onClick={langNext} disabled={loadingTx} style={BtnStyle(COLORS.btnBlue, loadingTx)}>{t('ln')}</button>
+          {msg && <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.4)', borderRadius: '8px', color: COLORS.accent, textAlign: 'center', width: '100%' }}>{msg}</div>}
         </div>
+      )}
 
-        {profileTab === 'playerProfile' && <div style={{ background: COLORS.cardBg, padding: '1rem', borderRadius: '12px' }}><h3 style={{ color: COLORS.accent, margin: '0 0 1rem' }}>{t('playerProfile')}</h3>{isEditingProfile ? (<div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}><input value={profile.avatar} onChange={e => setProfile({ ...profile, avatar: e.target.value })} placeholder={t('avatar')} style={{ width: '100%', padding: '8px', background: '#00332e', border: '1px solid #00897b', borderRadius: '6px', color: '#fff' }} /><input value={profile.name} onChange={e => setProfile({ ...profile, name: e.target.value })} maxLength={30} placeholder={t('name')} style={{ width: '100%', padding: '8px', background: '#00332e', border: '1px solid #00897b', borderRadius: '6px', color: '#fff' }} /><textarea value={profile.bio} onChange={e => setProfile({ ...profile, bio: e.target.value })} maxLength={500} rows={3} placeholder={t('bio')} style={{ width: '100%', padding: '8px', background: '#00332e', border: '1px solid #00897b', borderRadius: '6px', color: '#fff' }} /><input value={profile.website} onChange={e => setProfile({ ...profile, website: e.target.value })} placeholder={t('website')} style={{ width: '100%', padding: '8px', background: '#00332e', border: '1px solid #00897b', borderRadius: '6px', color: '#fff' }} /><input value={profile.social} onChange={e => setProfile({ ...profile, social: e.target.value })} placeholder={t('social')} style={{ width: '100%', padding: '8px', background: '#00332e', border: '1px solid #00897b', borderRadius: '6px', color: '#fff' }} /><div style={{ display: 'flex', gap: '0.5rem' }}><button onClick={handleSaveProfile} disabled={profileLoading} style={BtnStyle('#10b981', profileLoading)}>{profileLoading ? '⏳...' : t('save')}</button><button onClick={() => { setIsEditingProfile(false); loadProfile() }} style={BtnStyle('#64748b')}>{t('cl')}</button></div></div>) : (<div>{profile.avatar && <img src={profile.avatar} alt="av" style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', margin: '0 auto 1rem', display: 'block', border: '3px solid ' + COLORS.accent }} />}<p><b>{t('name')}:</b> {profile.name || '—'}</p><p><b>{t('bio')}:</b> {profile.bio || '—'}</p>{profile.website && <p><b>{t('website')}:</b> <a href={profile.website} target="_blank" rel="noopener" style={{ color: '#60a5fa' }}>{profile.website}</a></p>}{profile.social && <p><b>{t('social')}:</b> <a href={profile.social.startsWith('http') ? profile.social : '#'} target="_blank" rel="noopener" style={{ color: '#60a5fa' }}>{profile.social}</a></p>}<button onClick={() => setIsEditingProfile(true)} style={BtnStyle(COLORS.btnBlue)}>{t('playerProfile')}</button></div>)}</div>}
+      {view === 'profile' && (
+        <div style={{ maxWidth: '600px', width: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ background: COLORS.cardBg, padding: '1rem', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>{profile.avatar && <img src={profile.avatar} alt="av" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid ' + COLORS.accent }} />}<div><div style={{ fontWeight: 'bold' }}>{profile.name || address?.slice(0, 6) + '...' + address?.slice(-4)}</div><div style={{ color: COLORS.textSec, fontSize: '0.9rem' }}>{t('bal')} <span style={{ color: COLORS.accent, fontWeight: 'bold' }}>{balanceLoading ? '⏳...' : balanceError ? '❌' : userBalance?.toLocaleString() || '0'} C4C</span></div></div></div>
+            <button onClick={() => { disconnect(); setView('menu') }} style={{ ...BtnStyle('#b71c1c'), width: 'auto', padding: '8px 16px', marginTop: 0 }}>{t('l')}</button>
+          </div>
 
-        {profileTab === 'lobby' && <div style={{ background: COLORS.cardBg, padding: '1rem', borderRadius: '12px' }}><h3 style={{ color: COLORS.accent, margin: '0 0 0.8rem' }}>{t('availableGames')}</h3>{availableGames.length > 0 ? availableGames.map(g => { const totalPot = (g.stake || 0) * ((g.creatorPaid ? 1 : 0) + (g.challengerPaid ? 1 : 0)); return (<div key={g.id} style={{ background: 'rgba(0,0,0,0.2)', padding: '0.8rem', borderRadius: '8px', marginBottom: '0.8rem' }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><b>ID: ...{g.id.slice(-6)}</b><span style={{ color: g.status === 'playing' ? COLORS.accent : COLORS.textSec }}>{g.status}</span></div><div style={{ fontSize: '0.8rem', color: COLORS.textSec, margin: '0.5rem 0' }}>{t('st')}: {g.stake} | ⏱️ {g.time_limit}min | {t('totalPot')}: {totalPot}C4C</div>{!g.challengerPaid && g.creator !== address && <button onClick={() => { setPendingJoin({ id: g.id, stake: g.stake, time: g.time_limit }); handleJoinMatch() }} disabled={loadingTx} style={{ ...BtnStyle('#10b981', loadingTx), marginTop: '0.5rem' }}>{t('jn')} ({g.stake} C4C)</button>}</div>) }) : <p style={{ color: COLORS.textSec }}>{t('noG')}</p>}</div>}
+          {profileTab === 'playerProfile' && (
+            <div style={{ background: COLORS.cardBg, padding: '1rem', borderRadius: '12px' }}>
+              <h3 style={{ color: COLORS.accent, margin: '0 0 1rem' }}>{t('playerProfile')}</h3>
+              {isEditingProfile ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                  <input value={profile.avatar} onChange={e => setProfile({ ...profile, avatar: e.target.value })} placeholder={t('avatar')} style={{ width: '100%', padding: '8px', background: '#00332e', border: '1px solid #00897b', borderRadius: '6px', color: '#fff' }} />
+                  <input value={profile.name} onChange={e => setProfile({ ...profile, name: e.target.value })} maxLength={30} placeholder={t('name')} style={{ width: '100%', padding: '8px', background: '#00332e', border: '1px solid #00897b', borderRadius: '6px', color: '#fff' }} />
+                  <textarea value={profile.bio} onChange={e => setProfile({ ...profile, bio: e.target.value })} maxLength={500} rows={3} placeholder={t('bio')} style={{ width: '100%', padding: '8px', background: '#00332e', border: '1px solid #00897b', borderRadius: '6px', color: '#fff' }} />
+                  <input value={profile.website} onChange={e => setProfile({ ...profile, website: e.target.value })} placeholder={t('website')} style={{ width: '100%', padding: '8px', background: '#00332e', border: '1px solid #00897b', borderRadius: '6px', color: '#fff' }} />
+                  <input value={profile.social} onChange={e => setProfile({ ...profile, social: e.target.value })} placeholder={t('social')} style={{ width: '100%', padding: '8px', background: '#00332e', border: '1px solid #00897b', borderRadius: '6px', color: '#fff' }} />
+                  <div style={{ display: 'flex', gap: '0.5rem' }}><button onClick={handleSaveProfile} disabled={profileLoading} style={BtnStyle('#10b981', profileLoading)}>{profileLoading ? '⏳...' : t('save')}</button><button onClick={() => { setIsEditingProfile(false); loadProfile() }} style={BtnStyle('#64748b')}>{t('cl')}</button></div>
+                </div>
+              ) : (
+                <div>{profile.avatar && <img src={profile.avatar} alt="av" style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', margin: '0 auto 1rem', display: 'block', border: '3px solid ' + COLORS.accent }} />}<p><b>{t('name')}:</b> {profile.name || '—'}</p><p><b>{t('bio')}:</b> {profile.bio || '—'}</p>{profile.website && <p><b>{t('website')}:</b> <a href={profile.website} target="_blank" rel="noopener" style={{ color: '#60a5fa' }}>{profile.website}</a></p>}{profile.social && <p><b>{t('social')}:</b> <a href={profile.social.startsWith('http') ? profile.social : '#'} target="_blank" rel="noopener" style={{ color: '#60a5fa' }}>{profile.social}</a></p>}<button onClick={() => setIsEditingProfile(true)} style={BtnStyle(COLORS.btnBlue)}>{t('playerProfile')}</button></div>
+              )}
+            </div>
+          )}
 
-        {pendingJoin && <div style={{ background: 'linear-gradient(135deg,#1e293b,#334155)', padding: '1.5rem', borderRadius: '12px', textAlign: 'center', border: `2px solid ${COLORS.accent}` }}><h3 style={{ color: COLORS.accent, margin: '0 0 0.5rem' }}>{t('invite')}</h3><p>{t('needDep')} <b style={{ color: COLORS.accent }}>{pendingJoin.stake.toLocaleString()} C4C</b></p><p style={{ color: COLORS.textSec, fontSize: '0.9rem', marginBottom: '1rem' }}>⏱️ {pendingJoin.time} min</p><button onClick={handleJoinMatch} disabled={loadingTx} style={BtnStyle('#10b981', loadingTx)}>{`🤝 ${t('jn')}`}</button></div>}
+          {profileTab === 'lobby' && (
+            <div style={{ background: COLORS.cardBg, padding: '1rem', borderRadius: '12px' }}>
+              <h3 style={{ color: COLORS.accent, margin: '0 0 0.8rem' }}>{t('availableGames')}</h3>
+              {availableGames.length > 0 ? availableGames.map(g => { const totalPot = (g.stake || 0) * ((g.creatorPaid ? 1 : 0) + (g.challengerPaid ? 1 : 0)); return (<div key={g.id} style={{ background: 'rgba(0,0,0,0.2)', padding: '0.8rem', borderRadius: '8px', marginBottom: '0.8rem' }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><b>ID: ...{g.id.slice(-6)}</b><span style={{ color: g.status === 'playing' ? COLORS.accent : COLORS.textSec }}>{g.status}</span></div><div style={{ fontSize: '0.8rem', color: COLORS.textSec, margin: '0.5rem 0' }}>{t('st')}: {g.stake} | ⏱️ {g.time_limit}min | {t('totalPot')}: {totalPot}C4C</div>{!g.challengerPaid && g.creator !== address && <button onClick={() => { setPendingJoin({ id: g.id, stake: g.stake, time: g.time_limit }); handleJoinMatch() }} disabled={loadingTx} style={{ ...BtnStyle('#10b981', loadingTx), marginTop: '0.5rem' }}>{t('jn')} ({g.stake} C4C)</button>}</div>) }) : <p style={{ color: COLORS.textSec }}>{t('noG')}</p>}
+            </div>
+          )}
 
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-          {['lobby', 'my', 'create', 'playerProfile'].map(tab => (<button key={tab} onClick={() => { setProfileTab(tab); if (tab === 'playerProfile') loadProfile() }} style={{ ...BtnStyle(profileTab === tab ? COLORS.btnBlue : '#334155', loadingTx), flex: '1', minWidth: '80px', padding: '10px 0', fontSize: '0.9rem', marginTop: 0 }}>{tab === 'lobby' ? t('availableGames') : tab === 'my' ? t('myG') : tab === 'create' ? t('cr') : t('playerProfile')}</button>))}
-          <button onClick={langNext} style={{ ...BtnStyle('#334155'), minWidth: 'auto', flex: '0', width: 'auto', padding: '0 15px', marginTop: 0 }}>{t('ln')}</button>
-          {/* ✅ SELETOR DE TEMAS */}
-          <select value={theme} onChange={e => setTheme(e.target.value)} style={{ ...BtnStyle('#334155'), width: 'auto', padding: '10px 15px' }}>
-            {Object.entries(THEMES).map(([key, val]) => <option key={key} value={key}>{val.n}</option>)}
-          </select>
+          {pendingJoin && <div style={{ background: 'linear-gradient(135deg,#1e293b,#334155)', padding: '1.5rem', borderRadius: '12px', textAlign: 'center', border: `2px solid ${COLORS.accent}` }}><h3 style={{ color: COLORS.accent, margin: '0 0 0.5rem' }}>{t('invite')}</h3><p>{t('needDep')} <b style={{ color: COLORS.accent }}>{pendingJoin.stake.toLocaleString()} C4C</b></p><p style={{ color: COLORS.textSec, fontSize: '0.9rem', marginBottom: '1rem' }}>⏱️ {pendingJoin.time} min</p><button onClick={handleJoinMatch} disabled={loadingTx} style={BtnStyle('#10b981', loadingTx)}>{`🤝 ${t('jn')}`}</button></div>}
+
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+            {['lobby', 'my', 'create', 'playerProfile'].map(tab => (<button key={tab} onClick={() => { setProfileTab(tab); if (tab === 'playerProfile') loadProfile() }} style={{ ...BtnStyle(profileTab === tab ? COLORS.btnBlue : '#334155', loadingTx), flex: '1', minWidth: '80px', padding: '10px 0', fontSize: '0.9rem', marginTop: 0 }}>{tab === 'lobby' ? t('availableGames') : tab === 'my' ? t('myG') : tab === 'create' ? t('cr') : t('playerProfile')}</button>))}
+            <button onClick={langNext} style={{ ...BtnStyle('#334155'), minWidth: 'auto', flex: '0', width: 'auto', padding: '0 15px', marginTop: 0 }}>{t('ln')}</button>
+            <select value={theme} onChange={e => setTheme(e.target.value)} style={{ ...BtnStyle('#334155'), width: 'auto', padding: '10px 15px' }}>{Object.entries(THEMES).map(([key, val]) => <option key={key} value={key}>{val.n}</option>)}</select>
+          </div>
+
+          {profileTab === 'create' && (
+            <div style={{ background: COLORS.cardBg, padding: '1rem', borderRadius: '12px' }}>
+              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.8rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.85rem', lineHeight: '1.4', color: COLORS.textSec, whiteSpace: 'pre-line', border: '1px solid ' + COLORS.accent }}>{t('grokInstructions')}</div>
+              <div style={{ marginBottom: '0.8rem' }}><label style={{ color: COLORS.textSec }}>{t('setTime')}</label><select value={timeCtrl} onChange={e => setTimeCtrl(Number(e.target.value))} style={{ width: '100%', padding: '10px', background: '#00332e', color: '#fff', border: '1px solid #00897b', borderRadius: '8px', marginTop: '4px' }}>{TIME_OPTIONS.map(m => (<option key={m} value={m}>{m === 1440 ? '24h' : `${m}m`}</option>))}</select></div>
+              <div style={{ marginBottom: '0.5rem' }}><label>{t('st')}</label><div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>{STAKE_OPTIONS.map(a => (<button key={a} onClick={() => setCreateStake(a)} style={{ ...BtnStyle(createStake === a ? '#10b981' : '#334155', loadingTx), flex: '1', minWidth: '70px', padding: '10px 0', fontSize: '0.9rem', marginTop: 4 }}>{a.toLocaleString()}</button>))}</div></div>
+              <button onClick={handleCreateMatch} disabled={loadingTx} style={BtnStyle('#10b981', loadingTx)}>{loadingTx ? (txHash ? t('confirmingTx') : t('approveTx')) : t('cr')}</button>
+              {inviteLink && <div style={{ marginTop: '1rem', padding: '0.8rem', background: '#00332e', border: `1px solid ${COLORS.accent}`, borderRadius: '8px', wordBreak: 'break-all', fontSize: '0.8rem' }}><div style={{ color: COLORS.accent, marginBottom: '4px', fontWeight: 'bold' }}>{t('invite')}:</div><div style={{ color: COLORS.textSec, marginBottom: '8px', cursor: 'pointer' }} onClick={() => copyToClipboard(inviteLink)}>{inviteLink}<br /><small style={{ color: COLORS.textSec }}>{cop ? t('cd') : t('clickToCopy')}</small></div></div>}
+            </div>
+          )}
+
+          {profileTab === 'my' && (
+            <div style={{ background: COLORS.cardBg, padding: '1rem', borderRadius: '12px' }}>
+              <p><b>Game ID:</b> {gameId || '-'}</p>
+              <p><b>Status:</b> {gameState} {syncStatus && <span style={{ color: COLORS.accent }}>{syncStatus}</span>}</p>
+              {txHash && <p style={{ color: COLORS.accent, fontSize: '0.8rem' }}>🔗 TX: {txHash.slice(0, 10)}...{txHash.slice(-8)}</p>}
+              {contractBalance !== null && <p style={{ color: COLORS.textSec, fontSize: '0.8rem' }}>🏦 {t('pot')} {contractBalance.toLocaleString()} C4C</p>}
+              {gameState === 'playing' && <button onClick={() => setView('game')} disabled={loadingTx} style={BtnStyle('#8b5cf6', loadingTx)}>🎮 Play</button>}
+              {gameState === 'waiting_funds' && (
+                <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.8rem', borderRadius: '8px', marginTop: '0.5rem' }}>
+                  <p style={{ color: '#fbbf24', margin: 0 }}>{t('waiting')} ⏱️ {timeCtrl} min</p>
+                  {inviteLink && <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input readOnly value={inviteLink} style={{ flex: 1, background: '#00221a', border: '1px solid #004d40', color: '#fff', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem' }} />
+                    <button onClick={() => copyToClipboard(inviteLink)} style={{ padding: '4px 10px', background: COLORS.btnBlue, color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>{cop ? t('cd') : t('cp')}</button>
+                  </div>}
+                </div>
+              )}
+              {activeGames.length > 0 && <div style={{ marginTop: '1rem' }}>
+                <h4 style={{ color: COLORS.accent }}>{t('myG')}</h4>
+                {activeGames.map(g => (
+                  <div key={g.id} style={{ background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '6px', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                    <div><b>ID:</b> ...{g.id.slice(-6)}</div>
+                    <div><b>{t('st')}:</b> {g.stake} C4C | ⏱️ {g.time_limit}min</div>
+                    <div><b>Status:</b> {g.status}</div>
+                    {g.status === 'playing' && <button onClick={() => { setGameId(g.id); setGameState('playing'); setView('game') }} style={{ ...BtnStyle('#10b981'), width: 'auto', padding: '4px 12px', marginTop: '0.3rem', fontSize: '0.85rem' }}>{t('join')}</button>}
+                  </div>
+                ))}
+              </div>}
+            </div>
+          )}
         </div>
+      )}
 
-        {profileTab === 'create' && <div style={{ background: COLORS.cardBg, padding: '1rem', borderRadius: '12px' }}><div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.8rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.85rem', lineHeight: '1.4', color: COLORS.textSec, whiteSpace: 'pre-line', border: '1px solid ' + COLORS.accent }}>{t('grokInstructions')}</div><div style={{ marginBottom: '0.8rem' }}><label style={{ color: COLORS.textSec }}>{t('setTime')}</label><select value={timeCtrl} onChange={e => setTimeCtrl(Number(e.target.value))} style={{ width: '100%', padding: '10px', background: '#00332e', color: '#fff', border: '1px solid #00897b', borderRadius: '8px', marginTop: '4px' }}>{TIME_OPTIONS.map(m => (<option key={m} value={m}>{m === 1440 ? '24h' : `${m}m`}</option>))}</select></div><div style={{ marginBottom: '0.5rem' }}><label>{t('st')}</label><div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>{STAKE_OPTIONS.map(a => (<button key={a} onClick={() => setCreateStake(a)} style={{ ...BtnStyle(createStake === a ? '#10b981' : '#334155', loadingTx), flex: '1', minWidth: '70px', padding: '10px 0', fontSize: '0.9rem', marginTop: 4 }}>{a.toLocaleString()}</button>))}</div></div><button onClick={handleCreateMatch} disabled={loadingTx} style={BtnStyle('#10b981', loadingTx)}>{loadingTx ? (txHash ? t('confirmingTx') : t('approveTx')) : t('cr')}</button>{inviteLink && <div style={{ marginTop: '1rem', padding: '0.8rem', background: '#00332e', border: `1px solid ${COLORS.accent}`, borderRadius: '8px', wordBreak: 'break-all', fontSize: '0.8rem' }}><div style={{ color: COLORS.accent, marginBottom: '4px', fontWeight: 'bold' }}>{t('invite')}:</div><div style={{ color: COLORS.textSec, marginBottom: '8px', cursor: 'pointer' }} onClick={() => copyToClipboard(inviteLink)}>{inviteLink}<br /><small style={{ color: COLORS.textSec }}>{cop ? t('cd') : t('clickToCopy')}</small></div></div>}</div>}
+      {view === 'game' && (
+        <div style={{ maxWidth: '100%', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-around', width: '100%', maxWidth: '420px', marginBottom: '0.5rem' }}>
+            <div style={{ background: '#004d40', padding: '10px 20px', borderRadius: '10px', color: '#fff', textAlign: 'center', border: '1px solid #00897b', width: '45%' }}><div style={{ fontSize: '0.85rem', opacity: 0.8 }}>{t('y')}</div><div style={{ fontSize: '1.6rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{fmtTime(pTime)}</div></div>
+            <div style={{ background: '#004d40', padding: '10px 20px', borderRadius: '10px', color: '#fff', textAlign: 'center', border: '1px solid #00897b', width: '45%' }}><div style={{ fontSize: '0.85rem', opacity: 0.8 }}>{t('b')}</div><div style={{ fontSize: '1.6rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{fmtTime(bTime)}</div></div>
+          </div>
+          {syncStatus && <div style={{ textAlign: 'center', color: COLORS.accent, fontSize: '0.9rem', marginBottom: '0.3rem' }}>{syncStatus}</div>}
+          {msg && <div style={{ color: '#38bdf8', textAlign: 'center', marginBottom: '0.3rem' }}>{msg}</div>}
+          <div style={{ background: COLORS.cardBg, padding: '8px', borderRadius: '12px', display: 'flex', justifyContent: 'center', margin: '0 auto' }}><Chessboard position={fen} onPieceDrop={isReviewMode ? null : onDrop} onSquareClick={isReviewMode ? null : onSqClick} boardWidth={bs} customSquareStyles={sqStyles} customDarkSquareStyle={{ backgroundColor: THEMES[theme].d }} customLightSquareStyle={{ backgroundColor: THEMES[theme].l }} /></div>
+          {moveHistory.length > 0 && <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', justifyContent: 'center' }}><button onClick={prevMove} disabled={currentMoveIdx <= 0} style={{ ...BtnStyle('#334155', loadingTx), width: 'auto', padding: '8px 16px' }}>{t('prev')}</button><button onClick={nextMove} disabled={currentMoveIdx >= hist.length - 1} style={{ ...BtnStyle('#334155', loadingTx), width: 'auto', padding: '8px 16px' }}>{t('next')}</button>{isReviewMode && <button onClick={resumeLive} disabled={loadingTx} style={{ ...BtnStyle('#10b981', loadingTx), width: 'auto', padding: '8px 16px' }}>{t('live')}</button>}</div>}
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', justifyContent: 'center' }}><button onClick={() => { resetGame(); setView('profile') }} disabled={loadingTx} style={{ ...BtnStyle(COLORS.btnBlue, loadingTx), width: 'auto', flex: '1' }}>{t('newG')}</button><button onClick={() => { resetGame(); startGame() }} disabled={loadingTx} style={{ ...BtnStyle('#10b981', loadingTx), width: 'auto', flex: '1' }}>{t('botG')}</button></div>
+          {moveHistory.length > 0 && <div style={{ marginTop: '0.5rem', background: COLORS.cardBg, padding: '0.5rem', borderRadius: '8px', maxHeight: '100px', overflowY: 'auto', fontSize: '0.8rem' }}>{moveHistory.map((m, i) => (<span key={i} style={{ marginRight: '0.5rem', background: currentMoveIdx === i ? COLORS.btnBlue : 'rgba(0,0,0,0.3)', padding: '0.2rem 0.4rem', borderRadius: '4px' }}>{i + 1}.{m.san}</span>))}</div>}
+          {gameOver && <div style={{ marginTop: '1.5rem', background: '#1e293b', padding: '1.5rem', borderRadius: '12px', textAlign: 'center', border: `2px solid ${winner === address ? '#10b981' : '#ef4444'}`, maxWidth: '400px', width: '100%' }}><h2 style={{ color: COLORS.accent, margin: '0 0 1rem' }}>{winner === address ? t('victoryTitle') : winner === 'bot' ? t('defeatTitle') : t('drawTitle')}</h2>{winner === address && gameId && <button onClick={() => handleClaim(false)} disabled={loadingTx} style={{ ...BtnStyle('#10b981', loadingTx), fontSize: '1.2rem', marginBottom: '1rem' }}>{loadingTx ? '⏳...' : t('claimBtn')}</button>}<button onClick={() => { resetGame(); setView('profile') }} style={BtnStyle(COLORS.btnBlue)}>{t('newG')}</button></div>}
+        </div>
+      )}
 
-        {profileTab === 'my' && <div style={{ background: COLORS.cardBg, padding: '1rem', borderRadius: '12px' }}>
-          <p><b>Game ID:</b> {gameId || '-'}</p>
-          <p><b>Status:</b> {gameState} {syncStatus && <span style={{ color: COLORS.accent }}>{syncStatus}</span>}</p>
-          {txHash && <p style={{ color: COLORS.accent, fontSize: '0.8rem' }}>🔗 TX: {txHash.slice(0, 10)}...{txHash.slice(-8)}</p>}
-          {contractBalance !== null && <p style={{ color: COLORS.textSec, fontSize: '0.8rem' }}>🏦 {t('pot')} {contractBalance.toLocaleString()} C4C</p>}
-          {gameState === 'playing' && <button onClick={() => setView('game')} disabled={loadingTx} style={BtnStyle('#8b5cf6', loadingTx)}>🎮 Play</button>}
-          {gameState === 'waiting_funds' && <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.8rem', borderRadius: '8px', marginTop: '0.5rem' }}><p style={{ color: '#fbbf24', margin: 0 }}>{t('waiting')} ⏱️ {timeCtrl} min</p>{inviteLink && <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}><input readOnly value={inviteLink} style={{ flex: 1, background: '#00221a', border: '1px solid #004d40', color: '#fff', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem' }} /><button onClick={() => copyToClipboard(inviteLink)} style={{ padding: '4px 10px', background: COLORS.btnBlue, color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>{cop ? t('cd') : t('cp')}</button></div></div>}
-          {/* ✅ LISTA DE JOGOS ATIVOS DO USUÁRIO */}
-          {activeGames.length > 0 && <div style={{ marginTop: '1rem' }}><h4 style={{ color: COLORS.accent }}>{t('myG')}</h4>{activeGames.map(g => (<div key={g.id} style={{ background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '6px', marginBottom: '0.5rem', fontSize: '0.9rem' }}><div><b>ID:</b> ...{g.id.slice(-6)}</div><div><b>{t('st')}:</b> {g.stake} C4C | ⏱️ {g.time_limit}min</div><div><b>Status:</b> {g.status}</div>{g.status === 'playing' && <button onClick={() => { setGameId(g.id); setGameState('playing'); setView('game') }} style={{ ...BtnStyle('#10b981'), width: 'auto', padding: '4px 12px', marginTop: '0.3rem', fontSize: '0.85rem' }}>{t('join')}</button>}</div>))}</div>}
-        </div>}
+      {grok && <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }} onClick={() => setGrok(false)}>
+        <div style={{ background: COLORS.cardBg, padding: '1.5rem', borderRadius: '16px', maxWidth: '360px' }} onClick={e => e.stopPropagation()}>
+          <h3 style={{ color: COLORS.accent }}>{t('gt')}</h3>
+          <ol style={{ color: COLORS.textSec, margin: '1rem 0', paddingLeft: '1.2rem' }}>
+            <li style={{ marginBottom: '0.5rem' }}>{t('g1')}<br /><a href={PINK_LINK} target="_blank" rel="noopener" style={{ color: '#60a5fa', wordBreak: 'break-all' }}>{PINK_LINK}</a></li>
+            <li style={{ marginBottom: '0.5rem' }}>{t('g2')}</li>
+            <li>{t('g3')}<br /><code style={{ background: '#00332e', padding: '0.3rem', borderRadius: '4px', display: 'block', margin: '0.3rem 0', fontSize: '0.8rem' }}>{C4C_ADDR}</code><button onClick={copyAddr} style={{ ...BtnStyle(COLORS.btnBlue, loadingTx), marginTop: '0.5rem', padding: '8px' }}>{cop ? t('cd') : t('cp')}</button></li>
+          </ol>
+          <a href={PINK_LINK} target="_blank" style={{ display: 'block', background: '#f57c00', color: '#000', padding: '0.6rem', borderRadius: '8px', textAlign: 'center', textDecoration: 'none', marginTop: '0.5rem' }}>🌸 pink.meme</a>
+          <button onClick={() => setGrok(false)} style={{ ...BtnStyle('#334155'), marginTop: '0.5rem' }}>{t('cl')}</button>
+        </div>
       </div>}
-
-      {view === 'game' && <div style={{ maxWidth: '100%', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-around', width: '100%', maxWidth: '420px', marginBottom: '0.5rem' }}><div style={{ background: '#004d40', padding: '10px 20px', borderRadius: '10px', color: '#fff', textAlign: 'center', border: '1px solid #00897b', width: '45%' }}><div style={{ fontSize: '0.85rem', opacity: 0.8 }}>{t('y')}</div><div style={{ fontSize: '1.6rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{fmtTime(pTime)}</div></div><div style={{ background: '#004d40', padding: '10px 20px', borderRadius: '10px', color: '#fff', textAlign: 'center', border: '1px solid #00897b', width: '45%' }}><div style={{ fontSize: '0.85rem', opacity: 0.8 }}>{t('b')}</div><div style={{ fontSize: '1.6rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{fmtTime(bTime)}</div></div></div>
-        {syncStatus && <div style={{ textAlign: 'center', color: COLORS.accent, fontSize: '0.9rem', marginBottom: '0.3rem' }}>{syncStatus}</div>}{msg && <div style={{ color: '#38bdf8', textAlign: 'center', marginBottom: '0.3rem' }}>{msg}</div>}
-        <div style={{ background: COLORS.cardBg, padding: '8px', borderRadius: '12px', display: 'flex', justifyContent: 'center', margin: '0 auto' }}><Chessboard position={fen} onPieceDrop={isReviewMode ? null : onDrop} onSquareClick={isReviewMode ? null : onSqClick} boardWidth={bs} customSquareStyles={sqStyles} customDarkSquareStyle={{ backgroundColor: THEMES[theme].d }} customLightSquareStyle={{ backgroundColor: THEMES[theme].l }} /></div>
-        {moveHistory.length > 0 && <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', justifyContent: 'center' }}><button onClick={prevMove} disabled={currentMoveIdx <= 0} style={{ ...BtnStyle('#334155', loadingTx), width: 'auto', padding: '8px 16px' }}>{t('prev')}</button><button onClick={nextMove} disabled={currentMoveIdx >= hist.length - 1} style={{ ...BtnStyle('#334155', loadingTx), width: 'auto', padding: '8px 16px' }}>{t('next')}</button>{isReviewMode && <button onClick={resumeLive} disabled={loadingTx} style={{ ...BtnStyle('#10b981', loadingTx), width: 'auto', padding: '8px 16px' }}>{t('live')}</button>}</div>}
-        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', justifyContent: 'center' }}><button onClick={() => { resetGame(); setView('profile') }} disabled={loadingTx} style={{ ...BtnStyle(COLORS.btnBlue, loadingTx), width: 'auto', flex: '1' }}>{t('newG')}</button><button onClick={() => { resetGame(); startGame() }} disabled={loadingTx} style={{ ...BtnStyle('#10b981', loadingTx), width: 'auto', flex: '1' }}>{t('botG')}</button></div>
-        {moveHistory.length > 0 && <div style={{ marginTop: '0.5rem', background: COLORS.cardBg, padding: '0.5rem', borderRadius: '8px', maxHeight: '100px', overflowY: 'auto', fontSize: '0.8rem' }}>{moveHistory.map((m, i) => (<span key={i} style={{ marginRight: '0.5rem', background: currentMoveIdx === i ? COLORS.btnBlue : 'rgba(0,0,0,0.3)', padding: '0.2rem 0.4rem', borderRadius: '4px' }}>{i + 1}.{m.san}</span>))}</div>}
-        {gameOver && <div style={{ marginTop: '1.5rem', background: '#1e293b', padding: '1.5rem', borderRadius: '12px', textAlign: 'center', border: `2px solid ${winner === address ? '#10b981' : '#ef4444'}`, maxWidth: '400px', width: '100%' }}><h2 style={{ color: COLORS.accent, margin: '0 0 1rem' }}>{winner === address ? t('victoryTitle') : winner === 'bot' ? t('defeatTitle') : t('drawTitle')}</h2>{winner === address && gameId && <button onClick={() => handleClaim(false)} disabled={loadingTx} style={{ ...BtnStyle('#10b981', loadingTx), fontSize: '1.2rem', marginBottom: '1rem' }}>{loadingTx ? '⏳...' : t('claimBtn')}</button>}<button onClick={() => { resetGame(); setView('profile') }} style={BtnStyle(COLORS.btnBlue)}>{t('newG')}</button></div>}
-      </div>}
-
-      {grok && <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }} onClick={() => setGrok(false)}><div style={{ background: COLORS.cardBg, padding: '1.5rem', borderRadius: '16px', maxWidth: '360px' }} onClick={e => e.stopPropagation()}><h3 style={{ color: COLORS.accent }}>{t('gt')}</h3><ol style={{ color: COLORS.textSec, margin: '1rem 0', paddingLeft: '1.2rem' }}><li style={{ marginBottom: '0.5rem' }}>{t('g1')}<br /><a href={PINK_LINK} target="_blank" rel="noopener" style={{ color: '#60a5fa', wordBreak: 'break-all' }}>{PINK_LINK}</a></li><li style={{ marginBottom: '0.5rem' }}>{t('g2')}</li><li>{t('g3')}<br /><code style={{ background: '#00332e', padding: '0.3rem', borderRadius: '4px', display: 'block', margin: '0.3rem 0', fontSize: '0.8rem' }}>{C4C_ADDR}</code><button onClick={copyAddr} style={{ ...BtnStyle(COLORS.btnBlue, loadingTx), marginTop: '0.5rem', padding: '8px' }}>{cop ? t('cd') : t('cp')}</button></li></ol><a href={PINK_LINK} target="_blank" style={{ display: 'block', background: '#f57c00', color: '#000', padding: '0.6rem', borderRadius: '8px', textAlign: 'center', textDecoration: 'none', marginTop: '0.5rem' }}>🌸 pink.meme</a><button onClick={() => setGrok(false)} style={{ ...BtnStyle('#334155'), marginTop: '0.5rem' }}>{t('cl')}</button></div></div>}
       {msg && <div style={{ position: 'fixed', bottom: '1rem', left: '50%', transform: 'translateX(-50%)', background: COLORS.btnBlue, color: '#fff', padding: '0.6rem 1rem', borderRadius: '8px', zIndex: 1000 }}>{msg}</div>}
     </div>
   )
