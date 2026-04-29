@@ -12,7 +12,7 @@ export default defineConfig({
       protocolImports: true,
     }),
   ],
-  // ✅ КРИТИЧЕСКИ: Одна копия React + правильные алиасы
+  // ✅ ОДНА копия React — критически важно!
   resolve: {
     dedupe: ['react', 'react-dom'],
     alias: {
@@ -26,39 +26,19 @@ export default defineConfig({
     'process.env': {},
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
   },
-  // ✅ Оптимизация зависимостей
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react/jsx-runtime', 'wagmi', 'viem', '@web3modal/wagmi'],
-    esbuildOptions: {
-      define: { global: 'globalThis' },
-    },
+    include: ['react', 'react-dom', 'react/jsx-runtime'],
+    esbuildOptions: { define: { global: 'globalThis' } },
   },
-  // ✅ Настройки сборки для Web3-приложений
+  // ✅ ПРОСТАЯ сборка — без ручного разбиения чанков
   build: {
     outDir: 'dist',
     sourcemap: false,
-    minify: 'terser', // ✅ Более надёжная минификация чем esbuild
-    terserOptions: {
-      compress: {
-        drop_console: false, // ✅ Не удалять console.log для отладки
-        passes: 2,
-      },
-      mangle: {
-        safari10: true, // ✅ Совместимость с разными браузерами
-      },
-    },
+    minify: 'terser',
     chunkSizeWarningLimit: 2000,
+    // ✅ УБРАНО: manualChunks — это вызывало ошибку инициализации
     rollupOptions: {
       output: {
-        // ✅ Упрощённое разделение чанков (без агрессивного сплиттинга)
-        manualChunks: {
-          'react-core': ['react', 'react-dom'],
-          'chess-lib': ['chess.js', 'react-chessboard'],
-          'web3-core': ['wagmi', 'viem', '@tanstack/react-query'],
-          'web3-modal': ['@web3modal/wagmi'],
-          'supabase': ['@supabase/supabase-js'],
-        },
-        // ✅ Исправление проблемы с инициализацией переменных
         hoistTransitiveImports: false,
       },
     },
