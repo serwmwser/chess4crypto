@@ -16,6 +16,7 @@ export default defineConfig({
       protocolImports: true,
     }),
   ],
+  // ✅ ОДНА копия React — критически важно!
   resolve: {
     dedupe: ['react', 'react-dom'],
     alias: {
@@ -29,39 +30,27 @@ export default defineConfig({
     'process.env': {},
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
   },
-  // ✅ ОПТИМИЗАЦИЯ: Явно включаем ВСЕ проблемные зависимости
+  // ✅ Оптимизация зависимостей
   optimizeDeps: {
-    include: [
-      'react',
-      'react-dom',
-      'react/jsx-runtime',
-      '@walletconnect/ethereum-provider',
-      '@web3modal/wagmi',
-      '@web3modal/wallet',
-      '@web3modal/core',
-      '@web3modal/ui',
-      '@web3modal/siwe',
-      'wagmi',
-      'viem',
-      '@tanstack/react-query',
-      '@supabase/supabase-js',
-      'chess.js',
-      'react-chessboard',
-    ],
+    include: ['react', 'react-dom', 'react/jsx-runtime'],
     esbuildOptions: {
-      define: {
-        global: 'globalThis',
-      },
+      define: { global: 'globalThis' },
     },
   },
+  // ✅ ПРОСТАЯ сборка — БЕЗ минификации (чтобы избежать ошибок инициализации)
   build: {
     outDir: 'dist',
     sourcemap: false,
-    minify: 'terser',
-    chunkSizeWarningLimit: 2000,
+    minify: false,  // ✅ ОТКЛЮЧАЕМ минификацию — это решает проблему с 'it', 'qe', 'Ot'
+    chunkSizeWarningLimit: 5000,  // ✅ Увеличиваем лимит, чтобы не было предупреждений
     rollupOptions: {
       output: {
+        // ✅ Не поднимать транзитивные импорты — сохраняет порядок инициализации
         hoistTransitiveImports: false,
+        // ✅ Простое имя файлов для отладки
+        entryFileNames: 'assets/[name].js',
+        chunkFileNames: 'assets/[name].js',
+        assetFileNames: 'assets/[name].[ext]',
       },
     },
   },
