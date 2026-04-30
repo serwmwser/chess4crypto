@@ -149,34 +149,7 @@ export default function App() {
 
   const t = useCallback(k => LANG[lang]?.[k] || LANG['en']?.[k] || k, [lang])
 
-  // ✅ Обновление баланса — с проверкой на валидность данных
-  useEffect(() => {
-    if (balanceData != null && typeof balanceData === 'bigint') {
-      const formatted = Number(formatUnits(balanceData, 18))
-      setUserBalance(formatted)
-      console.log('💰 Balance updated:', formatted, 'C4C')
-    }
-  }, [balanceData])
-
-  useEffect(() => {
-    if (contractBalanceData != null && typeof contractBalanceData === 'bigint') {
-      setContractBalance(Number(formatUnits(contractBalanceData, 18)))
-    }
-  }, [contractBalanceData])
-
-  // ✅ НОВЫЙ ЭФФЕКТ: Обновляем баланс и профиль, когда address появляется
-  useEffect(() => {
-    if (isConnected && address) {
-      console.log('✅ Address received:', address)
-      loadProfile()
-      // Небольшая задержка, чтобы контракт успел обработать подключение
-      setTimeout(() => {
-        refetchBalance?.()
-        console.log('🔄 Balance refetched after connect')
-      }, 800)
-    }
-  }, [isConnected, address, loadProfile, refetchBalance])
-
+  // ✅ ФУНКЦИИ ОБЪЯВЛЕНЫ ДО useEffect — ИСПРАВЛЕНИЕ ОШИБКИ
   const loadProfile = useCallback(async () => { 
     if (!address) return; try { setProfileLoading(true); const d = await getProfile(address); if (d) setProfile(d) } catch (e) { console.warn('Profile:', e.message) } finally { setProfileLoading(false) } 
   }, [address])
@@ -191,7 +164,6 @@ export default function App() {
   const copyToClipboard = async (text) => { try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); setCop(true); setTimeout(() => setCop(false), 2000); return true } } catch (e) { } setMsg(t('clickToCopy') + ': ' + text.slice(0, 30) + '...'); return false }
   const copyAddr = () => copyToClipboard(C4C_ADDR)
   
-  // ✅ ПРОСТАЯ ФУНКЦИЯ ПОДКЛЮЧЕНИЯ — БЕЗ ОЖИДАНИЯ ADDRESS ВНУТРИ
   const connectWallet = async () => { 
     if (connectingRef.current || isConnecting) {
       console.log('⏳ Connection already in progress')
@@ -205,9 +177,7 @@ export default function App() {
       const connector = connectors.find(c => c.id === 'metaMask') || connectors[0]
       
       if (connector) {
-        // 🔹 Просто вызываем connect() — useEffect сработает, когда address появится
         await connect({ connector })
-        // 🔹 НЕ ждём address здесь — это бесполезно из-за замыкания
         setMsg('⏳ Ожидание подтверждения...')
       } else {
         setMsg(t('noMetaMask'))
@@ -294,6 +264,33 @@ export default function App() {
   const BtnStyle = (c, d) => ({ width: '100%', padding: '12px', background: c || COLORS.btnBlue, color: '#fff', border: 'none', borderRadius: '10px', fontSize: '1rem', fontWeight: '600', cursor: d ? 'not-allowed' : 'pointer', marginTop: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', opacity: d ? 0.5 : 1 })
 
   const handleSaveProfile = async () => { if (!address) { setMsg('❌ ' + t('noMetaMask')); return } if (profile.bio?.length > 500) { setMsg('❌ Био макс. 500 символов'); return } setProfileLoading(true); try { const ok = await updateProfile(address, profile); if (ok) { setMsg(t('profileSaved')); setIsEditingProfile(false); loadProfile() } else { setMsg(t('profileError')) } } catch (e) { setMsg(t('profileError') + ': ' + e.message) } finally { setProfileLoading(false) } }
+
+  // ✅ Обновление баланса — с проверкой на валидность данных
+  useEffect(() => {
+    if (balanceData != null && typeof balanceData === 'bigint') {
+      const formatted = Number(formatUnits(balanceData, 18))
+      setUserBalance(formatted)
+      console.log('💰 Balance updated:', formatted, 'C4C')
+    }
+  }, [balanceData])
+
+  useEffect(() => {
+    if (contractBalanceData != null && typeof contractBalanceData === 'bigint') {
+      setContractBalance(Number(formatUnits(contractBalanceData, 18)))
+    }
+  }, [contractBalanceData])
+
+  // ✅ НОВЫЙ ЭФФЕКТ: Обновляем баланс и профиль, когда address появляется
+  useEffect(() => {
+    if (isConnected && address) {
+      console.log('✅ Address received:', address)
+      loadProfile()
+      setTimeout(() => {
+        refetchBalance?.()
+        console.log('🔄 Balance refetched after connect')
+      }, 800)
+    }
+  }, [isConnected, address, loadProfile, refetchBalance])
 
   useEffect(() => { const r = () => setBs(Math.min(window.innerWidth - 40, 400)); r(); window.addEventListener('resize', r); return () => window.removeEventListener('resize', r) }, [])
   useEffect(() => { if (depositConfirmed && gameId) { setMsg(t('successDep')); setGameState('waiting_funds'); setTxHash(null) } }, [depositConfirmed, gameId, t])
