@@ -5,7 +5,8 @@ import { useAccount, useDisconnect, useWriteContract, useReadContract, useWaitFo
 import { parseUnits, formatUnits, keccak256, stringToBytes } from 'viem'
 import { supabase, createGameRecord, updateGameStatus, subscribeToGame, getProfile, updateProfile, listAvailableGames, recordMove } from './supabase'
 
-const C4C_ADDR = '0xaac20575371de01b4d10c4e7566d5453d72d56e7'
+// ✅ Адреса (проверьте регистр букв, viem нормализует, но лучше быть точным)
+const C4C_ADDR = '0xAac20575371De01b4d10c4e7566D5453D72D56E7' 
 const CHESS_CONTRACT = '0xCf5E5d01ADd5e2Ba62B2f6747E5CFC43e36D5005'
 const PINK_LINK = 'https://www.pink.meme/token/bsc/0xaac20575371de01b4d10c4e7566d5453d72d56e7'
 
@@ -90,8 +91,7 @@ export default function App() {
   const [currentMoveIdx, setCurrentMoveIdx] = useState(-1)
   const [isReviewMode, setIsReviewMode] = useState(false)
   const [liveFen, setLiveFen] = useState(null)
-  // ❌ userBalance больше не используется для отображения, но нужен для проверок
-  const [userBalance, setUserBalance] = useState(0) 
+  const [userBalance, setUserBalance] = useState(0)
   const [activeGames, setActiveGames] = useState([])
   const [availableGames, setAvailableGames] = useState([])
   const [loadingTx, setLoadingTx] = useState(false)
@@ -124,15 +124,15 @@ export default function App() {
   const { writeContractAsync } = useWriteContract()
   const { depositReceipt, isSuccess: depositConfirmed } = useWaitForTransactionReceipt({ hash: txHash })
 
-  // ✅ ЗАПРОС БАЛАНСА (Используется только для внутренних проверок, не для UI)
-  const {  balanceData, refetch: refetchBalance } = useReadContract({
+  // ✅ ЗАПРОС БАЛАНСА
+  const {  balanceData, refetch: refetchBalance, isLoading: balanceLoading, isError: balanceError } = useReadContract({
     address: C4C_ADDR,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: [address],
     query: { 
       enabled: !!address && isConnected, 
-      refetchInterval: 10000, // Реже обновляем, так как не показываем в UI
+      refetchInterval: 10000,
       staleTime: 5000
     }
   })
@@ -147,10 +147,12 @@ export default function App() {
 
   const t = useCallback(k => LANG[lang]?.[k] || LANG['en']?.[k] || k, [lang])
 
-  // Обновляем внутренний стейт баланса для проверок
+  // Обновляем внутренний стейт баланса
   useEffect(() => {
     if (balanceData != null && typeof balanceData === 'bigint') {
-      setUserBalance(Number(formatUnits(balanceData, 18)))
+      const formatted = Number(formatUnits(balanceData, 18))
+      setUserBalance(formatted)
+      console.log('💰 Balance updated:', formatted, 'C4C')
     }
   }, [balanceData])
 
@@ -182,7 +184,7 @@ export default function App() {
       const connector = connectors.find(c => c.id === 'metaMask') || connectors[0]
       if (connector) {
         await connect({ connector })
-        setView('profile') // Сразу в профиль
+        setView('profile')
       } else {
         setMsg(t('noMetaMask'))
       }
@@ -196,12 +198,14 @@ export default function App() {
   const resetGame = () => { gameRef.current.reset(); setFen(gameRef.current.fen()); setHist([gameRef.current.fen()]); setMi(0); setIsPlayerTurn(true); setGameOver(false); setWinner(null); setMoveHistory([]); setSelectedSq(null); setPossibleMoves([]); setIsDeposited(false); setGameState('idle'); setIsPvP(false); setRemoteFen(null); setIsRemoteTurn(false); setCurrentMoveIdx(-1); setIsReviewMode(false); setLiveFen(null); setTxHash(null); if (botTimerRef.current) clearTimeout(botTimerRef.current); if (unsubscribeRef.current) { unsubscribeRef.current(); unsubscribeRef.current = null } }
   const startGame = () => { setPTime(timeCtrl * 60); setBTime(timeCtrl * 60); setTimerActive('player'); setView('game'); setGameState('playing') }
   
-  // ✅ СОЗДАНИЕ ИГРЫ ИЗ БАЛАНСА КОШЕЛЬКА
+  // ✅ СОЗДАНИЕ ИГРЫ — ИСПРАВЛЕННОЕ
   const handleCreateMatch = async () => {
     if (!isConnected || !address) { setMsg('🦊 ' + t('c')); return }
     
-    // Проверка баланса кошелька перед созданием
+    // Проверка баланса
     const currentWalletBalance = balanceData != null ? Number(formatUnits(balanceData, 18)) : 0
+    console.log('🔍 Checking balance:', currentWalletBalance, 'Required:', createStake)
+    
     if (currentWalletBalance < createStake) { 
       setMsg(t('errBal') + ` (Нужно: ${createStake}, В кошельке: ${currentWalletBalance})`)
       return 
@@ -209,30 +213,55 @@ export default function App() {
 
     setLoadingTx(true)
     try {
-      // 1. Approve (Разрешение контракту тратить токены из кошелька)
-      setMsg(t('step1'))
-      await writeContractAsync({ address: C4C_ADDR, abi: ERC20_ABI, functionName: 'approve', args: [CHESS_CONTRACT, parseUnits(createStake.toString(), 18)] })
+      console.log('🚀 Starting Game Creation...')
       
-      // 2. Create Game (Создание записи игры)
+      // 1. Approve
+      setMsg(t('step1'))
+      console.log('1️⃣ Calling Approve...')
+      const approveHash = await writeContractAsync({ 
+        address: C4C_ADDR, 
+        abi: ERC20_ABI, 
+        functionName: 'approve', 
+        args: [CHESS_CONTRACT, parseUnits(createStake.toString(), 18)] 
+      })
+      console.log('✅ Approve TX Hash:', approveHash)
+      
+      // 2. Create Game
       const rawId = 'game_' + Date.now() + '_' + address?.slice(2, 10) + '_' + Math.random().toString(36).slice(2, 10)
       const bytes32Id = keccak256(stringToBytes(rawId))
-      setMsg(t('step2') + ' (create)')
-      await writeContractAsync({ address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'createGame', args: [bytes32Id, parseUnits(createStake.toString(), 18), BigInt(timeCtrl)] })
       
-      // 3. Deposit Stake (Перевод ставки из кошелька в контракт)
+      setMsg(t('step2') + ' (create)')
+      console.log('2️⃣ Calling CreateGame...')
+      await writeContractAsync({ 
+        address: CHESS_CONTRACT, 
+        abi: CHESS_ABI, 
+        functionName: 'createGame', 
+        args: [bytes32Id, parseUnits(createStake.toString(), 18), BigInt(timeCtrl)] 
+      })
+      console.log('✅ CreateGame TX Sent')
+      
+      // 3. Deposit Stake
       setMsg(t('step2') + ' (deposit)')
-      const depositTx = await writeContractAsync({ address: CHESS_CONTRACT, abi: CHESS_ABI, functionName: 'depositStake', args: [bytes32Id] })
+      console.log('3️⃣ Calling DepositStake...')
+      const depositTx = await writeContractAsync({ 
+        address: CHESS_CONTRACT, 
+        abi: CHESS_ABI, 
+        functionName: 'depositStake', 
+        args: [bytes32Id] 
+      })
+      console.log('✅ Deposit TX Hash:', depositTx)
       setTxHash(depositTx)
       
-      // Сохранение в базу и обновление UI
+      // Save to DB
       await createGameRecord(rawId, address, createStake, timeCtrl)
       setGameId(rawId); setIsDeposited(true); setIsPvP(false)
       const link = `${window.location.origin}${window.location.pathname}?game=${rawId}&stake=${createStake}&time=${timeCtrl}`
       setInviteLink(link); await copyToClipboard(link); setMsg(t('confirmingTx'))
       
       setupGameSubscription(rawId); await loadActiveGames(); await loadAvailableGames(); setProfileTab('my')
-      setTimeout(() => refetchBalance?.(), 2000) // Обновить данные о балансе после трат
+      setTimeout(() => refetchBalance?.(), 2000)
     } catch (e) {
+      console.error('❌ Game Creation Error:', e)
       if (e.message?.includes('rejected') || e.message?.includes('denied')) setMsg(t('txCancelled'))
       else if (e.message?.includes('reverted')) setMsg('❌ Контракт отклонил: проверьте approve и gameId')
       else setMsg(t('errTx') + (e.shortMessage || e.message))
@@ -311,14 +340,17 @@ export default function App() {
 
       {view === 'profile' && (
         <div style={{ maxWidth: '600px', width: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {/* ✅ УБРАНО ОТОБРАЖЕНИЕ БАЛАНСА ЗДЕСЬ */}
+          {/* ✅ БАЛАНС ВОЗВРАЩЕН В ПРОФИЛЬ */}
           <div style={{ background: COLORS.cardBg, padding: '1rem', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
               {profile.avatar && <img src={profile.avatar} alt="av" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid ' + COLORS.accent }} />}
               <div>
                 <div style={{ fontWeight: 'bold' }}>{profile.name || address?.slice(0, 6) + '...' + address?.slice(-4)}</div>
-                {/* Баланс скрыт. Игрок видит его только в MetaMask */}
-                <div style={{ color: COLORS.textSec, fontSize: '0.8rem' }}>ID: {address?.slice(0, 6)}...{address?.slice(-4)}</div>
+                <div style={{ color: COLORS.textSec, fontSize: '0.9rem' }}>
+                  {t('bal')} <span style={{ color: COLORS.accent, fontWeight: 'bold' }}>
+                    {balanceLoading ? '⏳...' : balanceError ? '❌' : userBalance?.toLocaleString() || '0'} C4C
+                  </span>
+                </div>
               </div>
             </div>
             <button onClick={() => { disconnect(); setView('menu') }} style={{ ...BtnStyle('#b71c1c'), width: 'auto', padding: '8px 16px', marginTop: 0 }}>{t('l')}</button>
