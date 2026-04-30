@@ -32,7 +32,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    minify: false,
+    minify: false, // Отключаем минификацию для лучшей отладки
     chunkSizeWarningLimit: 5000,
     rollupOptions: {
       output: {

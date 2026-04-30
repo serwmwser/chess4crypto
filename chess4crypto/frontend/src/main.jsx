@@ -6,16 +6,20 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App.jsx'
 import './index.css'
 
-// ✅ Настройка wagmi для BNB Smart Chain
+// Конфигурация Wagmi для BNB Smart Chain
 const config = createConfig({
   chains: [bsc],
-  transports: { [bsc.id]: http() },
+  transports: {
+    [bsc.id]: http(),
+  },
 })
 
-// ✅ QueryClient для React Query
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1, refetchOnWindowFocus: false },
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
   },
 })
 
@@ -38,6 +42,6 @@ if (!rootElement) {
     console.log('✅ Chess4Crypto mounted in #root')
   } catch (error) {
     console.error('❌ Render error:', error)
-    rootElement.innerHTML = `<div style="color:#fff;padding:2rem;max-width:600px;margin:0 auto;font-family:system-ui"><h2 style="color:#ef4444">⚠️ Ошибка запуска</h2><p>Проверьте консоль (F12)</p><pre style="background:#1e293b;padding:1rem;border-radius:8px;overflow:auto;font-size:0.85rem">${error.message}</pre></div>`
+    rootElement.innerHTML = `<div style="color:#fff;padding:2rem"><h2>Ошибка запуска</h2><pre>${error.message}</pre></div>`
   }
 }
