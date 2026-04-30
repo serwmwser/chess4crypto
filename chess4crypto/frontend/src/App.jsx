@@ -131,7 +131,7 @@ export default function App() {
     functionName: 'balanceOf',
     args: [address],
     query: { 
-      enabled: !!address && isConnected,
+      enabled: !!address && isConnected, // ✅ Wagmi автоматически загрузит баланс, когда появится address
       refetchInterval: 5000,
       staleTime: 0,
       retry: 1,
@@ -149,7 +149,7 @@ export default function App() {
 
   const t = useCallback(k => LANG[lang]?.[k] || LANG['en']?.[k] || k, [lang])
 
-  // ✅ ФУНКЦИИ ОБЪЯВЛЕНЫ ДО useEffect — ИСПРАВЛЕНИЕ ОШИБКИ
+  // ✅ ФУНКЦИИ ОБЪЯВЛЕНЫ ДО useEffect
   const loadProfile = useCallback(async () => { 
     if (!address) return; try { setProfileLoading(true); const d = await getProfile(address); if (d) setProfile(d) } catch (e) { console.warn('Profile:', e.message) } finally { setProfileLoading(false) } 
   }, [address])
@@ -178,6 +178,8 @@ export default function App() {
       
       if (connector) {
         await connect({ connector })
+        // ✅ После успешного подключения переходим в профиль, чтобы видеть баланс
+        setView('profile')
         setMsg('⏳ Ожидание подтверждения...')
       } else {
         setMsg(t('noMetaMask'))
@@ -265,8 +267,9 @@ export default function App() {
 
   const handleSaveProfile = async () => { if (!address) { setMsg('❌ ' + t('noMetaMask')); return } if (profile.bio?.length > 500) { setMsg('❌ Био макс. 500 символов'); return } setProfileLoading(true); try { const ok = await updateProfile(address, profile); if (ok) { setMsg(t('profileSaved')); setIsEditingProfile(false); loadProfile() } else { setMsg(t('profileError')) } } catch (e) { setMsg(t('profileError') + ': ' + e.message) } finally { setProfileLoading(false) } }
 
-  // ✅ Обновление баланса — с проверкой на валидность данных
+  // ✅ ОБНОВЛЕНИЕ БАЛАНСА
   useEffect(() => {
+    // balanceData приходит как BigInt от wagmi/viem
     if (balanceData != null && typeof balanceData === 'bigint') {
       const formatted = Number(formatUnits(balanceData, 18))
       setUserBalance(formatted)
@@ -280,17 +283,14 @@ export default function App() {
     }
   }, [contractBalanceData])
 
-  // ✅ НОВЫЙ ЭФФЕКТ: Обновляем баланс и профиль, когда address появляется
+  // ✅ ЭФФЕКТ ПОДКЛЮЧЕНИЯ — ИСПРАВЛЕН (убран ручной refetchBalance)
   useEffect(() => {
     if (isConnected && address) {
       console.log('✅ Address received:', address)
       loadProfile()
-      setTimeout(() => {
-        refetchBalance?.()
-        console.log('🔄 Balance refetched after connect')
-      }, 800)
+      // refetchBalance не нужен, так как enabled: !!address уже загрузит данные
     }
-  }, [isConnected, address, loadProfile, refetchBalance])
+  }, [isConnected, address, loadProfile])
 
   useEffect(() => { const r = () => setBs(Math.min(window.innerWidth - 40, 400)); r(); window.addEventListener('resize', r); return () => window.removeEventListener('resize', r) }, [])
   useEffect(() => { if (depositConfirmed && gameId) { setMsg(t('successDep')); setGameState('waiting_funds'); setTxHash(null) } }, [depositConfirmed, gameId, t])
